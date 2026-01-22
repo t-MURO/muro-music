@@ -16,10 +16,20 @@ import {
   Speaker,
   Trash2,
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createPortal } from "react-dom";
-import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type DragEvent as ReactDragEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   type Locale,
+  type MessageKey,
   isLocale,
   localeOptions,
   setLocale as setI18nLocale,
@@ -37,7 +47,14 @@ const themes = [
   { id: "terminal", label: "Terminal" },
 ];
 
-const baseColumns = [
+type ColumnConfig = {
+  key: "title" | "artist" | "album" | "duration" | "bitrate";
+  labelKey: MessageKey;
+  visible: boolean;
+  width: number;
+};
+
+const baseColumns: ColumnConfig[] = [
   { key: "title", labelKey: "columns.title", visible: true, width: 240 },
   { key: "artist", labelKey: "columns.artist", visible: true, width: 180 },
   { key: "album", labelKey: "columns.album", visible: true, width: 200 },
@@ -136,6 +153,8 @@ function App() {
   const [showColumns, setShowColumns] = useState(false);
   const [columnsMenuPosition, setColumnsMenuPosition] = useState({ x: 0, y: 0 });
   const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [debugNotice, setDebugNotice] = useState("Drag diagnostics ready.");
+  const [menuSelection, setMenuSelection] = useState<string[]>([]);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === "undefined") {
       return 220;
@@ -177,6 +196,11 @@ function App() {
         onClick={(event) => event.stopPropagation()}
         style={{ left: menuPosition.x, top: menuPosition.y }}
       >
+        {menuSelection.length > 1 && (
+          <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+            {menuSelection.length} selected
+          </div>
+        )}
         <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
           <Play className="h-4 w-4" />
           {t("menu.play")}
@@ -204,12 +228,13 @@ function App() {
       </div>,
       document.body
     );
-  }, [menuPosition.x, menuPosition.y, openMenuId]);
+  }, [menuPosition.x, menuPosition.y, menuSelection.length, openMenuId]);
   const columnsMenu = useMemo(() => {
     if (typeof document === "undefined" || !showColumns) {
       return null;
     }
 
+    // @ts-ignore
     return createPortal(
       <div
         className="fixed z-50 w-52 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3 text-sm shadow-[var(--shadow-md)]"
@@ -292,13 +317,55 @@ function App() {
     );
   };
 
+  const handleImportPaths = async (paths: string[]) => {
+    if (paths.length === 0) {
+      return;
+    }
+
+    try {
+      const count = await invoke<number>("import_files", { paths });
+      setDebugNotice(`Drop paths (tauri): ${count}`);
+      console.info("Import stub accepted files:", count);
+    } catch (error) {
+      setDebugNotice("Import stub failed or not in Tauri. Check console.");
+      console.error("Import stub failed:", error);
+    }
+  };
+
+  const handleDropImport = async (event: ReactDragEvent<HTMLDivElement>) => {
+    const droppedFiles = Array.from(event.dataTransfer.files);
+    const paths = droppedFiles
+      .map((file) => (file as unknown as { path?: string }).path ?? file.name)
+      .filter(Boolean);
+
+    await handleImportPaths(paths);
+  };
+
+  const extractPaths = (payload: unknown): string[] => {
+    setDebugNotice(`Drop payload: ${JSON.stringify(payload)}`);
+    if (Array.isArray(payload)) {
+      return payload.map((item) => String(item));
+    }
+
+    if (payload && typeof payload === "object") {
+      const candidate =
+        (payload as { paths?: unknown; files?: unknown }).paths ??
+        (payload as { files?: unknown }).files;
+      if (Array.isArray(candidate)) {
+        return candidate.map((item) => String(item));
+      }
+    }
+
+    return [];
+  };
+
   const handleRowSelect = (
-    event: MouseEvent<HTMLTableRowElement>,
     index: number,
-    id: string
+    id: string,
+    options: { isMetaKey?: boolean; isShiftKey?: boolean } = {}
   ) => {
-    const isMetaKey = event.metaKey || event.ctrlKey;
-    const isShiftKey = event.shiftKey;
+    const isMetaKey = options.isMetaKey ?? false;
+    const isShiftKey = options.isShiftKey ?? false;
 
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -380,6 +447,31 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const handleDragEnter = () => {
+      setDebugNotice("Window event: dragenter");
+      setIsDragging(true);
+    };
+    const handleDragLeave = () => {
+      setDebugNotice("Window event: dragleave");
+      setIsDragging(false);
+    };
+    const handleDragOver = (event: DragEvent) => {
+      event.preventDefault();
+      setIsDragging(true);
+    };
+
+    window.addEventListener("dragenter", handleDragEnter);
+    window.addEventListener("dragleave", handleDragLeave);
+    window.addEventListener("dragover", handleDragOver);
+
+    return () => {
+      window.removeEventListener("dragenter", handleDragEnter);
+      window.removeEventListener("dragleave", handleDragLeave);
+      window.removeEventListener("dragover", handleDragOver);
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -449,6 +541,93 @@ function App() {
   }, [detailCollapsed, detailWidth]);
 
   useEffect(() => {
+    let unlistenDrop: UnlistenFn | null = null;
+    let unlistenHover: UnlistenFn | null = null;
+    let unlistenCancel: UnlistenFn | null = null;
+    let unlistenDragDrop: (() => void) | null = null;
+
+    const setup = async () => {
+      let currentWindow;
+      try {
+        currentWindow = getCurrentWindow();
+      } catch (error) {
+        setDebugNotice("Drag diagnostics: no Tauri window.");
+        console.info("Drag diagnostics: no Tauri window", error);
+        return;
+      }
+      const dragDropHandler = (event: {
+        type?: string;
+        payload?: unknown;
+        paths?: unknown;
+        files?: unknown;
+      }) => {
+        const rawType = event.type ?? "";
+        const inferredPayload = event.payload ?? event.paths ?? event.files;
+        const inferredPaths = extractPaths(inferredPayload);
+        const inferredType = rawType || (inferredPaths.length ? "drop" : "hover");
+
+        setDebugNotice(`Window drag event: ${inferredType}`);
+
+        if (["hover", "enter", "over", "dragover"].includes(inferredType)) {
+          setIsDragging(true);
+          return;
+        }
+        if (["cancel", "leave", "dragleave"].includes(inferredType)) {
+          setIsDragging(false);
+          return;
+        }
+        if (inferredType === "drop") {
+          setIsDragging(false);
+          if (inferredPaths.length) {
+            void handleImportPaths(inferredPaths);
+          }
+        }
+      };
+
+      const windowWithDrag = currentWindow as unknown as {
+        onDragDropEvent?: (handler: (event: { type: string; payload?: unknown }) => void) => Promise<() => void>;
+      };
+
+      try {
+        if (windowWithDrag.onDragDropEvent) {
+          unlistenDragDrop = await windowWithDrag.onDragDropEvent(dragDropHandler);
+          setDebugNotice("Drag diagnostics: window event hooked.");
+        }
+
+        unlistenDrop = await listen<unknown>("tauri://file-drop", (event) => {
+          setIsDragging(false);
+          setDebugNotice(`Event: file-drop ${JSON.stringify(event.payload)}`);
+          const paths = extractPaths(event.payload);
+          if (paths.length) {
+            void handleImportPaths(paths);
+          }
+        });
+        unlistenHover = await listen("tauri://file-drop-hover", () => {
+          setIsDragging(true);
+          setDebugNotice("Event: file-drop-hover");
+        });
+        unlistenCancel = await listen("tauri://file-drop-cancelled", () => {
+          setIsDragging(false);
+          setDebugNotice("Event: file-drop-cancelled");
+        });
+        setDebugNotice("Drag diagnostics: global events hooked.");
+      } catch (error) {
+        setDebugNotice("Drag diagnostics: listener failed.");
+        console.error("Drag diagnostics: listener failed", error);
+      }
+    };
+
+    void setup();
+
+    return () => {
+      unlistenDragDrop?.();
+      unlistenDrop?.();
+      unlistenHover?.();
+      unlistenCancel?.();
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) {
@@ -476,6 +655,7 @@ function App() {
       className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)]"
       onClick={() => {
         setOpenMenuId(null);
+        setMenuSelection([]);
         setShowColumns(false);
       }}
       onDragEnter={(event) => {
@@ -493,10 +673,11 @@ function App() {
       onDragOver={(event) => {
         event.preventDefault();
       }}
-      onDrop={(event) => {
+      onDrop={async (event) => {
         event.preventDefault();
         dragCounter.current = 0;
         setIsDragging(false);
+        await handleDropImport(event);
       }}
     >
       {isDragging && (
@@ -542,6 +723,11 @@ function App() {
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
             {t("app.name")}
           </div>
+          {debugNotice && (
+            <div className="mt-3 rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-muted)] px-2 py-1 text-[11px] text-[var(--text-muted)]">
+              {debugNotice}
+            </div>
+          )}
           <div className="mt-6 space-y-2 text-sm">
             <button
               className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
@@ -801,17 +987,25 @@ function App() {
                               ? "bg-[var(--accent-soft)]"
                               : ""
                           }`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleRowSelect(event, index, track.id);
-                          }}
-                          onContextMenu={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            handleRowSelect(event, index, track.id);
-                            setMenuPosition({ x: event.clientX, y: event.clientY });
-                            setOpenMenuId(track.id);
-                          }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRowSelect(index, track.id, {
+                          isMetaKey: event.metaKey || event.ctrlKey,
+                          isShiftKey: event.shiftKey,
+                        });
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (!selectedIds.has(track.id)) {
+                          handleRowSelect(index, track.id);
+                          setMenuSelection([track.id]);
+                        } else {
+                          setMenuSelection(Array.from(selectedIds));
+                        }
+                        setMenuPosition({ x: event.clientX, y: event.clientY });
+                        setOpenMenuId(track.id);
+                      }}
                         >
                           {visibleColumns.map((column) => {
                             const value = track[column.key as keyof typeof track];
@@ -845,6 +1039,8 @@ function App() {
                                   x: buttonRect.left,
                                   y: buttonRect.bottom + 6,
                                 });
+                                handleRowSelect(index, track.id);
+                                setMenuSelection([track.id]);
                                 setOpenMenuId((current) =>
                                   current === track.id ? null : track.id
                                 );
