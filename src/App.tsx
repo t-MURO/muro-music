@@ -10,8 +10,13 @@ import {
   ListPlus,
   Pencil,
   Play,
+  Pause,
   Search,
   Settings,
+  Shuffle,
+  Repeat,
+  Repeat1,
+  SkipBack,
   SkipForward,
   Speaker,
   Trash2,
@@ -48,7 +53,7 @@ const themes = [
 ];
 
 type ColumnConfig = {
-  key: "title" | "artist" | "album" | "duration" | "bitrate";
+  key: "title" | "artist" | "album" | "duration" | "bitrate" | "rating";
   labelKey: MessageKey;
   visible: boolean;
   width: number;
@@ -60,6 +65,7 @@ const baseColumns: ColumnConfig[] = [
   { key: "album", labelKey: "columns.album", visible: true, width: 200 },
   { key: "duration", labelKey: "columns.duration", visible: true, width: 120 },
   { key: "bitrate", labelKey: "columns.bitrate", visible: true, width: 120 },
+  { key: "rating", labelKey: "columns.rating", visible: true, width: 110 },
 ];
 
 const tracks = [
@@ -70,6 +76,7 @@ const tracks = [
     album: "City Circuit",
     duration: "4:12",
     bitrate: "320 kbps",
+    rating: "5",
   },
   {
     id: "t2",
@@ -78,6 +85,7 @@ const tracks = [
     album: "Signal Bloom",
     duration: "3:41",
     bitrate: "FLAC",
+    rating: "4",
   },
   {
     id: "t3",
@@ -86,6 +94,7 @@ const tracks = [
     album: "Low Tide",
     duration: "5:06",
     bitrate: "256 kbps",
+    rating: "3",
   },
   {
     id: "t4",
@@ -94,8 +103,194 @@ const tracks = [
     album: "North End",
     duration: "2:58",
     bitrate: "FLAC",
+    rating: "4",
+  },
+  {
+    id: "t5",
+    title: "Signal Coast",
+    artist: "Wired Atlas",
+    album: "Harborlight",
+    duration: "3:22",
+    bitrate: "320 kbps",
+    rating: "4",
+  },
+  {
+    id: "t6",
+    title: "Afterglow Arcade",
+    artist: "Juno Slate",
+    album: "Neon Hours",
+    duration: "4:05",
+    bitrate: "FLAC",
+    rating: "5",
+  },
+  {
+    id: "t7",
+    title: "Riverstone",
+    artist: "Pine & West",
+    album: "Granite Lines",
+    duration: "3:57",
+    bitrate: "256 kbps",
+    rating: "3",
+  },
+  {
+    id: "t8",
+    title: "Lumen Drive",
+    artist: "Arc Spring",
+    album: "City Circuit",
+    duration: "2:47",
+    bitrate: "320 kbps",
+    rating: "4",
+  },
+  {
+    id: "t9",
+    title: "Crimson Radio",
+    artist: "Violet Transit",
+    album: "Signal Bloom",
+    duration: "3:18",
+    bitrate: "FLAC",
+    rating: "5",
+  },
+  {
+    id: "t10",
+    title: "Open Air",
+    artist: "Southbound",
+    album: "Low Tide",
+    duration: "4:44",
+    bitrate: "256 kbps",
+    rating: "4",
+  },
+  {
+    id: "t11",
+    title: "Atlas Room",
+    artist: "Kara Lines",
+    album: "City Circuit",
+    duration: "3:33",
+    bitrate: "320 kbps",
+    rating: "5",
+  },
+  {
+    id: "t12",
+    title: "Signal Drift",
+    artist: "Nova Drift",
+    album: "Signal Bloom",
+    duration: "3:09",
+    bitrate: "FLAC",
+    rating: "4",
+  },
+  {
+    id: "t13",
+    title: "Quiet Harbor",
+    artist: "Southbound",
+    album: "Low Tide",
+    duration: "5:12",
+    bitrate: "256 kbps",
+    rating: "3",
+  },
+  {
+    id: "t14",
+    title: "Civic Light",
+    artist: "Civic Night",
+    album: "North End",
+    duration: "2:53",
+    bitrate: "320 kbps",
+    rating: "4",
+  },
+  {
+    id: "t15",
+    title: "Beacon Loop",
+    artist: "Wired Atlas",
+    album: "Harborlight",
+    duration: "3:51",
+    bitrate: "FLAC",
+    rating: "5",
+  },
+  {
+    id: "t16",
+    title: "Silverline",
+    artist: "Juno Slate",
+    album: "Neon Hours",
+    duration: "4:20",
+    bitrate: "320 kbps",
+    rating: "4",
+  },
+  {
+    id: "t17",
+    title: "Westbound",
+    artist: "Pine & West",
+    album: "Granite Lines",
+    duration: "3:36",
+    bitrate: "256 kbps",
+    rating: "3",
+  },
+  {
+    id: "t18",
+    title: "Night Signal",
+    artist: "Arc Spring",
+    album: "City Circuit",
+    duration: "2:59",
+    bitrate: "320 kbps",
+    rating: "4",
+  },
+  {
+    id: "t19",
+    title: "Terminal Echo",
+    artist: "Violet Transit",
+    album: "Signal Bloom",
+    duration: "3:27",
+    bitrate: "FLAC",
+    rating: "5",
+  },
+  {
+    id: "t20",
+    title: "Tidepool",
+    artist: "Southbound",
+    album: "Low Tide",
+    duration: "4:02",
+    bitrate: "256 kbps",
+    rating: "4",
+  },
+  {
+    id: "t21",
+    title: "Highline",
+    artist: "Kara Lines",
+    album: "City Circuit",
+    duration: "3:48",
+    bitrate: "320 kbps",
+    rating: "5",
+  },
+  {
+    id: "t22",
+    title: "Bloomfield",
+    artist: "Nova Drift",
+    album: "Signal Bloom",
+    duration: "3:12",
+    bitrate: "FLAC",
+    rating: "4",
+  },
+  {
+    id: "t23",
+    title: "Low Lantern",
+    artist: "Southbound",
+    album: "Low Tide",
+    duration: "5:21",
+    bitrate: "256 kbps",
+    rating: "3",
+  },
+  {
+    id: "t24",
+    title: "Northbound",
+    artist: "Civic Night",
+    album: "North End",
+    duration: "2:46",
+    bitrate: "320 kbps",
+    rating: "4",
   },
 ];
+
+const formatRating = (value: string) => {
+  const rating = Math.max(0, Math.min(5, Number(value)));
+  return "★".repeat(rating) + "☆".repeat(5 - rating);
+};
 
 function App() {
   const [view, setView] = useState<"library" | "inbox" | "settings">(
@@ -181,6 +376,10 @@ function App() {
     return window.localStorage.getItem("muro-detail-collapsed") === "true";
   });
   const detailWidthRef = useRef(detailWidth);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [shuffleEnabled, setShuffleEnabled] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
+  const [seekPosition, setSeekPosition] = useState(34);
   const visibleColumns = useMemo(
     () => columns.filter((column) => column.visible),
     [columns]
@@ -545,6 +744,7 @@ function App() {
     let unlistenHover: UnlistenFn | null = null;
     let unlistenCancel: UnlistenFn | null = null;
     let unlistenDragDrop: (() => void) | null = null;
+    let unlistenDebug: UnlistenFn | null = null;
 
     const setup = async () => {
       let currentWindow;
@@ -594,6 +794,10 @@ function App() {
           setDebugNotice("Drag diagnostics: window event hooked.");
         }
 
+        unlistenDebug = await listen<string>("muro://drag-drop-debug", (event) => {
+          setDebugNotice(`Rust drag event: ${event.payload}`);
+        });
+
         unlistenDrop = await listen<unknown>("tauri://file-drop", (event) => {
           setIsDragging(false);
           setDebugNotice(`Event: file-drop ${JSON.stringify(event.payload)}`);
@@ -621,6 +825,7 @@ function App() {
 
     return () => {
       unlistenDragDrop?.();
+      unlistenDebug?.();
       unlistenDrop?.();
       unlistenHover?.();
       unlistenCancel?.();
@@ -652,7 +857,7 @@ function App() {
 
   return (
     <div
-      className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)]"
+      className="h-screen overflow-hidden bg-[var(--app-bg)] text-[var(--text-primary)]"
       onClick={() => {
         setOpenMenuId(null);
         setMenuSelection([]);
@@ -687,12 +892,13 @@ function App() {
           </div>
         </div>
       )}
-      <div
-        className="relative grid min-h-screen gap-0"
-        style={{
-          gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr) ${detailWidth}px`,
-        }}
-      >
+      <div className="flex h-screen flex-col pb-28">
+        <div
+          className="relative grid flex-1 gap-0 overflow-hidden"
+          style={{
+            gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr) ${detailWidth}px`,
+          }}
+        >
         <div
           className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
           style={{ left: sidebarWidth - 1 }}
@@ -719,7 +925,7 @@ function App() {
           }}
           role="presentation"
         />
-        <aside className="flex h-full flex-col border-r border-[var(--panel-border)] bg-[var(--panel-bg)] p-5">
+        <aside className="flex h-full flex-col overflow-y-auto border-r border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 pb-32">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
             {t("app.name")}
           </div>
@@ -809,8 +1015,8 @@ function App() {
           </div>
         </aside>
 
-        <main className="flex h-full min-w-0 flex-col">
-          <header className="flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--panel-bg)] px-6 py-4">
+        <main className="flex h-full min-w-0 flex-col overflow-y-auto pb-32">
+          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--panel-bg)] px-6 py-4">
             <div>
               <h1 className="text-lg font-semibold">{title}</h1>
               <p className="text-xs text-[var(--text-muted)]">
@@ -825,11 +1031,8 @@ function App() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm shadow-[var(--shadow-sm)]">
                   <Search className="h-4 w-4 text-[var(--text-muted)]" />
-                  <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                    {t("search.label")}
-                  </span>
                   <input
-                    className="w-56 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
+                    className="w-40 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
                     placeholder={t("search.placeholder")}
                   />
                 </div>
@@ -855,7 +1058,7 @@ function App() {
           {contextMenu}
           {columnsMenu}
 
-          <section className="flex-1 overflow-hidden bg-[var(--panel-bg)] px-6 pb-6 pt-4">
+          <section className="flex-1 bg-[var(--panel-bg)] px-6 pb-6 pt-4">
             {isSettings ? (
               <div className="h-full overflow-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-[var(--shadow-sm)]">
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
@@ -933,7 +1136,7 @@ function App() {
                     </div>
                   </div>
                 )}
-                <div className="h-full min-w-0 overflow-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]">
+                <div className="min-w-0 overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]">
                   <table
                     className="table-fixed text-left text-sm"
                     style={{ width: "100%", minWidth: tableWidth }}
@@ -987,28 +1190,41 @@ function App() {
                               ? "bg-[var(--accent-soft)]"
                               : ""
                           }`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleRowSelect(index, track.id, {
-                          isMetaKey: event.metaKey || event.ctrlKey,
-                          isShiftKey: event.shiftKey,
-                        });
-                      }}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        if (!selectedIds.has(track.id)) {
-                          handleRowSelect(index, track.id);
-                          setMenuSelection([track.id]);
-                        } else {
-                          setMenuSelection(Array.from(selectedIds));
-                        }
-                        setMenuPosition({ x: event.clientX, y: event.clientY });
-                        setOpenMenuId(track.id);
-                      }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleRowSelect(index, track.id, {
+                              isMetaKey: event.metaKey || event.ctrlKey,
+                              isShiftKey: event.shiftKey,
+                            });
+                          }}
+                          onContextMenu={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (!selectedIds.has(track.id)) {
+                              handleRowSelect(index, track.id);
+                              setMenuSelection([track.id]);
+                            } else {
+                              setMenuSelection(Array.from(selectedIds));
+                            }
+                            setMenuPosition({ x: event.clientX, y: event.clientY });
+                            setOpenMenuId(track.id);
+                          }}
                         >
                           {visibleColumns.map((column) => {
                             const value = track[column.key as keyof typeof track];
+                            if (column.key === "rating") {
+                              return (
+                                <td
+                                  key={`${track.id}-${column.key}`}
+                                  className="px-4 py-3 text-sm text-[var(--text-muted)]"
+                                  title={`${value} / 5`}
+                                >
+                                  <span className="tracking-[0.2em]">
+                                    {formatRating(String(value))}
+                                  </span>
+                                </td>
+                              );
+                            }
                             return (
                               <td
                                 key={`${track.id}-${column.key}`}
@@ -1060,7 +1276,7 @@ function App() {
           </section>
         </main>
 
-        <aside className="flex h-full flex-col border-l border-[var(--panel-border)] bg-[var(--panel-bg)] p-5">
+        <aside className="flex h-full flex-col overflow-y-auto border-l border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 pb-32">
           <div
             className={`flex items-center ${
               detailCollapsed ? "justify-center" : "justify-between"
@@ -1104,7 +1320,6 @@ function App() {
                   Signal Bloom • FLAC
                 </div>
               </div>
-
               <div className="mt-6 flex-1">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                   <ListChecks className="h-3.5 w-3.5" />
@@ -1135,6 +1350,110 @@ function App() {
             </>
           )}
         </aside>
+        </div>
+        <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--panel-border)] bg-[var(--panel-bg)] px-6 py-4">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-6">
+            <div className="flex min-w-0 items-center gap-3 self-center">
+              <div className="h-11 w-11 shrink-0 rounded-[var(--radius-sm)] bg-[var(--panel-muted)]" />
+              <div className="min-w-0 text-sm">
+                <div className="truncate font-semibold">Glass Elevator</div>
+                <div className="truncate text-xs text-[var(--text-muted)]">
+                  Nova Drift • Signal Bloom
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                className={`flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] transition-colors duration-[var(--motion-fast)] ${
+                  shuffleEnabled
+                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--panel-muted)]"
+                }`}
+                onClick={() => setShuffleEnabled((current) => !current)}
+                title="Shuffle"
+                type="button"
+              >
+                <Shuffle className="h-5 w-5" />
+              </button>
+              <button
+                className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
+                title="Previous"
+                type="button"
+              >
+                <SkipBack className="h-5 w-5" />
+              </button>
+              <button
+                className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] bg-[var(--panel-muted)] text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
+                onClick={() => setIsPlaying((current) => !current)}
+                title={isPlaying ? "Pause" : "Play"}
+                type="button"
+              >
+                {isPlaying ? (
+                  <Pause className="h-5 w-5" />
+                ) : (
+                  <Play className="h-5 w-5" />
+                )}
+              </button>
+              <button
+                className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
+                title="Next"
+                type="button"
+              >
+                <SkipForward className="h-5 w-5" />
+              </button>
+              <button
+                className={`flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] transition-colors duration-[var(--motion-fast)] ${
+                  repeatMode !== "off"
+                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--panel-muted)]"
+                }`}
+                onClick={() =>
+                  setRepeatMode((current) =>
+                    current === "off" ? "all" : current === "all" ? "one" : "off"
+                  )
+                }
+                title={
+                  repeatMode === "off"
+                    ? "Repeat"
+                    : repeatMode === "all"
+                    ? "Repeat all"
+                    : "Repeat one"
+                }
+                type="button"
+              >
+                {repeatMode === "one" ? (
+                  <Repeat1 className="h-5 w-5" />
+                ) : (
+                  <Repeat className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+            <div className="flex items-center justify-end gap-3 text-xs text-[var(--text-muted)] self-center">
+              <Speaker className="h-4 w-4" />
+              <input
+                aria-label="Volume"
+                className="h-1.5 w-28 cursor-pointer accent-[var(--accent)]"
+                max={100}
+                min={0}
+                type="range"
+                defaultValue={80}
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-center gap-3 text-xs text-[var(--text-muted)]">
+            <span>2:14</span>
+            <input
+              aria-label="Seek"
+              className="h-1.5 w-full max-w-xl cursor-pointer accent-[var(--accent)]"
+              max={100}
+              min={0}
+              onChange={(event) => setSeekPosition(Number(event.target.value))}
+              type="range"
+              value={seekPosition}
+            />
+            <span>4:01</span>
+          </div>
+        </footer>
       </div>
     </div>
   );
