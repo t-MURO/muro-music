@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 
 const tracks = [
   {
@@ -40,7 +40,11 @@ function App() {
   const isLibrary = view === "library";
   const title = isLibrary ? "Library" : "New Arrivals";
   const [isDragging, setIsDragging] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const dragCounter = useRef(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [columns, setColumns] = useState([
     { key: "title", label: "Title", visible: true },
     { key: "artist", label: "Artist", visible: true },
@@ -64,9 +68,68 @@ function App() {
     );
   };
 
+  const handleRowSelect = (
+    event: MouseEvent<HTMLTableRowElement>,
+    index: number,
+    id: string
+  ) => {
+    const isMetaKey = event.metaKey || event.ctrlKey;
+    const isShiftKey = event.shiftKey;
+
+    setSelectedIds((current) => {
+      const next = new Set(current);
+
+      if (isShiftKey && lastSelectedIndex !== null) {
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+        for (let i = start; i <= end; i += 1) {
+          next.add(tracks[i].id);
+        }
+        setLastSelectedIndex(index);
+      } else if (isMetaKey) {
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        setLastSelectedIndex(index);
+      } else {
+        next.clear();
+        next.add(id);
+        setLastSelectedIndex(index);
+      }
+
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) {
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        setSelectedIds(new Set(tracks.map((track) => track.id)));
+        setLastSelectedIndex(tracks.length - 1);
+      }
+
+      if (event.key === "Escape") {
+        setSelectedIds(new Set());
+        setLastSelectedIndex(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
     <div
       className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)]"
+      onClick={() => setOpenMenuId(null)}
       onDragEnter={(event) => {
         event.preventDefault();
         dragCounter.current += 1;
@@ -229,13 +292,29 @@ function App() {
                         {column.label}
                       </th>
                     ))}
+                    <th className="w-12 px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tracks.map((track) => (
+                  {tracks.map((track, index) => (
                     <tr
                       key={track.id}
-                      className="border-t border-[var(--panel-border)] hover:bg-[var(--panel-muted)]"
+                      className={`border-t border-[var(--panel-border)] hover:bg-[var(--panel-muted)] ${
+                        selectedIds.has(track.id)
+                          ? "bg-[var(--accent-soft)]"
+                          : ""
+                      }`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRowSelect(event, index, track.id);
+                      }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        handleRowSelect(event, index, track.id);
+                        setMenuPosition({ x: event.clientX, y: event.clientY });
+                        setOpenMenuId(track.id);
+                      }}
                     >
                       {visibleColumns.map((column) => {
                         const value = track[column.key as keyof typeof track];
@@ -252,6 +331,51 @@ function App() {
                           </td>
                         );
                       })}
+                      <td className="relative px-4 py-3 text-right">
+                        <button
+                          className="rounded-md px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] hover:bg-[var(--panel-muted)]"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            const buttonRect = event.currentTarget.getBoundingClientRect();
+                            setMenuPosition({
+                              x: buttonRect.left,
+                              y: buttonRect.bottom + 6,
+                            });
+                            setOpenMenuId((current) =>
+                              current === track.id ? null : track.id
+                            );
+                          }}
+                          type="button"
+                        >
+                          •••
+                        </button>
+                        {openMenuId === track.id && (
+                          <div
+                            className="fixed z-30 w-44 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] py-2 text-left text-sm shadow-lg"
+                            onClick={(event) => event.stopPropagation()}
+                            style={{ left: menuPosition.x, top: menuPosition.y }}
+                          >
+                            <button className="w-full px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                              Play
+                            </button>
+                            <button className="w-full px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                              Play next
+                            </button>
+                            <button className="w-full px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                              Add to queue
+                            </button>
+                            <button className="w-full px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                              Add to playlist
+                            </button>
+                            <button className="w-full px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                              Edit
+                            </button>
+                            <button className="w-full px-3 py-2 text-left text-red-600 hover:bg-[var(--panel-muted)]">
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
