@@ -15,10 +15,10 @@
 - Prepared for i18n
 
 ## Library import workflow
-- New imports go to a separate staging view named "New Arrivals"
-- Tracks in New Arrivals can be categorized and then accepted into main library
-- Metadata edits in New Arrivals persist into main library
-- Tracks can be added to playlists from anywhere (New Arrivals or main library)
+- New imports go to a separate staging view named "Inbox"
+- Tracks in Inbox can be categorized and then accepted into main library
+- Metadata edits in Inbox persist into main library
+- Tracks can be added to playlists from anywhere (Inbox or main library)
 
 ## UI/UX requirements
 - Table-based library view with configurable columns

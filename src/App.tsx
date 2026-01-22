@@ -46,16 +46,16 @@ const tracks = [
 ];
 
 function App() {
-  const [view, setView] = useState<"library" | "arrivals" | "settings">(
+  const [view, setView] = useState<"library" | "inbox" | "settings">(
     "library"
   );
   const isLibrary = view === "library";
-  const isArrivals = view === "arrivals";
+  const isInbox = view === "inbox";
   const isSettings = view === "settings";
   const title = isLibrary
     ? "Library"
-    : isArrivals
-    ? "New Arrivals"
+    : isInbox
+    ? "Inbox"
     : "Settings";
   const [isDragging, setIsDragging] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -204,17 +204,17 @@ function App() {
             </button>
             <button
               className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left font-medium ${
-                isArrivals
+                isInbox
                   ? "bg-[var(--accent-soft)] text-[var(--accent)]"
                   : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
               }`}
-              onClick={() => setView("arrivals")}
+              onClick={() => setView("inbox")}
               type="button"
             >
-              New Arrivals
+              Inbox
               <span
                 className={`text-xs ${
-                  isArrivals
+                  isInbox
                     ? "font-semibold text-[var(--accent)]"
                     : "text-[var(--text-muted)]"
                 }`}
@@ -261,7 +261,7 @@ function App() {
               <p className="text-xs text-[var(--text-muted)]">
                 {isLibrary
                   ? "All tracks in one long list. Use columns to tune the view."
-                  : isArrivals
+                  : isInbox
                   ? "Review and categorize new imports before accepting them into the library."
                   : "Personalize the app layout, themes, and preferences."}
               </p>
@@ -339,12 +339,31 @@ function App() {
               </div>
             ) : (
               <>
-                {isArrivals && (
-                  <div className="mb-4 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-muted)] px-4 py-3 text-sm">
-                    <span className="font-medium">New Arrivals</span>
-                    <span className="ml-2 text-[var(--text-muted)]">
-                      Tag, edit metadata, and move tracks into the main library when ready.
-                    </span>
+                {isInbox && (
+                  <div className="mb-4 space-y-3">
+                    <div className="rounded-xl border border-[var(--panel-border)] bg-[var(--panel-muted)] px-4 py-3 text-sm">
+                      <span className="font-medium">Inbox</span>
+                      <span className="ml-2 text-[var(--text-muted)]">
+                        Tag, edit metadata, and move tracks into the main library when ready.
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm">
+                      <div className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                        Review
+                      </div>
+                      <button className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white">
+                        Accept to Library
+                      </button>
+                      <button className="rounded-lg border border-[var(--panel-border)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--panel-muted)]">
+                        Reject
+                      </button>
+                      <div className="ml-auto flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                        <span>Selected</span>
+                        <span className="font-semibold text-[var(--text-primary)]">
+                          {selectedIds.size}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 )}
                 <div className="h-full overflow-auto rounded-xl border border-[var(--panel-border)]">
