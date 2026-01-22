@@ -18,6 +18,13 @@ import {
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { type MouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Locale,
+  isLocale,
+  localeOptions,
+  setLocale as setI18nLocale,
+  t,
+} from "./i18n";
 
 const themes = [
   { id: "light", label: "Light" },
@@ -31,11 +38,11 @@ const themes = [
 ];
 
 const baseColumns = [
-  { key: "title", label: "Title", visible: true, width: 240 },
-  { key: "artist", label: "Artist", visible: true, width: 180 },
-  { key: "album", label: "Album", visible: true, width: 200 },
-  { key: "duration", label: "Duration", visible: true, width: 120 },
-  { key: "bitrate", label: "Bitrate", visible: true, width: 120 },
+  { key: "title", labelKey: "columns.title", visible: true, width: 240 },
+  { key: "artist", labelKey: "columns.artist", visible: true, width: 180 },
+  { key: "album", labelKey: "columns.album", visible: true, width: 200 },
+  { key: "duration", labelKey: "columns.duration", visible: true, width: 120 },
+  { key: "bitrate", labelKey: "columns.bitrate", visible: true, width: 120 },
 ];
 
 const tracks = [
@@ -81,10 +88,10 @@ function App() {
   const isInbox = view === "inbox";
   const isSettings = view === "settings";
   const title = isLibrary
-    ? "Library"
+    ? t("header.library")
     : isInbox
-    ? "Inbox"
-    : "Settings";
+    ? t("header.inbox")
+    : t("header.settings");
   const [isDragging, setIsDragging] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -97,6 +104,14 @@ function App() {
     }
 
     return window.localStorage.getItem("muro-theme") ?? "light";
+  });
+  const [locale, setLocale] = useState<Locale>(() => {
+    if (typeof window === "undefined") {
+      return "en";
+    }
+
+    const stored = window.localStorage.getItem("muro-locale");
+    return stored && isLocale(stored) ? stored : "en";
   });
   const [columns, setColumns] = useState(() => {
     if (typeof window === "undefined") {
@@ -112,7 +127,7 @@ function App() {
       const parsed = JSON.parse(stored) as typeof baseColumns;
       return baseColumns.map((column) => {
         const saved = parsed.find((item) => item.key === column.key);
-        return saved ? { ...column, ...saved } : column;
+        return saved ? { ...column, ...saved, labelKey: column.labelKey } : column;
       });
     } catch {
       return baseColumns;
@@ -164,27 +179,27 @@ function App() {
       >
         <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
           <Play className="h-4 w-4" />
-          Play
+          {t("menu.play")}
         </button>
         <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
           <SkipForward className="h-4 w-4" />
-          Play next
+          {t("menu.playNext")}
         </button>
         <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
           <ListChecks className="h-4 w-4" />
-          Add to queue
+          {t("menu.addQueue")}
         </button>
         <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
           <ListPlus className="h-4 w-4" />
-          Add to playlist
+          {t("menu.addPlaylist")}
         </button>
         <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
           <Pencil className="h-4 w-4" />
-          Edit
+          {t("menu.edit")}
         </button>
         <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-[var(--panel-muted)]">
           <Trash2 className="h-4 w-4" />
-          Delete
+          {t("menu.delete")}
         </button>
       </div>,
       document.body
@@ -202,7 +217,7 @@ function App() {
         style={{ left: columnsMenuPosition.x, top: columnsMenuPosition.y }}
       >
         <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-          Visible Columns
+          {t("columns.visible")}
         </div>
         <div className="mt-3 space-y-2">
           {columns.map((column) => (
@@ -216,7 +231,7 @@ function App() {
                 onChange={() => toggleColumn(column.key)}
                 type="checkbox"
               />
-              <span>{column.label}</span>
+              <span>{t(column.labelKey)}</span>
             </label>
           ))}
         </div>
@@ -265,7 +280,7 @@ function App() {
     }
 
     const maxLength = Math.max(
-      column.label.length,
+      t(column.labelKey as typeof column.labelKey).length,
       ...tracks.map((track) => String(track[key as keyof typeof track]).length)
     );
     const nextWidth = Math.min(360, Math.max(120, maxLength * 8 + 48));
@@ -379,6 +394,16 @@ function App() {
 
     window.localStorage.setItem("muro-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    setI18nLocale(locale);
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem("muro-locale", locale);
+  }, [locale]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -515,7 +540,7 @@ function App() {
         />
         <aside className="flex h-full flex-col border-r border-[var(--panel-border)] bg-[var(--panel-bg)] p-5">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-            Muro Music
+            {t("app.name")}
           </div>
           <div className="mt-6 space-y-2 text-sm">
             <button
@@ -529,7 +554,7 @@ function App() {
             >
               <span className="flex items-center gap-2">
                 <Folder className="h-4 w-4" />
-                Library
+                {t("nav.library")}
               </span>
               <span
                 className={`text-xs ${
@@ -550,7 +575,7 @@ function App() {
             >
               <span className="flex items-center gap-2">
                 <Inbox className="h-4 w-4" />
-                Inbox
+                {t("nav.inbox")}
               </span>
               <span
                 className={`text-xs ${
@@ -568,7 +593,7 @@ function App() {
             >
               <span className="flex items-center gap-2">
                 <ListMusic className="h-4 w-4" />
-                Playlists
+                {t("nav.playlists")}
               </span>
               <span className="text-xs text-[var(--text-muted)]">8</span>
             </button>
@@ -583,7 +608,7 @@ function App() {
             >
               <span className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
-                Settings
+                {t("nav.settings")}
               </span>
             </button>
           </div>
@@ -594,9 +619,7 @@ function App() {
                 : "border-[var(--panel-border)] bg-[var(--panel-muted)] text-[var(--text-muted)]"
             }`}
           >
-            {isDragging
-              ? "Drop folders or audio files to import."
-              : "Drag folders or tracks here to import."}
+            {isDragging ? t("drop.active") : t("drop.prompt")}
           </div>
         </aside>
 
@@ -606,10 +629,10 @@ function App() {
               <h1 className="text-lg font-semibold">{title}</h1>
               <p className="text-xs text-[var(--text-muted)]">
                 {isLibrary
-                  ? "All tracks in one long list. Use columns to tune the view."
+                  ? t("header.library.subtitle")
                   : isInbox
-                  ? "Review and categorize new imports before accepting them into the library."
-                  : "Personalize the app layout, themes, and preferences."}
+                  ? t("header.inbox.subtitle")
+                  : t("header.settings.subtitle")}
               </p>
             </div>
             {!isSettings && (
@@ -617,11 +640,11 @@ function App() {
                 <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm shadow-[var(--shadow-sm)]">
                   <Search className="h-4 w-4 text-[var(--text-muted)]" />
                   <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                    Search
+                    {t("search.label")}
                   </span>
                   <input
                     className="w-56 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
-                    placeholder="Title, artist, album"
+                    placeholder={t("search.placeholder")}
                   />
                 </div>
                 <div className="relative">
@@ -637,7 +660,7 @@ function App() {
                     type="button"
                   >
                     <Columns2 className="h-4 w-4" />
-                    Columns
+                    {t("columns.label")}
                   </button>
                 </div>
               </div>
@@ -650,10 +673,10 @@ function App() {
             {isSettings ? (
               <div className="h-full overflow-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-[var(--shadow-sm)]">
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                  Appearance
+                  {t("settings.appearance")}
                 </div>
                 <div className="mt-4 grid gap-3">
-                  <label className="text-sm font-medium">Theme</label>
+                  <label className="text-sm font-medium">{t("settings.theme")}</label>
                   <div className="relative w-64">
                     <select
                       className="w-full appearance-none rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 pr-10 text-sm text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
@@ -669,7 +692,29 @@ function App() {
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
                   </div>
                   <p className="text-xs text-[var(--text-muted)]">
-                    Theme colors are driven by CSS variables and update instantly.
+                    {t("settings.theme.help")}
+                  </p>
+                  <label className="mt-4 text-sm font-medium">
+                    {t("settings.language")}
+                  </label>
+                  <div className="relative w-64">
+                    <select
+                      className="w-full appearance-none rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 pr-10 text-sm text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
+                      onChange={(event) =>
+                        setLocale(event.target.value as Locale)
+                      }
+                      value={locale}
+                    >
+                      {localeOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {t("settings.language.help")}
                   </p>
                 </div>
               </div>
@@ -678,23 +723,23 @@ function App() {
                 {isInbox && (
                   <div className="mb-4 space-y-3">
                     <div className="rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-muted)] px-4 py-3 text-sm shadow-[var(--shadow-sm)]">
-                      <span className="font-medium">Inbox</span>
+                      <span className="font-medium">{t("header.inbox")}</span>
                       <span className="ml-2 text-[var(--text-muted)]">
                         Tag, edit metadata, and move tracks into the main library when ready.
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm shadow-[var(--shadow-sm)]">
                       <div className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                        Review
+                        {t("inbox.review")}
                       </div>
                       <button className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)]">
-                        Accept to Library
+                        {t("inbox.accept")}
                       </button>
                       <button className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]">
-                        Reject
+                        {t("inbox.reject")}
                       </button>
                       <div className="ml-auto flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                        <span>Selected</span>
+                        <span>{t("inbox.selected")}</span>
                         <span className="font-semibold text-[var(--text-primary)]">
                           {selectedIds.size}
                         </span>
@@ -720,7 +765,9 @@ function App() {
                             key={column.key}
                             className="relative px-4 py-3 pr-8"
                           >
-                            <span className="block truncate">{column.label}</span>
+                            <span className="block truncate">
+                              {t(column.labelKey)}
+                            </span>
                             <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--panel-border)] opacity-70" />
                             <span
                               className="absolute right-0 top-0 h-full w-4 cursor-col-resize"
@@ -826,7 +873,7 @@ function App() {
             {!detailCollapsed && (
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                 <Play className="h-3.5 w-3.5" />
-                Now Playing
+                {t("panel.nowPlaying")}
               </div>
             )}
             <button
@@ -865,7 +912,7 @@ function App() {
               <div className="mt-6 flex-1">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                   <ListChecks className="h-3.5 w-3.5" />
-                  Queue
+                  {t("panel.queue")}
                 </div>
                 <div className="mt-3 space-y-3 text-sm">
                   {tracks.map((track) => (
@@ -885,9 +932,9 @@ function App() {
               <div className="mt-auto flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-muted)] px-3 py-3 text-xs shadow-[var(--shadow-sm)]">
                 <span className="flex items-center gap-2 text-[var(--text-muted)]">
                   <Speaker className="h-3.5 w-3.5" />
-                  Output
+                  {t("panel.output")}
                 </span>
-                <span className="font-medium">Built-in Speakers</span>
+                <span className="font-medium">{t("panel.output.device")}</span>
               </div>
             </>
           )}
