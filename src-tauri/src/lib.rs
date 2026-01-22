@@ -1,4 +1,4 @@
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 #[tauri::command]
 fn import_files(paths: Vec<String>) -> Result<usize, String> {
@@ -13,14 +13,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
-                let window_for_events = window.clone();
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::DragDrop(drag_event) = event {
-                        println!("DragDrop event: {drag_event:?}");
-                        let payload = format!("{drag_event:?}");
-                        let _ = window_for_events.emit("muro://drag-drop-debug", payload);
-                    }
-                });
             } else {
                 eprintln!("No main window found to enable drag drop.");
             }

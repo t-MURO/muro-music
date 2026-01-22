@@ -68,7 +68,7 @@ const baseColumns: ColumnConfig[] = [
   { key: "rating", labelKey: "columns.rating", visible: true, width: 110 },
 ];
 
-const tracks = [
+const initialTracks = [
   {
     id: "t1",
     title: "Midnight Avenue",
@@ -76,7 +76,7 @@ const tracks = [
     album: "City Circuit",
     duration: "4:12",
     bitrate: "320 kbps",
-    rating: "5",
+    rating: 5,
   },
   {
     id: "t2",
@@ -85,7 +85,7 @@ const tracks = [
     album: "Signal Bloom",
     duration: "3:41",
     bitrate: "FLAC",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t3",
@@ -94,7 +94,7 @@ const tracks = [
     album: "Low Tide",
     duration: "5:06",
     bitrate: "256 kbps",
-    rating: "3",
+    rating: 3,
   },
   {
     id: "t4",
@@ -103,7 +103,7 @@ const tracks = [
     album: "North End",
     duration: "2:58",
     bitrate: "FLAC",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t5",
@@ -112,7 +112,7 @@ const tracks = [
     album: "Harborlight",
     duration: "3:22",
     bitrate: "320 kbps",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t6",
@@ -121,7 +121,7 @@ const tracks = [
     album: "Neon Hours",
     duration: "4:05",
     bitrate: "FLAC",
-    rating: "5",
+    rating: 5,
   },
   {
     id: "t7",
@@ -130,7 +130,7 @@ const tracks = [
     album: "Granite Lines",
     duration: "3:57",
     bitrate: "256 kbps",
-    rating: "3",
+    rating: 3,
   },
   {
     id: "t8",
@@ -139,7 +139,7 @@ const tracks = [
     album: "City Circuit",
     duration: "2:47",
     bitrate: "320 kbps",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t9",
@@ -148,7 +148,7 @@ const tracks = [
     album: "Signal Bloom",
     duration: "3:18",
     bitrate: "FLAC",
-    rating: "5",
+    rating: 5,
   },
   {
     id: "t10",
@@ -157,7 +157,7 @@ const tracks = [
     album: "Low Tide",
     duration: "4:44",
     bitrate: "256 kbps",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t11",
@@ -166,7 +166,7 @@ const tracks = [
     album: "City Circuit",
     duration: "3:33",
     bitrate: "320 kbps",
-    rating: "5",
+    rating: 5,
   },
   {
     id: "t12",
@@ -175,7 +175,7 @@ const tracks = [
     album: "Signal Bloom",
     duration: "3:09",
     bitrate: "FLAC",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t13",
@@ -184,7 +184,7 @@ const tracks = [
     album: "Low Tide",
     duration: "5:12",
     bitrate: "256 kbps",
-    rating: "3",
+    rating: 3,
   },
   {
     id: "t14",
@@ -193,7 +193,7 @@ const tracks = [
     album: "North End",
     duration: "2:53",
     bitrate: "320 kbps",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t15",
@@ -202,7 +202,7 @@ const tracks = [
     album: "Harborlight",
     duration: "3:51",
     bitrate: "FLAC",
-    rating: "5",
+    rating: 5,
   },
   {
     id: "t16",
@@ -211,7 +211,7 @@ const tracks = [
     album: "Neon Hours",
     duration: "4:20",
     bitrate: "320 kbps",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t17",
@@ -220,7 +220,7 @@ const tracks = [
     album: "Granite Lines",
     duration: "3:36",
     bitrate: "256 kbps",
-    rating: "3",
+    rating: 3,
   },
   {
     id: "t18",
@@ -229,7 +229,7 @@ const tracks = [
     album: "City Circuit",
     duration: "2:59",
     bitrate: "320 kbps",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t19",
@@ -238,7 +238,7 @@ const tracks = [
     album: "Signal Bloom",
     duration: "3:27",
     bitrate: "FLAC",
-    rating: "5",
+    rating: 5,
   },
   {
     id: "t20",
@@ -247,7 +247,7 @@ const tracks = [
     album: "Low Tide",
     duration: "4:02",
     bitrate: "256 kbps",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t21",
@@ -256,7 +256,7 @@ const tracks = [
     album: "City Circuit",
     duration: "3:48",
     bitrate: "320 kbps",
-    rating: "5",
+    rating: 5,
   },
   {
     id: "t22",
@@ -265,7 +265,7 @@ const tracks = [
     album: "Signal Bloom",
     duration: "3:12",
     bitrate: "FLAC",
-    rating: "4",
+    rating: 4,
   },
   {
     id: "t23",
@@ -274,7 +274,7 @@ const tracks = [
     album: "Low Tide",
     duration: "5:21",
     bitrate: "256 kbps",
-    rating: "3",
+    rating: 3,
   },
   {
     id: "t24",
@@ -283,19 +283,18 @@ const tracks = [
     album: "North End",
     duration: "2:46",
     bitrate: "320 kbps",
-    rating: "4",
+    rating: 4,
   },
 ];
-
-const formatRating = (value: string) => {
-  const rating = Math.max(0, Math.min(5, Number(value)));
-  return "★".repeat(rating) + "☆".repeat(5 - rating);
-};
 
 function App() {
   const [view, setView] = useState<"library" | "inbox" | "settings">(
     "library"
   );
+  const [tracks, setTracks] = useState(() => initialTracks);
+  const [hoveredRatings, setHoveredRatings] = useState<
+    Record<string, number | null>
+  >({});
   const isLibrary = view === "library";
   const isInbox = view === "inbox";
   const isSettings = view === "settings";
@@ -348,7 +347,6 @@ function App() {
   const [showColumns, setShowColumns] = useState(false);
   const [columnsMenuPosition, setColumnsMenuPosition] = useState({ x: 0, y: 0 });
   const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [debugNotice, setDebugNotice] = useState("Drag diagnostics ready.");
   const [menuSelection, setMenuSelection] = useState<string[]>([]);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === "undefined") {
@@ -516,6 +514,18 @@ function App() {
     );
   };
 
+  const clampRating = (value: number) =>
+    Math.max(0, Math.min(5, Math.round(value * 2) / 2));
+
+  const handleRatingChange = (id: string, rating: number) => {
+    const nextRating = clampRating(rating);
+    setTracks((current) =>
+      current.map((track) =>
+        track.id === id ? { ...track, rating: nextRating } : track
+      )
+    );
+  };
+
   const handleImportPaths = async (paths: string[]) => {
     if (paths.length === 0) {
       return;
@@ -523,10 +533,8 @@ function App() {
 
     try {
       const count = await invoke<number>("import_files", { paths });
-      setDebugNotice(`Drop paths (tauri): ${count}`);
       console.info("Import stub accepted files:", count);
     } catch (error) {
-      setDebugNotice("Import stub failed or not in Tauri. Check console.");
       console.error("Import stub failed:", error);
     }
   };
@@ -541,7 +549,6 @@ function App() {
   };
 
   const extractPaths = (payload: unknown): string[] => {
-    setDebugNotice(`Drop payload: ${JSON.stringify(payload)}`);
     if (Array.isArray(payload)) {
       return payload.map((item) => String(item));
     }
@@ -647,11 +654,9 @@ function App() {
 
   useEffect(() => {
     const handleDragEnter = () => {
-      setDebugNotice("Window event: dragenter");
       setIsDragging(true);
     };
     const handleDragLeave = () => {
-      setDebugNotice("Window event: dragleave");
       setIsDragging(false);
     };
     const handleDragOver = (event: DragEvent) => {
@@ -744,15 +749,12 @@ function App() {
     let unlistenHover: UnlistenFn | null = null;
     let unlistenCancel: UnlistenFn | null = null;
     let unlistenDragDrop: (() => void) | null = null;
-    let unlistenDebug: UnlistenFn | null = null;
 
     const setup = async () => {
       let currentWindow;
       try {
         currentWindow = getCurrentWindow();
-      } catch (error) {
-        setDebugNotice("Drag diagnostics: no Tauri window.");
-        console.info("Drag diagnostics: no Tauri window", error);
+      } catch {
         return;
       }
       const dragDropHandler = (event: {
@@ -765,8 +767,6 @@ function App() {
         const inferredPayload = event.payload ?? event.paths ?? event.files;
         const inferredPaths = extractPaths(inferredPayload);
         const inferredType = rawType || (inferredPaths.length ? "drop" : "hover");
-
-        setDebugNotice(`Window drag event: ${inferredType}`);
 
         if (["hover", "enter", "over", "dragover"].includes(inferredType)) {
           setIsDragging(true);
@@ -791,16 +791,10 @@ function App() {
       try {
         if (windowWithDrag.onDragDropEvent) {
           unlistenDragDrop = await windowWithDrag.onDragDropEvent(dragDropHandler);
-          setDebugNotice("Drag diagnostics: window event hooked.");
         }
-
-        unlistenDebug = await listen<string>("muro://drag-drop-debug", (event) => {
-          setDebugNotice(`Rust drag event: ${event.payload}`);
-        });
 
         unlistenDrop = await listen<unknown>("tauri://file-drop", (event) => {
           setIsDragging(false);
-          setDebugNotice(`Event: file-drop ${JSON.stringify(event.payload)}`);
           const paths = extractPaths(event.payload);
           if (paths.length) {
             void handleImportPaths(paths);
@@ -808,15 +802,11 @@ function App() {
         });
         unlistenHover = await listen("tauri://file-drop-hover", () => {
           setIsDragging(true);
-          setDebugNotice("Event: file-drop-hover");
         });
         unlistenCancel = await listen("tauri://file-drop-cancelled", () => {
           setIsDragging(false);
-          setDebugNotice("Event: file-drop-cancelled");
         });
-        setDebugNotice("Drag diagnostics: global events hooked.");
       } catch (error) {
-        setDebugNotice("Drag diagnostics: listener failed.");
         console.error("Drag diagnostics: listener failed", error);
       }
     };
@@ -825,7 +815,6 @@ function App() {
 
     return () => {
       unlistenDragDrop?.();
-      unlistenDebug?.();
       unlistenDrop?.();
       unlistenHover?.();
       unlistenCancel?.();
@@ -929,11 +918,6 @@ function App() {
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
             {t("app.name")}
           </div>
-          {debugNotice && (
-            <div className="mt-3 rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-muted)] px-2 py-1 text-[11px] text-[var(--text-muted)]">
-              {debugNotice}
-            </div>
-          )}
           <div className="mt-6 space-y-2 text-sm">
             <button
               className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
@@ -1004,15 +988,7 @@ function App() {
               </span>
             </button>
           </div>
-          <div
-            className={`mt-auto rounded-[var(--radius-md)] border border-dashed px-3 py-4 text-xs shadow-[var(--shadow-sm)] transition duration-[var(--motion-fast)] ${
-              isDragging
-                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                : "border-[var(--panel-border)] bg-[var(--panel-muted)] text-[var(--text-muted)]"
-            }`}
-          >
-            {isDragging ? t("drop.active") : t("drop.prompt")}
-          </div>
+          <div className="mt-auto" />
         </aside>
 
         <main className="flex h-full min-w-0 flex-col overflow-y-auto pb-32">
@@ -1213,15 +1189,159 @@ function App() {
                           {visibleColumns.map((column) => {
                             const value = track[column.key as keyof typeof track];
                             if (column.key === "rating") {
+                              const currentRating = Number(value) || 0;
+                              const displayRating =
+                                hoveredRatings[track.id] ?? currentRating;
                               return (
                                 <td
                                   key={`${track.id}-${column.key}`}
-                                  className="px-4 py-3 text-sm text-[var(--text-muted)]"
-                                  title={`${value} / 5`}
+                                  className="px-4 py-3"
+                                  title={`${currentRating} / 5`}
+                                  onMouseLeave={() => {
+                                    setHoveredRatings((current) => ({
+                                      ...current,
+                                      [track.id]: null,
+                                    }));
+                                  }}
                                 >
-                                  <span className="tracking-[0.2em]">
-                                    {formatRating(String(value))}
-                                  </span>
+                                  <div
+                                    className="flex items-center gap-1 rounded-[var(--radius-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+                                    aria-label={`Rating for ${track.title}`}
+                                    role="slider"
+                                    tabIndex={0}
+                                    aria-valuemin={0}
+                                    aria-valuemax={5}
+                                    aria-valuenow={currentRating}
+                                    aria-valuetext={`${currentRating} out of 5`}
+                                    onKeyDown={(event) => {
+                                      const step = 0.5;
+                                      if (
+                                        event.key === "ArrowRight" ||
+                                        event.key === "ArrowUp"
+                                      ) {
+                                        event.preventDefault();
+                                        handleRatingChange(
+                                          track.id,
+                                          currentRating + step
+                                        );
+                                      }
+                                      if (
+                                        event.key === "ArrowLeft" ||
+                                        event.key === "ArrowDown"
+                                      ) {
+                                        event.preventDefault();
+                                        handleRatingChange(
+                                          track.id,
+                                          currentRating - step
+                                        );
+                                      }
+                                      if (event.key === "Home") {
+                                        event.preventDefault();
+                                        handleRatingChange(track.id, 0);
+                                      }
+                                      if (event.key === "End") {
+                                        event.preventDefault();
+                                        handleRatingChange(track.id, 5);
+                                      }
+                                    }}
+                                  >
+                                    <button
+                                      aria-label="Clear rating"
+                                      className="flex h-5 w-5 items-center justify-center opacity-0"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleRatingChange(track.id, 0);
+                                      }}
+                                      onMouseMove={() => {
+                                        setHoveredRatings((current) => ({
+                                          ...current,
+                                          [track.id]: 0,
+                                        }));
+                                      }}
+                                      tabIndex={-1}
+                                      title="Clear rating"
+                                      type="button"
+                                    >
+                                      <svg
+                                        className="h-5 w-5"
+                                        viewBox="0 0 24 24"
+                                        aria-hidden="true"
+                                      >
+                                        <path
+                                          d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                                          fill="var(--text-muted)"
+                                        />
+                                      </svg>
+                                    </button>
+                                    {[1, 2, 3, 4, 5].map((star) => {
+                                      const fill = Math.max(
+                                        0,
+                                        Math.min(1, displayRating - (star - 1))
+                                      );
+                                      const clipId = `rating-${track.id}-${star}`;
+                                      return (
+                                        <button
+                                          key={star}
+                                          aria-hidden="true"
+                                          className="relative h-5 w-5 select-none focus:outline-none"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            const rect =
+                                              event.currentTarget.getBoundingClientRect();
+                                            const isHalf =
+                                              event.clientX - rect.left <
+                                              rect.width / 2;
+                                            handleRatingChange(
+                                              track.id,
+                                              isHalf ? star - 0.5 : star
+                                            );
+                                          }}
+                                          onMouseMove={(event) => {
+                                            const rect =
+                                              event.currentTarget.getBoundingClientRect();
+                                            const isHalf =
+                                              event.clientX - rect.left <
+                                              rect.width / 2;
+                                            const nextRating = isHalf
+                                              ? star - 0.5
+                                              : star;
+                                            setHoveredRatings((current) => ({
+                                              ...current,
+                                              [track.id]: nextRating,
+                                            }));
+                                          }}
+                                          type="button"
+                                        >
+                                          <svg
+                                            className="h-5 w-5"
+                                            viewBox="0 0 24 24"
+                                            aria-hidden="true"
+                                          >
+                                            <defs>
+                                              <clipPath id={clipId}>
+                                                <rect
+                                                  x="0"
+                                                  y="0"
+                                                  width={fill * 24}
+                                                  height="24"
+                                                />
+                                              </clipPath>
+                                            </defs>
+                                            <path
+                                              d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                                              fill="var(--text-muted)"
+                                            />
+                                            <g clipPath={`url(#${clipId})`}>
+                                              <path
+                                                d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                                                fill="var(--accent)"
+                                              />
+                                            </g>
+                                          </svg>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 </td>
                               );
                             }

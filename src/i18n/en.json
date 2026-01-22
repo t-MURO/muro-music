@@ -38,7 +38,5 @@
   "columns.album": "Album",
   "columns.duration": "Duration",
   "columns.bitrate": "Bitrate",
-  "columns.rating": "Rating",
-  "drop.prompt": "Drag folders or tracks here to import.",
-  "drop.active": "Drop folders or audio files to import."
+  "columns.rating": "Rating"
 }
