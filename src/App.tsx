@@ -22,6 +22,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createPortal } from "react-dom";
@@ -348,6 +349,7 @@ function App() {
   const [columnsMenuPosition, setColumnsMenuPosition] = useState({ x: 0, y: 0 });
   const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuSelection, setMenuSelection] = useState<string[]>([]);
+  const displayedTracks = isInbox ? tracks.slice(0, 4) : tracks;
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === "undefined") {
       return 220;
@@ -468,6 +470,18 @@ function App() {
       actionColumnWidth
     );
   }, [visibleColumns]);
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const gridTemplateColumns = useMemo(
+    () => [...visibleColumns.map((column) => `${column.width}px`), "minmax(64px, 1fr)"].join(" "),
+    [visibleColumns]
+  );
+  const rowVirtualizer = useVirtualizer({
+    count: displayedTracks.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 48,
+    overscan: 50,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
   const resizeState = useRef<
     | {
         key: string;
@@ -580,7 +594,10 @@ function App() {
         const start = Math.min(lastSelectedIndex, index);
         const end = Math.max(lastSelectedIndex, index);
         for (let i = start; i <= end; i += 1) {
-          next.add(tracks[i].id);
+          const track = displayedTracks[i];
+          if (track) {
+            next.add(track.id);
+          }
         }
         setLastSelectedIndex(index);
       } else if (isMetaKey) {
@@ -991,7 +1008,7 @@ function App() {
           <div className="mt-auto" />
         </aside>
 
-        <main className="flex h-full min-w-0 flex-col overflow-y-auto pb-32">
+        <main className="flex h-full min-w-0 flex-col overflow-hidden pb-0">
           <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--panel-bg)] px-6 py-4">
             <div>
               <h1 className="text-lg font-semibold">{title}</h1>
@@ -1034,7 +1051,7 @@ function App() {
           {contextMenu}
           {columnsMenu}
 
-          <section className="flex-1 bg-[var(--panel-bg)] px-6 pb-6 pt-4">
+          <section className="flex min-h-0 flex-1 flex-col bg-[var(--panel-bg)] px-6 pb-4 pt-4">
             {isSettings ? (
               <div className="h-full overflow-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-[var(--shadow-sm)]">
                 <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
@@ -1112,7 +1129,10 @@ function App() {
                     </div>
                   </div>
                 )}
-                <div className="min-w-0 overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]">
+                <div
+                  ref={tableContainerRef}
+                  className="min-h-0 flex-1 min-w-0 overflow-x-auto overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]"
+                >
                   <table
                     className="table-fixed text-left text-sm"
                     style={{ width: "100%", minWidth: tableWidth }}
@@ -1123,12 +1143,12 @@ function App() {
                       ))}
                       <col />
                     </colgroup>
-                    <thead className="sticky top-0 bg-[var(--panel-muted)] text-xs uppercase tracking-wider text-[var(--text-muted)]">
+                    <thead className="bg-[var(--panel-muted)] text-xs uppercase tracking-wider text-[var(--text-muted)]">
                       <tr>
                         {visibleColumns.map((column) => (
                           <th
                             key={column.key}
-                            className="relative px-4 py-3 pr-8"
+                            className="sticky top-0 z-20 bg-[var(--panel-muted)] px-4 py-3 pr-8"
                           >
                             <span className="block truncate">
                               {t(column.labelKey)}
@@ -1154,21 +1174,41 @@ function App() {
                             />
                           </th>
                         ))}
-                        <th className="sticky right-0 z-10 min-w-12 bg-[var(--panel-muted)] px-4 py-3"></th>
+                        <th className="sticky right-0 top-0 z-30 min-w-12 bg-[var(--panel-muted)] px-4 py-3"></th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {tracks.map((track, index) => (
-                        <tr
+                  </table>
+                  <div
+                    className="relative"
+                    style={{ height: rowVirtualizer.getTotalSize(), minWidth: tableWidth }}
+                  >
+                    {virtualRows.map((virtualRow: VirtualItem) => {
+                      const track = displayedTracks[virtualRow.index];
+                      if (!track) {
+                        return null;
+                      }
+                      const isSelected = selectedIds.has(track.id);
+                      return (
+                        <div
                           key={track.id}
-                          className={`group border-t border-[var(--panel-border)] hover:bg-[var(--panel-muted)] ${
-                            selectedIds.has(track.id)
+                          className={`group grid items-center border-t border-[var(--panel-border)] ${
+                            isSelected
                               ? "bg-[var(--accent-soft)]"
-                              : ""
-                          }`}
+                              : "bg-[var(--panel-bg)]"
+                          } hover:bg-[var(--panel-muted)]`}
+                          style={{
+                            gridTemplateColumns,
+                            height: 48,
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            minWidth: tableWidth,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleRowSelect(index, track.id, {
+                            handleRowSelect(virtualRow.index, track.id, {
                               isMetaKey: event.metaKey || event.ctrlKey,
                               isShiftKey: event.shiftKey,
                             });
@@ -1177,7 +1217,7 @@ function App() {
                             event.preventDefault();
                             event.stopPropagation();
                             if (!selectedIds.has(track.id)) {
-                              handleRowSelect(index, track.id);
+                              handleRowSelect(virtualRow.index, track.id);
                               setMenuSelection([track.id]);
                             } else {
                               setMenuSelection(Array.from(selectedIds));
@@ -1185,6 +1225,7 @@ function App() {
                             setMenuPosition({ x: event.clientX, y: event.clientY });
                             setOpenMenuId(track.id);
                           }}
+                          role="row"
                         >
                           {visibleColumns.map((column) => {
                             const value = track[column.key as keyof typeof track];
@@ -1193,9 +1234,9 @@ function App() {
                               const displayRating =
                                 hoveredRatings[track.id] ?? currentRating;
                               return (
-                                <td
+                                <div
                                   key={`${track.id}-${column.key}`}
-                                  className="px-4 py-3"
+                                  className="h-12 px-4 py-3"
                                   title={`${currentRating} / 5`}
                                   onMouseLeave={() => {
                                     setHoveredRatings((current) => ({
@@ -1203,6 +1244,7 @@ function App() {
                                       [track.id]: null,
                                     }));
                                   }}
+                                  role="cell"
                                 >
                                   <div
                                     className="flex items-center gap-1 rounded-[var(--radius-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
@@ -1342,31 +1384,33 @@ function App() {
                                       );
                                     })}
                                   </div>
-                                </td>
+                                </div>
                               );
                             }
                             return (
-                              <td
+                              <div
                                 key={`${track.id}-${column.key}`}
-                                className={`px-4 py-3 ${
+                                className={`h-12 px-4 py-3 ${
                                   column.key === "title"
                                     ? "font-medium"
                                     : "text-[var(--text-muted)]"
                                 }`}
+                                role="cell"
                               >
                                 <span className="block truncate">{value}</span>
-                              </td>
+                              </div>
                             );
                           })}
-                          <td
-                            className={`sticky right-0 z-10 px-4 py-3 text-right ${
-                              selectedIds.has(track.id)
+                          <div
+                            className={`sticky right-0 z-10 h-12 px-4 py-3 text-right justify-self-stretch ${
+                              isSelected
                                 ? "bg-[var(--accent-soft)] group-hover:bg-[var(--panel-muted)]"
                                 : "bg-[var(--panel-bg)] group-hover:bg-[var(--panel-muted)]"
                             }`}
+                            role="cell"
                           >
                             <button
-                              className="rounded-[var(--radius-sm)] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
+                              className="ml-auto block rounded-[var(--radius-sm)] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 const buttonRect =
@@ -1375,7 +1419,7 @@ function App() {
                                   x: buttonRect.left,
                                   y: buttonRect.bottom + 6,
                                 });
-                                handleRowSelect(index, track.id);
+                                handleRowSelect(virtualRow.index, track.id);
                                 setMenuSelection([track.id]);
                                 setOpenMenuId((current) =>
                                   current === track.id ? null : track.id
@@ -1385,11 +1429,11 @@ function App() {
                             >
                               •••
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </>
             )}
