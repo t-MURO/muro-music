@@ -1,46 +1,33 @@
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Columns2,
-  ListChecks,
   Folder,
   Inbox,
+  ListChecks,
   ListMusic,
   ListPlus,
+  Pause,
   Pencil,
   Play,
-  Pause,
+  Repeat,
+  Repeat1,
   Search,
   Settings,
   Shuffle,
-  Repeat,
-  Repeat1,
   SkipBack,
   SkipForward,
   Speaker,
   Trash2,
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
-import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { createPortal } from "react-dom";
-import {
-  type DragEvent as ReactDragEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  type Locale,
-  type MessageKey,
-  isLocale,
-  localeOptions,
-  setLocale as setI18nLocale,
-  t,
-} from "./i18n";
+import {invoke} from "@tauri-apps/api/core";
+import {useVirtualizer, type VirtualItem} from "@tanstack/react-virtual";
+import {listen, type UnlistenFn} from "@tauri-apps/api/event";
+import {getCurrentWindow} from "@tauri-apps/api/window";
+import {createPortal} from "react-dom";
+import {type DragEvent as ReactDragEvent, useEffect, useMemo, useRef, useState,} from "react";
+import {isLocale, type Locale, localeOptions, type MessageKey, setLocale as setI18nLocale, t,} from "./i18n";
 
 const themes = [
   { id: "light", label: "Light" },
@@ -351,6 +338,29 @@ function App() {
   const [menuSelection, setMenuSelection] = useState<string[]>([]);
   const displayedTracks = isInbox ? tracks.slice(0, 4) : tracks;
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [playlists, setPlaylists] = useState(() => [
+    { id: "p-01", name: "Late Night Routes", trackIds: ["t1", "t4"] },
+    { id: "p-02", name: "Studio Favorites", trackIds: ["t2"] },
+    { id: "p-03", name: "Inbox Review", trackIds: [] },
+    { id: "p-04", name: "Foggy Morning", trackIds: ["t3", "t6"] },
+  ]);
+  const [draggingPlaylistId, setDraggingPlaylistId] = useState<string | null>(
+    null
+  );
+  const [isInternalDrag, setIsInternalDrag] = useState(false);
+  const isInternalDragRef = useRef(false);
+  const suppressOverlayUntilRef = useRef(0);
+  const dragPayloadRef = useRef<string[]>([]);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dragCandidateRef = useRef<string[]>([]);
+  const [dragIndicator, setDragIndicator] = useState<
+    | {
+        x: number;
+        y: number;
+        count: number;
+      }
+    | null
+  >(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === "undefined") {
       return 220;
@@ -541,6 +551,27 @@ function App() {
 
   const clampIndex = (index: number) =>
     Math.max(0, Math.min(displayedTracks.length - 1, index));
+  const isImportDragAllowed = () =>
+    !isInternalDragRef.current &&
+    Date.now() >= suppressOverlayUntilRef.current;
+
+  const handlePlaylistDrop = (playlistId: string, payload?: string[]) => {
+    const incoming = payload?.length ? payload : dragPayloadRef.current;
+    if (incoming.length === 0) {
+      return;
+    }
+
+    setPlaylists((current) =>
+      current.map((playlist) =>
+        playlist.id === playlistId
+          ? {
+              ...playlist,
+              trackIds: Array.from(new Set([...playlist.trackIds, ...incoming])),
+            }
+          : playlist
+      )
+    );
+  };
 
   useEffect(() => {
     if (activeIndex === null || displayedTracks.length === 0) {
@@ -683,12 +714,21 @@ function App() {
 
   useEffect(() => {
     const handleDragEnter = () => {
+      if (!isImportDragAllowed()) {
+        return;
+      }
       setIsDragging(true);
     };
     const handleDragLeave = () => {
+      if (!isImportDragAllowed()) {
+        return;
+      }
       setIsDragging(false);
     };
     const handleDragOver = (event: DragEvent) => {
+      if (!isImportDragAllowed()) {
+        return;
+      }
       event.preventDefault();
       setIsDragging(true);
     };
@@ -774,6 +814,93 @@ function App() {
   }, [detailCollapsed, detailWidth]);
 
   useEffect(() => {
+    isInternalDragRef.current = isInternalDrag;
+  }, [isInternalDrag]);
+
+  useEffect(() => {
+    if (!isInternalDrag) {
+      document.body.style.userSelect = "";
+      return;
+    }
+
+    document.body.style.userSelect = "none";
+    return () => {
+      document.body.style.userSelect = "";
+    };
+  }, [isInternalDrag]);
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!dragStartRef.current) {
+        return;
+      }
+
+      const distance = Math.hypot(
+        event.clientX - dragStartRef.current.x,
+        event.clientY - dragStartRef.current.y
+      );
+
+      if (!isInternalDragRef.current && distance > 4) {
+        dragPayloadRef.current = dragCandidateRef.current;
+        setIsInternalDrag(true);
+        suppressOverlayUntilRef.current = Date.now() + 300;
+        setDragIndicator({
+          x: event.clientX,
+          y: event.clientY,
+          count: dragCandidateRef.current.length,
+        });
+      }
+
+      if (isInternalDragRef.current) {
+        setDragIndicator((current) =>
+          current
+            ? { ...current, x: event.clientX, y: event.clientY }
+            : {
+                x: event.clientX,
+                y: event.clientY,
+                count: dragPayloadRef.current.length,
+              }
+        );
+        const target = document
+          .elementFromPoint(event.clientX, event.clientY)
+          ?.closest?.("[data-playlist-target]") as HTMLElement | null;
+        setDraggingPlaylistId(
+          target ? target.getAttribute("data-playlist-target") : null
+        );
+      }
+    };
+
+    const handleMouseUp = (event: MouseEvent) => {
+      if (isInternalDragRef.current) {
+        const target = document
+          .elementFromPoint(event.clientX, event.clientY)
+          ?.closest?.("[data-playlist-target]") as HTMLElement | null;
+        const playlistId = target?.getAttribute("data-playlist-target") ?? "";
+        if (playlistId) {
+          handlePlaylistDrop(playlistId, dragPayloadRef.current);
+        }
+      }
+
+      dragStartRef.current = null;
+      dragCandidateRef.current = [];
+      dragPayloadRef.current = [];
+      setDragIndicator(null);
+      setDraggingPlaylistId(null);
+      setIsInternalDrag(false);
+      setIsDragging(false);
+      dragCounter.current = 0;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+
+  useEffect(() => {
     let unlistenDrop: UnlistenFn | null = null;
     let unlistenHover: UnlistenFn | null = null;
     let unlistenCancel: UnlistenFn | null = null;
@@ -798,15 +925,21 @@ function App() {
         const inferredType = rawType || (inferredPaths.length ? "drop" : "hover");
 
         if (["hover", "enter", "over", "dragover"].includes(inferredType)) {
-          setIsDragging(true);
+          if (isImportDragAllowed()) {
+            setIsDragging(true);
+          }
           return;
         }
         if (["cancel", "leave", "dragleave"].includes(inferredType)) {
-          setIsDragging(false);
+          if (isImportDragAllowed()) {
+            setIsDragging(false);
+          }
           return;
         }
         if (inferredType === "drop") {
-          setIsDragging(false);
+          if (isImportDragAllowed()) {
+            setIsDragging(false);
+          }
           if (inferredPaths.length) {
             void handleImportPaths(inferredPaths);
           }
@@ -823,17 +956,23 @@ function App() {
         }
 
         unlistenDrop = await listen<unknown>("tauri://file-drop", (event) => {
-          setIsDragging(false);
+          if (isImportDragAllowed()) {
+            setIsDragging(false);
+          }
           const paths = extractPaths(event.payload);
           if (paths.length) {
             void handleImportPaths(paths);
           }
         });
         unlistenHover = await listen("tauri://file-drop-hover", () => {
-          setIsDragging(true);
+          if (isImportDragAllowed()) {
+            setIsDragging(true);
+          }
         });
         unlistenCancel = await listen("tauri://file-drop-cancelled", () => {
-          setIsDragging(false);
+          if (isImportDragAllowed()) {
+            setIsDragging(false);
+          }
         });
       } catch (error) {
         console.error("Drag diagnostics: listener failed", error);
@@ -884,22 +1023,31 @@ function App() {
       onDragEnter={(event) => {
         event.preventDefault();
         dragCounter.current += 1;
-        setIsDragging(true);
+        if (isImportDragAllowed()) {
+          setIsDragging(true);
+        }
       }}
       onDragLeave={(event) => {
         event.preventDefault();
         dragCounter.current = Math.max(0, dragCounter.current - 1);
         if (dragCounter.current === 0) {
-          setIsDragging(false);
+          if (isImportDragAllowed()) {
+            setIsDragging(false);
+          }
         }
       }}
       onDragOver={(event) => {
-        event.preventDefault();
+        if (isImportDragAllowed()) {
+          event.preventDefault();
+        }
       }}
       onDrop={async (event) => {
         event.preventDefault();
         dragCounter.current = 0;
-        setIsDragging(false);
+        if (isImportDragAllowed()) {
+          setIsDragging(false);
+        }
+        setIsInternalDrag(false);
         await handleDropImport(event);
       }}
     >
@@ -907,6 +1055,16 @@ function App() {
         <div className="pointer-events-none fixed inset-0 z-20 flex items-center justify-center bg-[rgba(15,23,42,0.35)]">
           <div className="rounded-[var(--radius-lg)] border border-[var(--accent)] bg-[var(--panel-bg)] px-6 py-4 text-sm font-semibold text-[var(--accent)] shadow-[var(--shadow-lg)]">
             Drop folders or audio files to import.
+          </div>
+        </div>
+      )}
+      {dragIndicator && isInternalDrag && (
+        <div
+          className="pointer-events-none fixed z-40"
+          style={{ left: dragIndicator.x + 16, top: dragIndicator.y + 12 }}
+        >
+          <div className="rounded-full bg-[var(--accent)] px-3 py-1 text-xs font-semibold text-white shadow-[var(--shadow-md)]">
+            {dragIndicator.count} track{dragIndicator.count === 1 ? "" : "s"}
           </div>
         </div>
       )}
@@ -966,7 +1124,7 @@ function App() {
                   isLibrary ? "font-semibold text-[var(--accent)]" : "text-[var(--text-muted)]"
                 }`}
               >
-                124
+                {tracks.length}
               </span>
             </button>
             <button
@@ -992,16 +1150,66 @@ function App() {
                 12
               </span>
             </button>
-            <button
-              className="flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
-              type="button"
-            >
-              <span className="flex items-center gap-2">
-                <ListMusic className="h-4 w-4" />
-                {t("nav.playlists")}
-              </span>
-              <span className="text-xs text-[var(--text-muted)]">8</span>
-            </button>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                <span className="flex items-center gap-2">
+                  <ListMusic className="h-4 w-4" />
+                  {t("nav.playlists")}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)]">
+                  {playlists.length}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {playlists.map((playlist) => {
+                  const isDropTarget = draggingPlaylistId === playlist.id;
+                  return (
+                    <button
+                      key={playlist.id}
+                      className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] border px-3 py-2 text-left text-sm font-medium transition-colors duration-[var(--motion-fast)] ${
+                        isDropTarget
+                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                          : "border-transparent text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
+                      }`}
+                      onClick={() => setView("library")}
+                      onDragEnter={(event) => {
+                        event.preventDefault();
+                        setDraggingPlaylistId(playlist.id);
+                      }}
+                      onDragLeave={(event) => {
+                        event.preventDefault();
+                        setDraggingPlaylistId((current) =>
+                          current === playlist.id ? null : current
+                        );
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setDraggingPlaylistId(playlist.id);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const data = event.dataTransfer.getData("text/plain");
+                        const payload = data
+                          ? data.split(",").map((item) => item.trim())
+                          : [];
+                        handlePlaylistDrop(playlist.id, payload);
+                        dragPayloadRef.current = [];
+                        setDraggingPlaylistId(null);
+                        setIsInternalDrag(false);
+                      }}
+                      data-playlist-target={playlist.id}
+                      type="button"
+                    >
+                      <span className="truncate">{playlist.name}</span>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {playlist.trackIds.length}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <button
               className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
                 isSettings
@@ -1263,6 +1471,20 @@ function App() {
                               isMetaKey: event.metaKey || event.ctrlKey,
                               isShiftKey: event.shiftKey,
                             });
+                          }}
+                          onMouseDown={(event) => {
+                            const target = event.target as HTMLElement | null;
+                            if (target?.closest("button, input, select, textarea")) {
+                              return;
+                            }
+                            event.preventDefault();
+                            dragCandidateRef.current = selectedIds.has(track.id)
+                                ? Array.from(selectedIds)
+                                : [track.id];
+                            dragStartRef.current = {
+                              x: event.clientX,
+                              y: event.clientY,
+                            };
                           }}
                           onContextMenu={(event) => {
                             event.preventDefault();
