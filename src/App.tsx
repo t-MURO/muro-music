@@ -464,15 +464,13 @@ function App() {
     );
   }, [columns, columnsMenuPosition.x, columnsMenuPosition.y, showColumns]);
   const tableWidth = useMemo(() => {
-    const actionColumnWidth = 48;
     return (
-      visibleColumns.reduce((total, column) => total + column.width, 0) +
-      actionColumnWidth
+      visibleColumns.reduce((total, column) => total + column.width, 0)
     );
   }, [visibleColumns]);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const gridTemplateColumns = useMemo(
-    () => [...visibleColumns.map((column) => `${column.width}px`), "48px"].join(" "),
+    () => visibleColumns.map((column) => `${column.width}px`).join(" "),
     [visibleColumns]
   );
   const rowVirtualizer = useVirtualizer({
@@ -1131,46 +1129,51 @@ function App() {
                 )}
                 <div
                   ref={tableContainerRef}
-                  className="min-h-0 flex-1 min-w-0 overflow-x-auto overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]"
+                  className="relative min-h-0 flex-1 min-w-0 overflow-x-auto overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]"
                   role="grid"
                   aria-rowcount={displayedTracks.length}
-                  aria-colcount={visibleColumns.length + 1}
+                  aria-colcount={visibleColumns.length}
                 >
-                  <div role="rowgroup">
-                    <div
-                      className="sticky top-0 z-30 grid bg-[var(--panel-muted)] text-left text-xs uppercase tracking-wider text-[var(--text-muted)]"
-                      style={{ gridTemplateColumns, width: "100%", minWidth: tableWidth }}
-                      role="row"
-                    >
-                      {visibleColumns.map((column) => (
-                        <div
-                          key={column.key}
-                          className="relative bg-[var(--panel-muted)] px-4 py-3 pr-8"
-                          role="columnheader"
-                        >
-                          <span className="block truncate">{t(column.labelKey)}</span>
-                          <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--panel-border)] opacity-70" />
-                          <span
-                            className="absolute right-0 top-0 h-full w-4 cursor-col-resize"
-                            onDoubleClick={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              autoFitColumn(column.key);
-                            }}
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              resizeState.current = {
-                                key: column.key,
-                                startX: event.clientX,
-                                startWidth: column.width,
-                              };
-                            }}
-                            role="presentation"
-                          />
-                        </div>
-                      ))}
-                      <div className="bg-[var(--panel-muted)] px-3 py-3" role="columnheader"></div>
+                  <div
+                    className="sticky top-0 z-30 bg-[var(--panel-muted)]"
+                    style={{ width: "100%", minWidth: tableWidth }}
+                    role="rowgroup"
+                  >
+                    <div className="relative" style={{ width: "100%", minWidth: tableWidth }}>
+                      <div
+                        className="grid text-left text-xs uppercase tracking-wider text-[var(--text-muted)]"
+                        style={{ gridTemplateColumns }}
+                        role="row"
+                      >
+                        {visibleColumns.map((column) => (
+                          <div
+                            key={column.key}
+                            className="relative bg-[var(--panel-muted)] px-4 py-3 pr-8"
+                            role="columnheader"
+                          >
+                            <span className="block truncate">{t(column.labelKey)}</span>
+                            <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--panel-border)] opacity-70" />
+                            <span
+                              className="absolute right-0 top-0 h-full w-4 cursor-col-resize"
+                              onDoubleClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                autoFitColumn(column.key);
+                              }}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                resizeState.current = {
+                                  key: column.key,
+                                  startX: event.clientX,
+                                  startWidth: column.width,
+                                };
+                              }}
+                              role="presentation"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div
@@ -1195,11 +1198,10 @@ function App() {
                             gridTemplateColumns,
                             height: 48,
                             position: "absolute",
-                            top: 0,
+                            top: virtualRow.start,
                             left: 0,
                             width: "100%",
                             minWidth: tableWidth,
-                            transform: `translateY(${virtualRow.start}px)`,
                           }}
                           onClick={(event) => {
                             event.stopPropagation();
@@ -1396,35 +1398,6 @@ function App() {
                               </div>
                             );
                           })}
-                          <div
-                            className={`sticky right-0 z-10 flex h-12 w-12 items-center justify-center justify-self-stretch ${
-                              isSelected
-                                ? "bg-[var(--accent-soft)] group-hover:bg-[var(--panel-muted)]"
-                                : "bg-[var(--panel-bg)] group-hover:bg-[var(--panel-muted)]"
-                            }`}
-                            role="cell"
-                          >
-                            <button
-                              className="block rounded-[var(--radius-sm)] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                const buttonRect =
-                                  event.currentTarget.getBoundingClientRect();
-                                setMenuPosition({
-                                  x: buttonRect.left,
-                                  y: buttonRect.bottom + 6,
-                                });
-                                handleRowSelect(virtualRow.index, track.id);
-                                setMenuSelection([track.id]);
-                                setOpenMenuId((current) =>
-                                  current === track.id ? null : track.id
-                                );
-                              }}
-                              type="button"
-                            >
-                              •••
-                            </button>
-                          </div>
                         </div>
                       );
                     })}
