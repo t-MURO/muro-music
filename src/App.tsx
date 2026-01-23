@@ -464,7 +464,7 @@ function App() {
     );
   }, [columns, columnsMenuPosition.x, columnsMenuPosition.y, showColumns]);
   const tableWidth = useMemo(() => {
-    const actionColumnWidth = 64;
+    const actionColumnWidth = 48;
     return (
       visibleColumns.reduce((total, column) => total + column.width, 0) +
       actionColumnWidth
@@ -472,7 +472,7 @@ function App() {
   }, [visibleColumns]);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const gridTemplateColumns = useMemo(
-    () => [...visibleColumns.map((column) => `${column.width}px`), "minmax(64px, 1fr)"].join(" "),
+    () => [...visibleColumns.map((column) => `${column.width}px`), "48px"].join(" "),
     [visibleColumns]
   );
   const rowVirtualizer = useVirtualizer({
@@ -1132,52 +1132,47 @@ function App() {
                 <div
                   ref={tableContainerRef}
                   className="min-h-0 flex-1 min-w-0 overflow-x-auto overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]"
+                  role="grid"
+                  aria-rowcount={displayedTracks.length}
+                  aria-colcount={visibleColumns.length + 1}
                 >
-                  <table
-                    className="table-fixed text-left text-sm"
-                    style={{ width: "100%", minWidth: tableWidth }}
-                  >
-                    <colgroup>
+                  <div role="rowgroup">
+                    <div
+                      className="sticky top-0 z-30 grid bg-[var(--panel-muted)] text-left text-xs uppercase tracking-wider text-[var(--text-muted)]"
+                      style={{ gridTemplateColumns, width: "100%", minWidth: tableWidth }}
+                      role="row"
+                    >
                       {visibleColumns.map((column) => (
-                        <col key={column.key} style={{ width: column.width }} />
+                        <div
+                          key={column.key}
+                          className="relative bg-[var(--panel-muted)] px-4 py-3 pr-8"
+                          role="columnheader"
+                        >
+                          <span className="block truncate">{t(column.labelKey)}</span>
+                          <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--panel-border)] opacity-70" />
+                          <span
+                            className="absolute right-0 top-0 h-full w-4 cursor-col-resize"
+                            onDoubleClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              autoFitColumn(column.key);
+                            }}
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              resizeState.current = {
+                                key: column.key,
+                                startX: event.clientX,
+                                startWidth: column.width,
+                              };
+                            }}
+                            role="presentation"
+                          />
+                        </div>
                       ))}
-                      <col />
-                    </colgroup>
-                    <thead className="bg-[var(--panel-muted)] text-xs uppercase tracking-wider text-[var(--text-muted)]">
-                      <tr>
-                        {visibleColumns.map((column) => (
-                          <th
-                            key={column.key}
-                            className="sticky top-0 z-20 bg-[var(--panel-muted)] px-4 py-3 pr-8"
-                          >
-                            <span className="block truncate">
-                              {t(column.labelKey)}
-                            </span>
-                            <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--panel-border)] opacity-70" />
-                            <span
-                              className="absolute right-0 top-0 h-full w-4 cursor-col-resize"
-                              onDoubleClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                autoFitColumn(column.key);
-                              }}
-                              onMouseDown={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                resizeState.current = {
-                                  key: column.key,
-                                  startX: event.clientX,
-                                  startWidth: column.width,
-                                };
-                              }}
-                              role="presentation"
-                            />
-                          </th>
-                        ))}
-                        <th className="sticky right-0 top-0 z-30 min-w-12 bg-[var(--panel-muted)] px-4 py-3"></th>
-                      </tr>
-                    </thead>
-                  </table>
+                      <div className="bg-[var(--panel-muted)] px-3 py-3" role="columnheader"></div>
+                    </div>
+                  </div>
                   <div
                     className="relative"
                     style={{ height: rowVirtualizer.getTotalSize(), minWidth: tableWidth }}
@@ -1247,7 +1242,7 @@ function App() {
                                   role="cell"
                                 >
                                   <div
-                                    className="flex items-center gap-1 rounded-[var(--radius-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+                                    className="flex items-center gap-1 rounded-[var(--radius-sm)] -ml-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
                                     aria-label={`Rating for ${track.title}`}
                                     role="slider"
                                     tabIndex={0}
@@ -1402,7 +1397,7 @@ function App() {
                             );
                           })}
                           <div
-                            className={`sticky right-0 z-10 h-12 px-4 py-3 text-right justify-self-stretch ${
+                            className={`sticky right-0 z-10 flex h-12 w-12 items-center justify-center justify-self-stretch ${
                               isSelected
                                 ? "bg-[var(--accent-soft)] group-hover:bg-[var(--panel-muted)]"
                                 : "bg-[var(--panel-bg)] group-hover:bg-[var(--panel-muted)]"
@@ -1410,7 +1405,7 @@ function App() {
                             role="cell"
                           >
                             <button
-                              className="ml-auto block rounded-[var(--radius-sm)] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
+                              className="block rounded-[var(--radius-sm)] px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 const buttonRect =
