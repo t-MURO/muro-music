@@ -350,6 +350,7 @@ function App() {
   const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuSelection, setMenuSelection] = useState<string[]>([]);
   const displayedTracks = isInbox ? tracks.slice(0, 4) : tracks;
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     if (typeof window === "undefined") {
       return 220;
@@ -538,6 +539,16 @@ function App() {
     );
   };
 
+  const clampIndex = (index: number) =>
+    Math.max(0, Math.min(displayedTracks.length - 1, index));
+
+  useEffect(() => {
+    if (activeIndex === null || displayedTracks.length === 0) {
+      return;
+    }
+    setActiveIndex(clampIndex(activeIndex));
+  }, [activeIndex, displayedTracks.length]);
+
   const handleImportPaths = async (paths: string[]) => {
     if (paths.length === 0) {
       return;
@@ -598,6 +609,7 @@ function App() {
           }
         }
         setLastSelectedIndex(index);
+        setActiveIndex(index);
       } else if (isMetaKey) {
         if (next.has(id)) {
           next.delete(id);
@@ -605,10 +617,12 @@ function App() {
           next.add(id);
         }
         setLastSelectedIndex(index);
+        setActiveIndex(index);
       } else {
         next.clear();
         next.add(id);
         setLastSelectedIndex(index);
+        setActiveIndex(index);
       }
 
       return next;
@@ -1133,6 +1147,46 @@ function App() {
                   role="grid"
                   aria-rowcount={displayedTracks.length}
                   aria-colcount={visibleColumns.length}
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.currentTarget !== event.target) {
+                      return;
+                    }
+
+                    if (displayedTracks.length === 0) {
+                      return;
+                    }
+
+                    const current = activeIndex ?? 0;
+                    const pageStep = 10;
+                    let nextIndex = current;
+
+                    if (event.key === "ArrowDown") {
+                      nextIndex = clampIndex(current + 1);
+                    } else if (event.key === "ArrowUp") {
+                      nextIndex = clampIndex(current - 1);
+                    } else if (event.key === "PageDown") {
+                      nextIndex = clampIndex(current + pageStep);
+                    } else if (event.key === "PageUp") {
+                      nextIndex = clampIndex(current - pageStep);
+                    } else if (event.key === "Home") {
+                      nextIndex = 0;
+                    } else if (event.key === "End") {
+                      nextIndex = displayedTracks.length - 1;
+                    } else {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    const track = displayedTracks[nextIndex];
+                    if (!track) {
+                      return;
+                    }
+                    handleRowSelect(nextIndex, track.id, {
+                      isShiftKey: event.shiftKey,
+                    });
+                    rowVirtualizer.scrollToIndex(nextIndex, { align: "auto" });
+                  }}
                 >
                   <div
                     className="sticky top-0 z-30 bg-[var(--panel-muted)]"
@@ -1189,7 +1243,7 @@ function App() {
                       return (
                         <div
                           key={track.id}
-                          className={`group grid items-center border-t border-[var(--panel-border)] ${
+                          className={`group grid select-none items-center border-t border-[var(--panel-border)] ${
                             isSelected
                               ? "bg-[var(--accent-soft)]"
                               : "bg-[var(--panel-bg)]"
