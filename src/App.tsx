@@ -26,8 +26,9 @@ import {useVirtualizer, type VirtualItem} from "@tanstack/react-virtual";
 import {listen, type UnlistenFn} from "@tauri-apps/api/event";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import {createPortal} from "react-dom";
-import {type DragEvent as ReactDragEvent, useEffect, useMemo, useRef, useState,} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {isLocale, type Locale, localeOptions, type MessageKey, setLocale as setI18nLocale, t,} from "./i18n";
+import {commandManager, type Command} from "./command-manager/commandManager";
 
 const themes = [
   { id: "light", label: "Light" },
@@ -275,11 +276,17 @@ const initialTracks = [
   },
 ];
 
+const initialInboxTracks = initialTracks.slice(0, 4).map((track) => ({
+  ...track,
+  id: `${track.id}-inbox`,
+}));
+
 function App() {
   const [view, setView] = useState<"library" | "inbox" | "settings">(
     "library"
   );
   const [tracks, setTracks] = useState(() => initialTracks);
+  const [inboxTracks, setInboxTracks] = useState(() => initialInboxTracks);
   const [hoveredRatings, setHoveredRatings] = useState<
     Record<string, number | null>
   >({});
@@ -336,7 +343,7 @@ function App() {
   const [columnsMenuPosition, setColumnsMenuPosition] = useState({ x: 0, y: 0 });
   const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuSelection, setMenuSelection] = useState<string[]>([]);
-  const displayedTracks = isInbox ? tracks.slice(0, 4) : tracks;
+  const displayedTracks = isInbox ? inboxTracks : tracks;
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [playlists, setPlaylists] = useState(() => [
     { id: "p-01", name: "Late Night Routes", trackIds: ["t1", "t4"] },
@@ -353,6 +360,8 @@ function App() {
   const dragPayloadRef = useRef<string[]>([]);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const dragCandidateRef = useRef<string[]>([]);
+  const importSequenceRef = useRef(0);
+  const nativeDragSetupRef = useRef(false);
   const [dragIndicator, setDragIndicator] = useState<
     | {
         x: number;
@@ -561,17 +570,55 @@ function App() {
       return;
     }
 
-    setPlaylists((current) =>
-      current.map((playlist) =>
-        playlist.id === playlistId
-          ? {
-              ...playlist,
-              trackIds: Array.from(new Set([...playlist.trackIds, ...incoming])),
+    let previousIds: string[] | null = null;
+    const command: Command = {
+      label: `Add ${incoming.length} tracks to playlist`,
+      do: () => {
+        setPlaylists((current) =>
+          current.map((playlist) => {
+            if (playlist.id !== playlistId) {
+              return playlist;
             }
-          : playlist
-      )
-    );
+            previousIds = playlist.trackIds;
+            const nextIds = Array.from(
+              new Set([...playlist.trackIds, ...incoming])
+            );
+            return { ...playlist, trackIds: nextIds };
+          })
+        );
+      },
+      undo: () => {
+        if (!previousIds) {
+          return;
+        }
+        setPlaylists((current) =>
+          current.map((playlist) =>
+            playlist.id === playlistId
+              ? { ...playlist, trackIds: previousIds ?? [] }
+              : playlist
+          )
+        );
+      },
+    };
+
+    commandManager.execute(command);
   };
+
+  const createImportedTracks = (paths: string[]) =>
+    paths.map((path) => {
+      importSequenceRef.current += 1;
+      const name = path.split("/").pop() ?? path;
+      const title = name.replace(/\.[^/.]+$/, "");
+      return {
+        id: `import-${Date.now()}-${importSequenceRef.current}`,
+        title,
+        artist: "Unknown Artist",
+        album: "Inbox Import",
+        duration: "--:--",
+        bitrate: "--",
+        rating: 0,
+      };
+    });
 
   useEffect(() => {
     if (activeIndex === null || displayedTracks.length === 0) {
@@ -585,38 +632,25 @@ function App() {
       return;
     }
 
+    const imported = createImportedTracks(paths);
+    const command: Command = {
+      label: `Import ${imported.length} tracks`,
+      do: () => {
+        setInboxTracks((current) => [...imported, ...current]);
+      },
+      undo: () => {
+        const ids = new Set(imported.map((track) => track.id));
+        setInboxTracks((current) => current.filter((track) => !ids.has(track.id)));
+      },
+    };
+    commandManager.execute(command);
+
     try {
       const count = await invoke<number>("import_files", { paths });
       console.info("Import stub accepted files:", count);
     } catch (error) {
       console.error("Import stub failed:", error);
     }
-  };
-
-  const handleDropImport = async (event: ReactDragEvent<HTMLDivElement>) => {
-    const droppedFiles = Array.from(event.dataTransfer.files);
-    const paths = droppedFiles
-      .map((file) => (file as unknown as { path?: string }).path ?? file.name)
-      .filter(Boolean);
-
-    await handleImportPaths(paths);
-  };
-
-  const extractPaths = (payload: unknown): string[] => {
-    if (Array.isArray(payload)) {
-      return payload.map((item) => String(item));
-    }
-
-    if (payload && typeof payload === "object") {
-      const candidate =
-        (payload as { paths?: unknown; files?: unknown }).paths ??
-        (payload as { files?: unknown }).files;
-      if (Array.isArray(candidate)) {
-        return candidate.map((item) => String(item));
-      }
-    }
-
-    return [];
   };
 
   const handleRowSelect = (
@@ -709,38 +743,6 @@ function App() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mousemove", handlePanelResize);
       window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleDragEnter = () => {
-      if (!isImportDragAllowed()) {
-        return;
-      }
-      setIsDragging(true);
-    };
-    const handleDragLeave = () => {
-      if (!isImportDragAllowed()) {
-        return;
-      }
-      setIsDragging(false);
-    };
-    const handleDragOver = (event: DragEvent) => {
-      if (!isImportDragAllowed()) {
-        return;
-      }
-      event.preventDefault();
-      setIsDragging(true);
-    };
-
-    window.addEventListener("dragenter", handleDragEnter);
-    window.addEventListener("dragleave", handleDragLeave);
-    window.addEventListener("dragover", handleDragOver);
-
-    return () => {
-      window.removeEventListener("dragenter", handleDragEnter);
-      window.removeEventListener("dragleave", handleDragLeave);
-      window.removeEventListener("dragover", handleDragOver);
     };
   }, []);
 
@@ -899,81 +901,64 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleWindowDragEnd = () => {
+      dragCounter.current = 0;
+      setIsDragging(false);
+    };
+
+    window.addEventListener("dragend", handleWindowDragEnd, true);
+    window.addEventListener("dragleave", handleWindowDragEnd, true);
+    return () => {
+      window.removeEventListener("dragend", handleWindowDragEnd, true);
+      window.removeEventListener("dragleave", handleWindowDragEnd, true);
+    };
+  }, []);
+
 
   useEffect(() => {
-    let unlistenDrop: UnlistenFn | null = null;
-    let unlistenHover: UnlistenFn | null = null;
-    let unlistenCancel: UnlistenFn | null = null;
-    let unlistenDragDrop: (() => void) | null = null;
+    if (nativeDragSetupRef.current) {
+      return;
+    }
+    nativeDragSetupRef.current = true;
+    // Guard against duplicate listeners in React Strict Mode (dev only).
+    let unlistenNative: UnlistenFn | null = null;
 
     const setup = async () => {
-      let currentWindow;
       try {
-        currentWindow = getCurrentWindow();
+        getCurrentWindow();
       } catch {
         return;
       }
-      const dragDropHandler = (event: {
-        type?: string;
-        payload?: unknown;
-        paths?: unknown;
-        files?: unknown;
-      }) => {
-        const rawType = event.type ?? "";
-        const inferredPayload = event.payload ?? event.paths ?? event.files;
-        const inferredPaths = extractPaths(inferredPayload);
-        const inferredType = rawType || (inferredPaths.length ? "drop" : "hover");
-
-        if (["hover", "enter", "over", "dragover"].includes(inferredType)) {
-          if (isImportDragAllowed()) {
-            setIsDragging(true);
-          }
-          return;
-        }
-        if (["cancel", "leave", "dragleave"].includes(inferredType)) {
-          if (isImportDragAllowed()) {
-            setIsDragging(false);
-          }
-          return;
-        }
-        if (inferredType === "drop") {
-          if (isImportDragAllowed()) {
-            setIsDragging(false);
-          }
-          if (inferredPaths.length) {
-            void handleImportPaths(inferredPaths);
-          }
-        }
-      };
-
-      const windowWithDrag = currentWindow as unknown as {
-        onDragDropEvent?: (handler: (event: { type: string; payload?: unknown }) => void) => Promise<() => void>;
-      };
-
       try {
-        if (windowWithDrag.onDragDropEvent) {
-          unlistenDragDrop = await windowWithDrag.onDragDropEvent(dragDropHandler);
-        }
-
-        unlistenDrop = await listen<unknown>("tauri://file-drop", (event) => {
-          if (isImportDragAllowed()) {
-            setIsDragging(false);
+        unlistenNative = await listen<{ kind: string; paths: string[] }>(
+          "muro://native-drag",
+          (event) => {
+            if (!isImportDragAllowed()) {
+              return;
+            }
+            const payload = event.payload;
+            if (!payload) {
+              return;
+            }
+            if (payload.kind === "over") {
+              setIsDragging(true);
+              return;
+            }
+            if (payload.kind === "leave") {
+              setIsDragging(false);
+              dragCounter.current = 0;
+              return;
+            }
+            if (payload.kind === "drop") {
+              setIsDragging(false);
+              dragCounter.current = 0;
+              if (payload.paths?.length) {
+                void handleImportPaths(payload.paths);
+              }
+            }
           }
-          const paths = extractPaths(event.payload);
-          if (paths.length) {
-            void handleImportPaths(paths);
-          }
-        });
-        unlistenHover = await listen("tauri://file-drop-hover", () => {
-          if (isImportDragAllowed()) {
-            setIsDragging(true);
-          }
-        });
-        unlistenCancel = await listen("tauri://file-drop-cancelled", () => {
-          if (isImportDragAllowed()) {
-            setIsDragging(false);
-          }
-        });
+        );
       } catch (error) {
         console.error("Drag diagnostics: listener failed", error);
       }
@@ -982,10 +967,7 @@ function App() {
     void setup();
 
     return () => {
-      unlistenDragDrop?.();
-      unlistenDrop?.();
-      unlistenHover?.();
-      unlistenCancel?.();
+      unlistenNative?.();
     };
   }, []);
 
@@ -996,11 +978,11 @@ function App() {
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
-        event.preventDefault();
-        setSelectedIds(new Set(tracks.map((track) => track.id)));
-        setLastSelectedIndex(tracks.length - 1);
-      }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      setSelectedIds(new Set(displayedTracks.map((track) => track.id)));
+      setLastSelectedIndex(displayedTracks.length - 1);
+    }
 
       if (event.key === "Escape") {
         setSelectedIds(new Set());
@@ -1010,6 +992,28 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [displayedTracks]);
+
+  useEffect(() => {
+    const handleUndoRedo = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key !== "z" && key !== "y") {
+        return;
+      }
+
+      event.preventDefault();
+      if (key === "y" || event.shiftKey) {
+        commandManager.redo();
+        return;
+      }
+      commandManager.undo();
+    };
+
+    window.addEventListener("keydown", handleUndoRedo);
+    return () => window.removeEventListener("keydown", handleUndoRedo);
   }, []);
 
   return (
@@ -1019,36 +1023,6 @@ function App() {
         setOpenMenuId(null);
         setMenuSelection([]);
         setShowColumns(false);
-      }}
-      onDragEnter={(event) => {
-        event.preventDefault();
-        dragCounter.current += 1;
-        if (isImportDragAllowed()) {
-          setIsDragging(true);
-        }
-      }}
-      onDragLeave={(event) => {
-        event.preventDefault();
-        dragCounter.current = Math.max(0, dragCounter.current - 1);
-        if (dragCounter.current === 0) {
-          if (isImportDragAllowed()) {
-            setIsDragging(false);
-          }
-        }
-      }}
-      onDragOver={(event) => {
-        if (isImportDragAllowed()) {
-          event.preventDefault();
-        }
-      }}
-      onDrop={async (event) => {
-        event.preventDefault();
-        dragCounter.current = 0;
-        if (isImportDragAllowed()) {
-          setIsDragging(false);
-        }
-        setIsInternalDrag(false);
-        await handleDropImport(event);
       }}
     >
       {isDragging && (
@@ -1147,7 +1121,7 @@ function App() {
                     : "text-[var(--text-muted)]"
                 }`}
               >
-                12
+                {inboxTracks.length}
               </span>
             </button>
             <div className="space-y-1">
