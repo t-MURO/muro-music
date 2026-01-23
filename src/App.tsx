@@ -505,6 +505,8 @@ function App() {
   const [isInternalDrag, setIsInternalDrag] = useState(false);
   const isInternalDragRef = useRef(false);
   const suppressOverlayUntilRef = useRef(0);
+  const [nativeDropStatus, setNativeDropStatus] = useState<string | null>(null);
+  const nativeDropTimerRef = useRef<number | null>(null);
   const dragPayloadRef = useRef<string[]>([]);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const dragCandidateRef = useRef<string[]>([]);
@@ -615,6 +617,26 @@ function App() {
   const isImportDragAllowed = () =>
     !isInternalDragRef.current &&
     Date.now() >= suppressOverlayUntilRef.current;
+  const clearNativeDropStatus = useCallback(() => {
+    if (nativeDropTimerRef.current !== null && typeof window !== "undefined") {
+      window.clearTimeout(nativeDropTimerRef.current);
+      nativeDropTimerRef.current = null;
+    }
+    setNativeDropStatus(null);
+  }, []);
+  const scheduleNativeDropStatus = useCallback((message: string) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (nativeDropTimerRef.current !== null) {
+      window.clearTimeout(nativeDropTimerRef.current);
+    }
+    setNativeDropStatus(message);
+    nativeDropTimerRef.current = window.setTimeout(() => {
+      setNativeDropStatus(null);
+      nativeDropTimerRef.current = null;
+    }, 2000);
+  }, []);
 
   const handlePlaylistDrop = (playlistId: string, payload?: string[]) => {
     const incoming = payload?.length ? payload : dragPayloadRef.current;
@@ -945,18 +967,27 @@ function App() {
             }
             if (payload.kind === "over") {
               setIsDragging(true);
+              setNativeDropStatus("Drop files to import");
               return;
             }
             if (payload.kind === "leave") {
               setIsDragging(false);
               dragCounter.current = 0;
+              clearNativeDropStatus();
               return;
             }
             if (payload.kind === "drop") {
               setIsDragging(false);
               dragCounter.current = 0;
               if (payload.paths?.length) {
+                scheduleNativeDropStatus(
+                  `Imported ${payload.paths.length} file${
+                    payload.paths.length === 1 ? "" : "s"
+                  }`
+                );
                 void handleImportPaths(payload.paths);
+              } else {
+                scheduleNativeDropStatus("Drop received, no files found");
               }
             }
           }
@@ -1028,9 +1059,16 @@ function App() {
       }}
     >
       {isDragging && (
-        <div className="pointer-events-none fixed inset-0 z-20 flex items-center justify-center bg-[rgba(15,23,42,0.35)]">
-          <div className="rounded-[var(--radius-lg)] border border-[var(--accent)] bg-[var(--panel-bg)] px-6 py-4 text-sm font-semibold text-[var(--accent)] shadow-[var(--shadow-lg)]">
+        <div className="drag-overlay pointer-events-none fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="drag-overlay-card rounded-[var(--radius-lg)] border border-[var(--accent)] px-6 py-4 text-sm font-semibold text-[var(--accent)] shadow-[var(--shadow-lg)]">
             Drop folders or audio files to import.
+          </div>
+        </div>
+      )}
+      {nativeDropStatus && (
+        <div className="pointer-events-none fixed bottom-6 right-6 z-50">
+          <div className="rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] shadow-[var(--shadow-md)]">
+            {nativeDropStatus}
           </div>
         </div>
       )}
@@ -1176,22 +1214,22 @@ function App() {
                 })}
               </div>
             </div>
-            <button
-              className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
-                isSettings
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
-              }`}
-              onClick={() => setView("settings")}
-              type="button"
-            >
-              <span className="flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                {t("nav.settings")}
-              </span>
-            </button>
           </div>
           <div className="mt-auto" />
+          <button
+            className={`mt-4 flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
+              isSettings
+                ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
+            }`}
+            onClick={() => setView("settings")}
+            type="button"
+          >
+            <span className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              {t("nav.settings")}
+            </span>
+          </button>
         </aside>
 
         <main className="flex h-full min-w-0 flex-col overflow-hidden pb-0">
