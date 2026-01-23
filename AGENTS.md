@@ -33,3 +33,4 @@
 
 ## Future/expansion
 - Display as much metadata as possible (in richer views)
+- Consider MusicBrainz enrichment: metadata-only lookup first, then fingerprinting (Chromaprint/AcoustID) with local caching and confidence scoring

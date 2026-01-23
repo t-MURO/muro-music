@@ -1,5 +1,3 @@
-use tauri::Manager;
-
 use serde::Serialize;
 use tauri::{Emitter, Manager, WindowEvent};
 

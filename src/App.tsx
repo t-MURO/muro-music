@@ -26,7 +26,7 @@ import {useVirtualizer, type VirtualItem} from "@tanstack/react-virtual";
 import {listen, type UnlistenFn} from "@tauri-apps/api/event";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import {createPortal} from "react-dom";
-import {useEffect, useMemo, useRef, useState} from "react";
+import {memo, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {isLocale, type Locale, localeOptions, type MessageKey, setLocale as setI18nLocale, t,} from "./i18n";
 import {commandManager, type Command} from "./command-manager/commandManager";
 
@@ -281,15 +281,186 @@ const initialInboxTracks = initialTracks.slice(0, 4).map((track) => ({
   id: `${track.id}-inbox`,
 }));
 
+type StickyStateOptions<T> = {
+  parse?: (raw: string) => T;
+  serialize?: (value: T) => string;
+};
+
+const useStickyState = <T,>(
+  key: string,
+  defaultValue: T,
+  options: StickyStateOptions<T> = {}
+) => {
+  const {parse, serialize} = options;
+  const [state, setState] = useState<T>(() => {
+    if (typeof window === "undefined") {
+      return defaultValue;
+    }
+
+    const stored = window.localStorage.getItem(key);
+    if (stored === null) {
+      return defaultValue;
+    }
+
+    try {
+      return parse ? parse(stored) : (JSON.parse(stored) as T);
+    } catch {
+      return defaultValue;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const serialized = serialize ? serialize(state) : JSON.stringify(state);
+    window.localStorage.setItem(key, serialized);
+  }, [key, serialize, state]);
+
+  return [state, setState] as const;
+};
+
+const parseColumns = (raw: string) => {
+  try {
+    const parsed = JSON.parse(raw) as typeof baseColumns;
+    return baseColumns.map((column) => {
+      const saved = parsed.find((item) => item.key === column.key);
+      return saved ? { ...column, ...saved, labelKey: column.labelKey } : column;
+    });
+  } catch {
+    return baseColumns;
+  }
+};
+
+const parseNumber = (fallback: number) => (raw: string) => {
+  const parsed = Number(raw);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+const parseDetailWidth = (raw: string) => {
+  const parsed = Number(raw);
+  const saved = Number.isNaN(parsed) ? 320 : parsed;
+  return saved <= 56 ? 320 : saved;
+};
+
+type RatingCellProps = {
+  trackId: string;
+  title: string;
+  rating: number;
+  onRate: (id: string, rating: number) => void;
+};
+
+const RatingCell = memo(({trackId, title, rating, onRate}: RatingCellProps) => {
+  const [hoverValue, setHoverValue] = useState<number | null>(null);
+  const displayRating = hoverValue ?? rating;
+
+  return (
+    <div
+      className="h-12 px-4 py-3"
+      title={`${rating} / 5`}
+      onMouseLeave={() => setHoverValue(null)}
+      role="cell"
+    >
+      <div
+        className="flex items-center gap-1 rounded-[var(--radius-sm)] -ml-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+        aria-label={`Rating for ${title}`}
+        role="slider"
+        tabIndex={0}
+        aria-valuemin={0}
+        aria-valuemax={5}
+        aria-valuenow={rating}
+        aria-valuetext={`${rating} out of 5`}
+        onKeyDown={(event) => {
+          const step = 0.5;
+          if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+            event.preventDefault();
+            onRate(trackId, rating + step);
+          }
+          if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+            event.preventDefault();
+            onRate(trackId, rating - step);
+          }
+          if (event.key === "Home") {
+            event.preventDefault();
+            onRate(trackId, 0);
+          }
+          if (event.key === "End") {
+            event.preventDefault();
+            onRate(trackId, 5);
+          }
+        }}
+      >
+        <button
+          aria-label="Clear rating"
+          className="flex h-5 w-5 items-center justify-center opacity-0"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRate(trackId, 0);
+          }}
+          onMouseMove={() => setHoverValue(0)}
+          tabIndex={-1}
+          title="Clear rating"
+          type="button"
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+              fill="var(--text-muted)"
+            />
+          </svg>
+        </button>
+        {[1, 2, 3, 4, 5].map((star) => {
+          const fill = Math.max(0, Math.min(1, displayRating - (star - 1)));
+          const clipId = `rating-${trackId}-${star}`;
+          return (
+            <button
+              key={star}
+              aria-hidden="true"
+              className="relative h-5 w-5 select-none focus:outline-none"
+              onClick={(event) => {
+                event.stopPropagation();
+                const rect = event.currentTarget.getBoundingClientRect();
+                const isHalf = event.clientX - rect.left < rect.width / 2;
+                onRate(trackId, isHalf ? star - 0.5 : star);
+              }}
+              onMouseMove={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                const isHalf = event.clientX - rect.left < rect.width / 2;
+                setHoverValue(isHalf ? star - 0.5 : star);
+              }}
+              type="button"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+                <defs>
+                  <clipPath id={clipId}>
+                    <rect x="0" y="0" width={fill * 24} height="24" />
+                  </clipPath>
+                </defs>
+                <path
+                  d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                  fill="var(--text-muted)"
+                />
+                <g clipPath={`url(#${clipId})`}>
+                  <path
+                    d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                    fill="var(--accent)"
+                  />
+                </g>
+              </svg>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
 function App() {
   const [view, setView] = useState<"library" | "inbox" | "settings">(
     "library"
   );
   const [tracks, setTracks] = useState(() => initialTracks);
   const [inboxTracks, setInboxTracks] = useState(() => initialInboxTracks);
-  const [hoveredRatings, setHoveredRatings] = useState<
-    Record<string, number | null>
-  >({});
   const isLibrary = view === "library";
   const isInbox = view === "inbox";
   const isSettings = view === "settings";
@@ -304,40 +475,17 @@ function App() {
   const dragCounter = useRef(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-
-    return window.localStorage.getItem("muro-theme") ?? "light";
+  const [theme, setTheme] = useStickyState("muro-theme", "light", {
+    parse: (raw) => raw || "light",
+    serialize: (value) => String(value),
   });
-  const [locale, setLocale] = useState<Locale>(() => {
-    if (typeof window === "undefined") {
-      return "en";
-    }
-
-    const stored = window.localStorage.getItem("muro-locale");
-    return stored && isLocale(stored) ? stored : "en";
+  const [locale, setLocale] = useStickyState<Locale>("muro-locale", "en", {
+    parse: (raw) => (isLocale(raw) ? raw : "en"),
+    serialize: (value) => value,
   });
-  const [columns, setColumns] = useState(() => {
-    if (typeof window === "undefined") {
-      return baseColumns;
-    }
-
-    const stored = window.localStorage.getItem("muro-columns");
-    if (!stored) {
-      return baseColumns;
-    }
-
-    try {
-      const parsed = JSON.parse(stored) as typeof baseColumns;
-      return baseColumns.map((column) => {
-        const saved = parsed.find((item) => item.key === column.key);
-        return saved ? { ...column, ...saved, labelKey: column.labelKey } : column;
-      });
-    } catch {
-      return baseColumns;
-    }
+  const [columns, setColumns] = useStickyState("muro-columns", baseColumns, {
+    parse: parseColumns,
+    serialize: (value) => JSON.stringify(value),
   });
   const [showColumns, setShowColumns] = useState(false);
   const [columnsMenuPosition, setColumnsMenuPosition] = useState({ x: 0, y: 0 });
@@ -370,31 +518,30 @@ function App() {
       }
     | null
   >(null);
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    if (typeof window === "undefined") {
-      return 220;
+  const [sidebarWidth, setSidebarWidth] = useStickyState(
+    "muro-sidebar-width",
+    220,
+    {
+      parse: parseNumber(220),
+      serialize: (value) => String(value),
     }
-
-    const stored = window.localStorage.getItem("muro-sidebar-width");
-    return stored ? Number(stored) || 220 : 220;
-  });
-  const [detailWidth, setDetailWidth] = useState(() => {
-    if (typeof window === "undefined") {
-      return 320;
+  );
+  const [detailWidth, setDetailWidth] = useStickyState(
+    "muro-detail-width",
+    320,
+    {
+      parse: parseDetailWidth,
+      serialize: (value) => String(value),
     }
-
-    const stored = window.localStorage.getItem("muro-detail-width");
-    const parsed = stored ? Number(stored) : NaN;
-    const saved = Number.isNaN(parsed) ? 320 : parsed;
-    return saved <= 56 ? 320 : saved;
-  });
-  const [detailCollapsed, setDetailCollapsed] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
+  );
+  const [detailCollapsed, setDetailCollapsed] = useStickyState(
+    "muro-detail-collapsed",
+    false,
+    {
+      parse: (raw) => raw === "true",
+      serialize: (value) => String(value),
     }
-
-    return window.localStorage.getItem("muro-detail-collapsed") === "true";
-  });
+  );
   const detailWidthRef = useRef(detailWidth);
   const [isPlaying, setIsPlaying] = useState(true);
   const [shuffleEnabled, setShuffleEnabled] = useState(false);
@@ -404,85 +551,6 @@ function App() {
     () => columns.filter((column) => column.visible),
     [columns]
   );
-  const contextMenu = useMemo(() => {
-    if (typeof document === "undefined" || !openMenuId) {
-      return null;
-    }
-
-    return createPortal(
-      <div
-        className="fixed z-50 w-44 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] py-2 text-left text-sm shadow-[var(--shadow-md)]"
-        onClick={(event) => event.stopPropagation()}
-        style={{ left: menuPosition.x, top: menuPosition.y }}
-      >
-        {menuSelection.length > 1 && (
-          <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            {menuSelection.length} selected
-          </div>
-        )}
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-          <Play className="h-4 w-4" />
-          {t("menu.play")}
-        </button>
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-          <SkipForward className="h-4 w-4" />
-          {t("menu.playNext")}
-        </button>
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-          <ListChecks className="h-4 w-4" />
-          {t("menu.addQueue")}
-        </button>
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-          <ListPlus className="h-4 w-4" />
-          {t("menu.addPlaylist")}
-        </button>
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-          <Pencil className="h-4 w-4" />
-          {t("menu.edit")}
-        </button>
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-[var(--panel-muted)]">
-          <Trash2 className="h-4 w-4" />
-          {t("menu.delete")}
-        </button>
-      </div>,
-      document.body
-    );
-  }, [menuPosition.x, menuPosition.y, menuSelection.length, openMenuId]);
-  const columnsMenu = useMemo(() => {
-    if (typeof document === "undefined" || !showColumns) {
-      return null;
-    }
-
-    // @ts-ignore
-    return createPortal(
-      <div
-        className="fixed z-50 w-52 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3 text-sm shadow-[var(--shadow-md)]"
-        onClick={(event) => event.stopPropagation()}
-        style={{ left: columnsMenuPosition.x, top: columnsMenuPosition.y }}
-      >
-        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-          {t("columns.visible")}
-        </div>
-        <div className="mt-3 space-y-2">
-          {columns.map((column) => (
-            <label
-              key={column.key}
-              className="flex cursor-pointer items-center gap-2 text-sm"
-            >
-              <input
-                checked={column.visible}
-                className="h-4 w-4 accent-[var(--accent)]"
-                onChange={() => toggleColumn(column.key)}
-                type="checkbox"
-              />
-              <span>{t(column.labelKey)}</span>
-            </label>
-          ))}
-        </div>
-      </div>,
-      document.body
-    );
-  }, [columns, columnsMenuPosition.x, columnsMenuPosition.y, showColumns]);
   const tableWidth = useMemo(() => {
     return (
       visibleColumns.reduce((total, column) => total + column.width, 0)
@@ -500,22 +568,6 @@ function App() {
     overscan: 50,
   });
   const virtualRows = rowVirtualizer.getVirtualItems();
-  const resizeState = useRef<
-    | {
-        key: string;
-        startX: number;
-        startWidth: number;
-      }
-    | null
-  >(null);
-  const panelResizeState = useRef<
-    | {
-        side: "left" | "right";
-        startX: number;
-        startWidth: number;
-      }
-    | null
-  >(null);
 
   const toggleColumn = (key: string) => {
     setColumns((current) =>
@@ -549,14 +601,14 @@ function App() {
   const clampRating = (value: number) =>
     Math.max(0, Math.min(5, Math.round(value * 2) / 2));
 
-  const handleRatingChange = (id: string, rating: number) => {
+  const handleRatingChange = useCallback((id: string, rating: number) => {
     const nextRating = clampRating(rating);
     setTracks((current) =>
       current.map((track) =>
         track.id === id ? { ...track, rating: nextRating } : track
       )
     );
-  };
+  }, [clampRating]);
 
   const clampIndex = (index: number) =>
     Math.max(0, Math.min(displayedTracks.length - 1, index));
@@ -694,16 +746,14 @@ function App() {
     });
   };
 
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!resizeState.current) {
-        return;
-      }
+  const startColumnResize = (event: React.MouseEvent, key: string, width: number) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
 
-      const { key, startX, startWidth } = resizeState.current;
-      const delta = event.clientX - startX;
-      const nextWidth = Math.max(80, startWidth + delta);
-
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const nextWidth = Math.max(80, width + delta);
       setColumns((current) =>
         current.map((column) =>
           column.key === key ? { ...column, width: nextWidth } : column
@@ -711,16 +761,24 @@ function App() {
       );
     };
 
-    const handlePanelResize = (event: MouseEvent) => {
-      if (!panelResizeState.current) {
-        return;
-      }
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
 
-      const { side, startX, startWidth } = panelResizeState.current;
-      const delta = event.clientX - startX;
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const startPanelResize = (event: React.MouseEvent, side: "left" | "right", width: number) => {
+    event.preventDefault();
+    const startX = event.clientX;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
       const nextWidth = Math.max(
         200,
-        side === "right" ? startWidth - delta : startWidth + delta
+        side === "right" ? width - delta : width + delta
       );
 
       if (side === "left") {
@@ -731,73 +789,17 @@ function App() {
     };
 
     const handleMouseUp = () => {
-      resizeState.current = null;
-      panelResizeState.current = null;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
     };
 
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mousemove", handlePanelResize);
     window.addEventListener("mouseup", handleMouseUp);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mousemove", handlePanelResize);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem("muro-columns", JSON.stringify(columns));
-  }, [columns]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem("muro-theme", theme);
-  }, [theme]);
+  };
 
   useEffect(() => {
     setI18nLocale(locale);
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem("muro-locale", locale);
   }, [locale]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem("muro-sidebar-width", String(sidebarWidth));
-  }, [sidebarWidth]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem("muro-detail-width", String(detailWidth));
-  }, [detailWidth]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    window.localStorage.setItem(
-      "muro-detail-collapsed",
-      String(detailCollapsed)
-    );
-  }, [detailCollapsed]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -1053,12 +1055,7 @@ function App() {
           className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
           style={{ left: sidebarWidth - 1 }}
           onMouseDown={(event) => {
-            event.preventDefault();
-            panelResizeState.current = {
-              side: "left",
-              startX: event.clientX,
-              startWidth: sidebarWidth,
-            };
+            startPanelResize(event, "left", sidebarWidth);
           }}
           role="presentation"
         />
@@ -1066,12 +1063,7 @@ function App() {
           className="absolute top-0 z-20 h-full w-2 cursor-col-resize bg-transparent transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
           style={{ right: detailWidth - 1 }}
           onMouseDown={(event) => {
-            event.preventDefault();
-            panelResizeState.current = {
-              side: "right",
-              startX: event.clientX,
-              startWidth: detailWidth,
-            };
+            startPanelResize(event, "right", detailWidth);
           }}
           role="presentation"
         />
@@ -1242,8 +1234,76 @@ function App() {
               </div>
             )}
           </header>
-          {contextMenu}
-          {columnsMenu}
+          {openMenuId &&
+            typeof document !== "undefined" &&
+            createPortal(
+              <div
+                className="fixed z-50 w-44 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] py-2 text-left text-sm shadow-[var(--shadow-md)]"
+                onClick={(event) => event.stopPropagation()}
+                style={{ left: menuPosition.x, top: menuPosition.y }}
+              >
+                {menuSelection.length > 1 && (
+                  <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    {menuSelection.length} selected
+                  </div>
+                )}
+                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                  <Play className="h-4 w-4" />
+                  {t("menu.play")}
+                </button>
+                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                  <SkipForward className="h-4 w-4" />
+                  {t("menu.playNext")}
+                </button>
+                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                  <ListChecks className="h-4 w-4" />
+                  {t("menu.addQueue")}
+                </button>
+                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                  <ListPlus className="h-4 w-4" />
+                  {t("menu.addPlaylist")}
+                </button>
+                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
+                  <Pencil className="h-4 w-4" />
+                  {t("menu.edit")}
+                </button>
+                <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-[var(--panel-muted)]">
+                  <Trash2 className="h-4 w-4" />
+                  {t("menu.delete")}
+                </button>
+              </div>,
+              document.body
+            )}
+          {showColumns &&
+            typeof document !== "undefined" &&
+            createPortal(
+              <div
+                className="fixed z-50 w-52 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3 text-sm shadow-[var(--shadow-md)]"
+                onClick={(event) => event.stopPropagation()}
+                style={{ left: columnsMenuPosition.x, top: columnsMenuPosition.y }}
+              >
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                  {t("columns.visible")}
+                </div>
+                <div className="mt-3 space-y-2">
+                  {columns.map((column) => (
+                    <label
+                      key={column.key}
+                      className="flex cursor-pointer items-center gap-2 text-sm"
+                    >
+                      <input
+                        checked={column.visible}
+                        className="h-4 w-4 accent-[var(--accent)]"
+                        onChange={() => toggleColumn(column.key)}
+                        type="checkbox"
+                      />
+                      <span>{t(column.labelKey)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>,
+              document.body
+            )}
 
           <section className="flex min-h-0 flex-1 flex-col bg-[var(--panel-bg)] px-6 pb-4 pt-4">
             {isSettings ? (
@@ -1396,17 +1456,11 @@ function App() {
                                 event.stopPropagation();
                                 autoFitColumn(column.key);
                               }}
-                              onMouseDown={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                resizeState.current = {
-                                  key: column.key,
-                                  startX: event.clientX,
-                                  startWidth: column.width,
-                                };
-                              }}
-                              role="presentation"
-                            />
+                            onMouseDown={(event) => {
+                              startColumnResize(event, column.key, column.width);
+                            }}
+                            role="presentation"
+                          />
                           </div>
                         ))}
                       </div>
@@ -1424,7 +1478,7 @@ function App() {
                       const isSelected = selectedIds.has(track.id);
                       return (
                         <div
-                          key={track.id}
+                          key={virtualRow.key}
                           className={`group grid select-none items-center border-t border-[var(--panel-border)] ${
                             isSelected
                               ? "bg-[var(--accent-soft)]"
@@ -1478,160 +1532,14 @@ function App() {
                             const value = track[column.key as keyof typeof track];
                             if (column.key === "rating") {
                               const currentRating = Number(value) || 0;
-                              const displayRating =
-                                hoveredRatings[track.id] ?? currentRating;
                               return (
-                                <div
+                                <RatingCell
                                   key={`${track.id}-${column.key}`}
-                                  className="h-12 px-4 py-3"
-                                  title={`${currentRating} / 5`}
-                                  onMouseLeave={() => {
-                                    setHoveredRatings((current) => ({
-                                      ...current,
-                                      [track.id]: null,
-                                    }));
-                                  }}
-                                  role="cell"
-                                >
-                                  <div
-                                    className="flex items-center gap-1 rounded-[var(--radius-sm)] -ml-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-                                    aria-label={`Rating for ${track.title}`}
-                                    role="slider"
-                                    tabIndex={0}
-                                    aria-valuemin={0}
-                                    aria-valuemax={5}
-                                    aria-valuenow={currentRating}
-                                    aria-valuetext={`${currentRating} out of 5`}
-                                    onKeyDown={(event) => {
-                                      const step = 0.5;
-                                      if (
-                                        event.key === "ArrowRight" ||
-                                        event.key === "ArrowUp"
-                                      ) {
-                                        event.preventDefault();
-                                        handleRatingChange(
-                                          track.id,
-                                          currentRating + step
-                                        );
-                                      }
-                                      if (
-                                        event.key === "ArrowLeft" ||
-                                        event.key === "ArrowDown"
-                                      ) {
-                                        event.preventDefault();
-                                        handleRatingChange(
-                                          track.id,
-                                          currentRating - step
-                                        );
-                                      }
-                                      if (event.key === "Home") {
-                                        event.preventDefault();
-                                        handleRatingChange(track.id, 0);
-                                      }
-                                      if (event.key === "End") {
-                                        event.preventDefault();
-                                        handleRatingChange(track.id, 5);
-                                      }
-                                    }}
-                                  >
-                                    <button
-                                      aria-label="Clear rating"
-                                      className="flex h-5 w-5 items-center justify-center opacity-0"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        handleRatingChange(track.id, 0);
-                                      }}
-                                      onMouseMove={() => {
-                                        setHoveredRatings((current) => ({
-                                          ...current,
-                                          [track.id]: 0,
-                                        }));
-                                      }}
-                                      tabIndex={-1}
-                                      title="Clear rating"
-                                      type="button"
-                                    >
-                                      <svg
-                                        className="h-5 w-5"
-                                        viewBox="0 0 24 24"
-                                        aria-hidden="true"
-                                      >
-                                        <path
-                                          d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                                          fill="var(--text-muted)"
-                                        />
-                                      </svg>
-                                    </button>
-                                    {[1, 2, 3, 4, 5].map((star) => {
-                                      const fill = Math.max(
-                                        0,
-                                        Math.min(1, displayRating - (star - 1))
-                                      );
-                                      const clipId = `rating-${track.id}-${star}`;
-                                      return (
-                                        <button
-                                          key={star}
-                                          aria-hidden="true"
-                                          className="relative h-5 w-5 select-none focus:outline-none"
-                                          onClick={(event) => {
-                                            event.stopPropagation();
-                                            const rect =
-                                              event.currentTarget.getBoundingClientRect();
-                                            const isHalf =
-                                              event.clientX - rect.left <
-                                              rect.width / 2;
-                                            handleRatingChange(
-                                              track.id,
-                                              isHalf ? star - 0.5 : star
-                                            );
-                                          }}
-                                          onMouseMove={(event) => {
-                                            const rect =
-                                              event.currentTarget.getBoundingClientRect();
-                                            const isHalf =
-                                              event.clientX - rect.left <
-                                              rect.width / 2;
-                                            const nextRating = isHalf
-                                              ? star - 0.5
-                                              : star;
-                                            setHoveredRatings((current) => ({
-                                              ...current,
-                                              [track.id]: nextRating,
-                                            }));
-                                          }}
-                                          type="button"
-                                        >
-                                          <svg
-                                            className="h-5 w-5"
-                                            viewBox="0 0 24 24"
-                                            aria-hidden="true"
-                                          >
-                                            <defs>
-                                              <clipPath id={clipId}>
-                                                <rect
-                                                  x="0"
-                                                  y="0"
-                                                  width={fill * 24}
-                                                  height="24"
-                                                />
-                                              </clipPath>
-                                            </defs>
-                                            <path
-                                              d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                                              fill="var(--text-muted)"
-                                            />
-                                            <g clipPath={`url(#${clipId})`}>
-                                              <path
-                                                d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                                                fill="var(--accent)"
-                                              />
-                                            </g>
-                                          </svg>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
+                                  trackId={track.id}
+                                  title={track.title}
+                                  rating={currentRating}
+                                  onRate={handleRatingChange}
+                                />
                               );
                             }
                             return (
