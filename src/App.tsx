@@ -739,7 +739,7 @@ function App() {
               />
               {viewConfig.trackTable && importProgress && (
                 <div className="border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
-                  <div className="mb-[var(--spacing-xs)] text-[var(--font-size-xs)] font-semibold text-[var(--color-text-secondary)]">
+                  <div className="mb-[var(--spacing-xs)] text-[length:var(--font-size-xs)] font-semibold text-[color:var(--color-text-secondary)]">
                     {importProgress.phase === "scanning" || importProgress.total === 0
                       ? "Scanning files..."
                       : `${importProgress.imported} of ${importProgress.total} songs imported`}

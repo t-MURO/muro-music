@@ -162,7 +162,7 @@ export const TableHeader = ({
     >
       <div className="relative" style={{ width: "100%", minWidth: tableWidth }}>
         <div
-          className="grid text-left text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]"
+          className="grid text-left text-[length:var(--font-size-xs)] font-semibold uppercase tracking-wider text-[color:var(--color-text-muted)]"
           style={{ gridTemplateColumns }}
           role="row"
         >
@@ -245,7 +245,7 @@ export const TableHeader = ({
               <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--color-border)] opacity-40" />
               <span
                 className="absolute right-0 top-0 h-full w-4 cursor-col-resize"
-                data-resize-handle
+                data-resize-handle="true"
                 onDoubleClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
