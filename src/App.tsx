@@ -1,847 +1,133 @@
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Columns2,
-  Folder,
-  Inbox,
-  ListChecks,
-  ListMusic,
-  ListPlus,
-  Pause,
-  Pencil,
-  Play,
-  Repeat,
-  Repeat1,
-  Search,
-  Settings,
-  Shuffle,
-  SkipBack,
-  SkipForward,
-  Speaker,
-  Trash2,
-} from "lucide-react";
-import {invoke} from "@tauri-apps/api/core";
-import {useVirtualizer, type VirtualItem} from "@tanstack/react-virtual";
-import {listen, type UnlistenFn} from "@tauri-apps/api/event";
-import {getCurrentWindow} from "@tauri-apps/api/window";
-import {createPortal} from "react-dom";
-import {memo, useCallback, useEffect, useMemo, useRef, useState} from "react";
-import {isLocale, type Locale, localeOptions, type MessageKey, setLocale as setI18nLocale, t,} from "./i18n";
-import {commandManager, type Command} from "./command-manager/commandManager";
-
-const themes = [
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-  { id: "graphite", label: "Graphite" },
-  { id: "sage", label: "Sage" },
-  { id: "ember", label: "Ember" },
-  { id: "midnight", label: "Midnight" },
-  { id: "ocean", label: "Ocean" },
-  { id: "terminal", label: "Terminal" },
-];
-
-type ColumnConfig = {
-  key: "title" | "artist" | "album" | "duration" | "bitrate" | "rating";
-  labelKey: MessageKey;
-  visible: boolean;
-  width: number;
-};
-
-const baseColumns: ColumnConfig[] = [
-  { key: "title", labelKey: "columns.title", visible: true, width: 240 },
-  { key: "artist", labelKey: "columns.artist", visible: true, width: 180 },
-  { key: "album", labelKey: "columns.album", visible: true, width: 200 },
-  { key: "duration", labelKey: "columns.duration", visible: true, width: 120 },
-  { key: "bitrate", labelKey: "columns.bitrate", visible: true, width: 120 },
-  { key: "rating", labelKey: "columns.rating", visible: true, width: 110 },
-];
-
-const initialTracks = [
-  {
-    id: "t1",
-    title: "Midnight Avenue",
-    artist: "Kara Lines",
-    album: "City Circuit",
-    duration: "4:12",
-    bitrate: "320 kbps",
-    rating: 5,
-  },
-  {
-    id: "t2",
-    title: "Glass Elevator",
-    artist: "Nova Drift",
-    album: "Signal Bloom",
-    duration: "3:41",
-    bitrate: "FLAC",
-    rating: 4,
-  },
-  {
-    id: "t3",
-    title: "Safe Harbor",
-    artist: "Southbound",
-    album: "Low Tide",
-    duration: "5:06",
-    bitrate: "256 kbps",
-    rating: 3,
-  },
-  {
-    id: "t4",
-    title: "Parallel Lines",
-    artist: "Civic Night",
-    album: "North End",
-    duration: "2:58",
-    bitrate: "FLAC",
-    rating: 4,
-  },
-  {
-    id: "t5",
-    title: "Signal Coast",
-    artist: "Wired Atlas",
-    album: "Harborlight",
-    duration: "3:22",
-    bitrate: "320 kbps",
-    rating: 4,
-  },
-  {
-    id: "t6",
-    title: "Afterglow Arcade",
-    artist: "Juno Slate",
-    album: "Neon Hours",
-    duration: "4:05",
-    bitrate: "FLAC",
-    rating: 5,
-  },
-  {
-    id: "t7",
-    title: "Riverstone",
-    artist: "Pine & West",
-    album: "Granite Lines",
-    duration: "3:57",
-    bitrate: "256 kbps",
-    rating: 3,
-  },
-  {
-    id: "t8",
-    title: "Lumen Drive",
-    artist: "Arc Spring",
-    album: "City Circuit",
-    duration: "2:47",
-    bitrate: "320 kbps",
-    rating: 4,
-  },
-  {
-    id: "t9",
-    title: "Crimson Radio",
-    artist: "Violet Transit",
-    album: "Signal Bloom",
-    duration: "3:18",
-    bitrate: "FLAC",
-    rating: 5,
-  },
-  {
-    id: "t10",
-    title: "Open Air",
-    artist: "Southbound",
-    album: "Low Tide",
-    duration: "4:44",
-    bitrate: "256 kbps",
-    rating: 4,
-  },
-  {
-    id: "t11",
-    title: "Atlas Room",
-    artist: "Kara Lines",
-    album: "City Circuit",
-    duration: "3:33",
-    bitrate: "320 kbps",
-    rating: 5,
-  },
-  {
-    id: "t12",
-    title: "Signal Drift",
-    artist: "Nova Drift",
-    album: "Signal Bloom",
-    duration: "3:09",
-    bitrate: "FLAC",
-    rating: 4,
-  },
-  {
-    id: "t13",
-    title: "Quiet Harbor",
-    artist: "Southbound",
-    album: "Low Tide",
-    duration: "5:12",
-    bitrate: "256 kbps",
-    rating: 3,
-  },
-  {
-    id: "t14",
-    title: "Civic Light",
-    artist: "Civic Night",
-    album: "North End",
-    duration: "2:53",
-    bitrate: "320 kbps",
-    rating: 4,
-  },
-  {
-    id: "t15",
-    title: "Beacon Loop",
-    artist: "Wired Atlas",
-    album: "Harborlight",
-    duration: "3:51",
-    bitrate: "FLAC",
-    rating: 5,
-  },
-  {
-    id: "t16",
-    title: "Silverline",
-    artist: "Juno Slate",
-    album: "Neon Hours",
-    duration: "4:20",
-    bitrate: "320 kbps",
-    rating: 4,
-  },
-  {
-    id: "t17",
-    title: "Westbound",
-    artist: "Pine & West",
-    album: "Granite Lines",
-    duration: "3:36",
-    bitrate: "256 kbps",
-    rating: 3,
-  },
-  {
-    id: "t18",
-    title: "Night Signal",
-    artist: "Arc Spring",
-    album: "City Circuit",
-    duration: "2:59",
-    bitrate: "320 kbps",
-    rating: 4,
-  },
-  {
-    id: "t19",
-    title: "Terminal Echo",
-    artist: "Violet Transit",
-    album: "Signal Bloom",
-    duration: "3:27",
-    bitrate: "FLAC",
-    rating: 5,
-  },
-  {
-    id: "t20",
-    title: "Tidepool",
-    artist: "Southbound",
-    album: "Low Tide",
-    duration: "4:02",
-    bitrate: "256 kbps",
-    rating: 4,
-  },
-  {
-    id: "t21",
-    title: "Highline",
-    artist: "Kara Lines",
-    album: "City Circuit",
-    duration: "3:48",
-    bitrate: "320 kbps",
-    rating: 5,
-  },
-  {
-    id: "t22",
-    title: "Bloomfield",
-    artist: "Nova Drift",
-    album: "Signal Bloom",
-    duration: "3:12",
-    bitrate: "FLAC",
-    rating: 4,
-  },
-  {
-    id: "t23",
-    title: "Low Lantern",
-    artist: "Southbound",
-    album: "Low Tide",
-    duration: "5:21",
-    bitrate: "256 kbps",
-    rating: 3,
-  },
-  {
-    id: "t24",
-    title: "Northbound",
-    artist: "Civic Night",
-    album: "North End",
-    duration: "2:46",
-    bitrate: "320 kbps",
-    rating: 4,
-  },
-];
-
-const initialInboxTracks = initialTracks.slice(0, 4).map((track) => ({
-  ...track,
-  id: `${track.id}-inbox`,
-}));
-
-type StickyStateOptions<T> = {
-  parse?: (raw: string) => T;
-  serialize?: (value: T) => string;
-};
-
-const useStickyState = <T,>(
-  key: string,
-  defaultValue: T,
-  options: StickyStateOptions<T> = {}
-) => {
-  const {parse, serialize} = options;
-  const [state, setState] = useState<T>(() => {
-    if (typeof window === "undefined") {
-      return defaultValue;
-    }
-
-    const stored = window.localStorage.getItem(key);
-    if (stored === null) {
-      return defaultValue;
-    }
-
-    try {
-      return parse ? parse(stored) : (JSON.parse(stored) as T);
-    } catch {
-      return defaultValue;
-    }
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const serialized = serialize ? serialize(state) : JSON.stringify(state);
-    window.localStorage.setItem(key, serialized);
-  }, [key, serialize, state]);
-
-  return [state, setState] as const;
-};
-
-const parseColumns = (raw: string) => {
-  try {
-    const parsed = JSON.parse(raw) as typeof baseColumns;
-    return baseColumns.map((column) => {
-      const saved = parsed.find((item) => item.key === column.key);
-      return saved ? { ...column, ...saved, labelKey: column.labelKey } : column;
-    });
-  } catch {
-    return baseColumns;
-  }
-};
-
-const parseNumber = (fallback: number) => (raw: string) => {
-  const parsed = Number(raw);
-  return Number.isNaN(parsed) ? fallback : parsed;
-};
-
-const parseDetailWidth = (raw: string) => {
-  const parsed = Number(raw);
-  const saved = Number.isNaN(parsed) ? 320 : parsed;
-  return saved <= 56 ? 320 : saved;
-};
-
-type RatingCellProps = {
-  trackId: string;
-  title: string;
-  rating: number;
-  onRate: (id: string, rating: number) => void;
-};
-
-const RatingCell = memo(({trackId, title, rating, onRate}: RatingCellProps) => {
-  const [hoverValue, setHoverValue] = useState<number | null>(null);
-  const displayRating = hoverValue ?? rating;
-
-  return (
-    <div
-      className="h-12 px-4 py-3"
-      title={`${rating} / 5`}
-      onMouseLeave={() => setHoverValue(null)}
-      role="cell"
-    >
-      <div
-        className="flex items-center gap-1 rounded-[var(--radius-sm)] -ml-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-        aria-label={`Rating for ${title}`}
-        role="slider"
-        tabIndex={0}
-        aria-valuemin={0}
-        aria-valuemax={5}
-        aria-valuenow={rating}
-        aria-valuetext={`${rating} out of 5`}
-        onKeyDown={(event) => {
-          const step = 0.5;
-          if (event.key === "ArrowRight" || event.key === "ArrowUp") {
-            event.preventDefault();
-            onRate(trackId, rating + step);
-          }
-          if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
-            event.preventDefault();
-            onRate(trackId, rating - step);
-          }
-          if (event.key === "Home") {
-            event.preventDefault();
-            onRate(trackId, 0);
-          }
-          if (event.key === "End") {
-            event.preventDefault();
-            onRate(trackId, 5);
-          }
-        }}
-      >
-        <button
-          aria-label="Clear rating"
-          className="flex h-5 w-5 items-center justify-center opacity-0"
-          onClick={(event) => {
-            event.stopPropagation();
-            onRate(trackId, 0);
-          }}
-          onMouseMove={() => setHoverValue(0)}
-          tabIndex={-1}
-          title="Clear rating"
-          type="button"
-        >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-              fill="var(--text-muted)"
-            />
-          </svg>
-        </button>
-        {[1, 2, 3, 4, 5].map((star) => {
-          const fill = Math.max(0, Math.min(1, displayRating - (star - 1)));
-          const clipId = `rating-${trackId}-${star}`;
-          return (
-            <button
-              key={star}
-              aria-hidden="true"
-              className="relative h-5 w-5 select-none focus:outline-none"
-              onClick={(event) => {
-                event.stopPropagation();
-                const rect = event.currentTarget.getBoundingClientRect();
-                const isHalf = event.clientX - rect.left < rect.width / 2;
-                onRate(trackId, isHalf ? star - 0.5 : star);
-              }}
-              onMouseMove={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect();
-                const isHalf = event.clientX - rect.left < rect.width / 2;
-                setHoverValue(isHalf ? star - 0.5 : star);
-              }}
-              type="button"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-                <defs>
-                  <clipPath id={clipId}>
-                    <rect x="0" y="0" width={fill * 24} height="24" />
-                  </clipPath>
-                </defs>
-                <path
-                  d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                  fill="var(--text-muted)"
-                />
-                <g clipPath={`url(#${clipId})`}>
-                  <path
-                    d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                    fill="var(--accent)"
-                  />
-                </g>
-              </svg>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-});
+import { useCallback, useEffect, useState } from "react";
+import { AppLayout } from "./components/layout/AppLayout";
+import { DetailPanel } from "./components/layout/DetailPanel";
+import { LibraryHeader } from "./components/layout/LibraryHeader";
+import { PlayerBar } from "./components/layout/PlayerBar";
+import { SettingsPanel } from "./components/layout/SettingsPanel";
+import { Sidebar } from "./components/layout/Sidebar";
+import { ColumnsMenu } from "./components/library/ColumnsMenu";
+import { InboxBanner } from "./components/library/InboxBanner";
+import { TrackTable } from "./components/library/TrackTable";
+import { ContextMenu } from "./components/ui/ContextMenu";
+import { DragOverlay } from "./components/ui/DragOverlay";
+import { useLibraryCommands } from "./hooks/useLibraryCommands";
+import { useLibraryView, type LibraryView } from "./hooks/useLibraryView";
+import { initialInboxTracks, initialTracks, themes } from "./data/library";
+import { useAppPreferences } from "./hooks/useAppPreferences";
+import { useColumns } from "./hooks/useColumns";
+import { useColumnsMenu } from "./hooks/useColumnsMenu";
+import { useContextMenu } from "./hooks/useContextMenu";
+import { useDetailPanel } from "./hooks/useDetailPanel";
+import { useNativeDrag } from "./hooks/useNativeDrag";
+import { usePlaylistDrag } from "./hooks/usePlaylistDrag";
+import { usePlayerState } from "./hooks/usePlayerState";
+import { useSelection } from "./hooks/useSelection";
+import { useSidebarPanel } from "./hooks/useSidebarPanel";
+import { useSidebarData } from "./hooks/useSidebarData";
+import { useTrackRatings } from "./hooks/useTrackRatings";
+import { localeOptions } from "./i18n";
+import { backfillSearchText } from "./utils/tauriDb";
+import type { Playlist } from "./types/library";
 
 function App() {
-  const [view, setView] = useState<"library" | "inbox" | "settings">(
-    "library"
-  );
+  const [view, setView] = useState<LibraryView>("library");
   const [tracks, setTracks] = useState(() => initialTracks);
   const [inboxTracks, setInboxTracks] = useState(() => initialInboxTracks);
-  const isLibrary = view === "library";
-  const isInbox = view === "inbox";
-  const isSettings = view === "settings";
-  const title = isLibrary
-    ? t("header.library")
-    : isInbox
-    ? t("header.inbox")
-    : t("header.settings");
-  const [isDragging, setIsDragging] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
-  const dragCounter = useRef(0);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
-  const [theme, setTheme] = useStickyState("muro-theme", "light", {
-    parse: (raw) => raw || "light",
-    serialize: (value) => String(value),
-  });
-  const [locale, setLocale] = useStickyState<Locale>("muro-locale", "en", {
-    parse: (raw) => (isLocale(raw) ? raw : "en"),
-    serialize: (value) => value,
-  });
-  const [columns, setColumns] = useStickyState("muro-columns", baseColumns, {
-    parse: parseColumns,
-    serialize: (value) => JSON.stringify(value),
-  });
-  const [showColumns, setShowColumns] = useState(false);
-  const [columnsMenuPosition, setColumnsMenuPosition] = useState({ x: 0, y: 0 });
-  const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [menuSelection, setMenuSelection] = useState<string[]>([]);
+  const { isInbox, isSettings, subtitle, title } = useLibraryView(view);
+
+  const { locale, setLocale, setTheme, theme } = useAppPreferences();
   const displayedTracks = isInbox ? inboxTracks : tracks;
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [playlists, setPlaylists] = useState(() => [
+  const { selectedIds, activeIndex, handleRowSelect, selectAll, clearSelection } =
+    useSelection(displayedTracks);
+  const { autoFitColumn, columns, handleColumnResize, toggleColumn } = useColumns({
+    tracks,
+  });
+  const { closeMenu, menuPosition, menuSelection, openForRow, openMenuId } =
+    useContextMenu({
+      selectedIds,
+      onSelectRow: handleRowSelect,
+    });
+  const {
+    closeMenu: closeColumnsMenu,
+    isOpen: showColumns,
+    position: columnsMenuPosition,
+    toggleAt: toggleColumnsMenu,
+  } = useColumnsMenu();
+  const [playlists, setPlaylists] = useState<Playlist[]>(() => [
     { id: "p-01", name: "Late Night Routes", trackIds: ["t1", "t4"] },
     { id: "p-02", name: "Studio Favorites", trackIds: ["t2"] },
     { id: "p-03", name: "Inbox Review", trackIds: [] },
     { id: "p-04", name: "Foggy Morning", trackIds: ["t3", "t6"] },
   ]);
-  const [draggingPlaylistId, setDraggingPlaylistId] = useState<string | null>(
-    null
-  );
-  const [isInternalDrag, setIsInternalDrag] = useState(false);
-  const isInternalDragRef = useRef(false);
-  const suppressOverlayUntilRef = useRef(0);
-  const [nativeDropStatus, setNativeDropStatus] = useState<string | null>(null);
-  const nativeDropTimerRef = useRef<number | null>(null);
-  const dragPayloadRef = useRef<string[]>([]);
-  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-  const dragCandidateRef = useRef<string[]>([]);
-  const importSequenceRef = useRef(0);
-  const nativeDragSetupRef = useRef(false);
-  const [dragIndicator, setDragIndicator] = useState<
-    | {
-        x: number;
-        y: number;
-        count: number;
-      }
-    | null
-  >(null);
-  const [sidebarWidth, setSidebarWidth] = useStickyState(
-    "muro-sidebar-width",
-    220,
-    {
-      parse: parseNumber(220),
-      serialize: (value) => String(value),
-    }
-  );
-  const [detailWidth, setDetailWidth] = useStickyState(
-    "muro-detail-width",
-    320,
-    {
-      parse: parseDetailWidth,
-      serialize: (value) => String(value),
-    }
-  );
-  const [detailCollapsed, setDetailCollapsed] = useStickyState(
-    "muro-detail-collapsed",
-    false,
-    {
-      parse: (raw) => raw === "true",
-      serialize: (value) => String(value),
-    }
-  );
-  const detailWidthRef = useRef(detailWidth);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [shuffleEnabled, setShuffleEnabled] = useState(false);
-  const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
-  const [seekPosition, setSeekPosition] = useState(34);
-  const visibleColumns = useMemo(
-    () => columns.filter((column) => column.visible),
-    [columns]
-  );
-  const tableWidth = useMemo(() => {
-    return (
-      visibleColumns.reduce((total, column) => total + column.width, 0)
-    );
-  }, [visibleColumns]);
-  const tableContainerRef = useRef<HTMLDivElement | null>(null);
-  const gridTemplateColumns = useMemo(
-    () => visibleColumns.map((column) => `${column.width}px`).join(" "),
-    [visibleColumns]
-  );
-  const rowVirtualizer = useVirtualizer({
-    count: displayedTracks.length,
-    getScrollElement: () => tableContainerRef.current,
-    estimateSize: () => 48,
-    overscan: 50,
+  const { sidebarWidth, startSidebarResize } = useSidebarPanel();
+  const [dbPath, setDbPath] = useState("");
+  const [backfillPending, setBackfillPending] = useState(false);
+  const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
+  const {
+    detailCollapsed,
+    detailWidth,
+    startDetailResize,
+    toggleDetailCollapsed,
+  } = useDetailPanel();
+  const {
+    isPlaying,
+    repeatMode,
+    seekPosition,
+    setSeekPosition,
+    shuffleEnabled,
+    togglePlay,
+    toggleRepeat,
+    toggleShuffle,
+  } = usePlayerState();
+
+  const { handleRatingChange } = useTrackRatings({ setTracks });
+
+  const { handleImportPaths, handlePlaylistDrop } = useLibraryCommands({
+    setPlaylists,
+    setInboxTracks,
   });
-  const virtualRows = rowVirtualizer.getVirtualItems();
 
-  const toggleColumn = (key: string) => {
-    setColumns((current) =>
-      current.map((column) =>
-        column.key === key
-          ? { ...column, visible: !column.visible }
-          : column
-      )
-    );
-  };
+  const {
+    dragIndicator,
+    draggingPlaylistId,
+    isImportDragAllowed,
+    isInternalDrag,
+    onPlaylistDragEnter,
+    onPlaylistDragLeave,
+    onPlaylistDragOver,
+    onPlaylistDropEvent,
+    onRowMouseDown,
+  } = usePlaylistDrag({ selectedIds, onDropToPlaylist: handlePlaylistDrop });
 
-  const autoFitColumn = (key: string) => {
-    const column = columns.find((item) => item.key === key);
-    if (!column) {
-      return;
-    }
+  const sidebarProps = useSidebarData({
+    view,
+    tracksCount: tracks.length,
+    inboxCount: inboxTracks.length,
+    playlists,
+    draggingPlaylistId,
+    onViewChange: setView,
+    onPlaylistDrop: onPlaylistDropEvent,
+    onPlaylistDragEnter,
+    onPlaylistDragLeave,
+    onPlaylistDragOver,
+  });
 
-    const maxLength = Math.max(
-      t(column.labelKey as typeof column.labelKey).length,
-      ...tracks.map((track) => String(track[key as keyof typeof track]).length)
-    );
-    const nextWidth = Math.min(360, Math.max(120, maxLength * 8 + 48));
+  const { isDragging, nativeDropStatus } = useNativeDrag(
+    handleImportPaths,
+    isImportDragAllowed
+  );
 
-    setColumns((current) =>
-      current.map((item) =>
-        item.key === key ? { ...item, width: nextWidth } : item
-      )
-    );
-  };
-
-  const clampRating = (value: number) =>
-    Math.max(0, Math.min(5, Math.round(value * 2) / 2));
-
-  const handleRatingChange = useCallback((id: string, rating: number) => {
-    const nextRating = clampRating(rating);
-    setTracks((current) =>
-      current.map((track) =>
-        track.id === id ? { ...track, rating: nextRating } : track
-      )
-    );
-  }, [clampRating]);
-
-  const clampIndex = (index: number) =>
-    Math.max(0, Math.min(displayedTracks.length - 1, index));
-  const isImportDragAllowed = () =>
-    !isInternalDragRef.current &&
-    Date.now() >= suppressOverlayUntilRef.current;
-  const clearNativeDropStatus = useCallback(() => {
-    if (nativeDropTimerRef.current !== null && typeof window !== "undefined") {
-      window.clearTimeout(nativeDropTimerRef.current);
-      nativeDropTimerRef.current = null;
-    }
-    setNativeDropStatus(null);
-  }, []);
-  const scheduleNativeDropStatus = useCallback((message: string) => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    if (nativeDropTimerRef.current !== null) {
-      window.clearTimeout(nativeDropTimerRef.current);
-    }
-    setNativeDropStatus(message);
-    nativeDropTimerRef.current = window.setTimeout(() => {
-      setNativeDropStatus(null);
-      nativeDropTimerRef.current = null;
-    }, 2000);
-  }, []);
-
-  const handlePlaylistDrop = (playlistId: string, payload?: string[]) => {
-    const incoming = payload?.length ? payload : dragPayloadRef.current;
-    if (incoming.length === 0) {
-      return;
-    }
-
-    let previousIds: string[] | null = null;
-    const command: Command = {
-      label: `Add ${incoming.length} tracks to playlist`,
-      do: () => {
-        setPlaylists((current) =>
-          current.map((playlist) => {
-            if (playlist.id !== playlistId) {
-              return playlist;
-            }
-            previousIds = playlist.trackIds;
-            const nextIds = Array.from(
-              new Set([...playlist.trackIds, ...incoming])
-            );
-            return { ...playlist, trackIds: nextIds };
-          })
-        );
-      },
-      undo: () => {
-        if (!previousIds) {
-          return;
-        }
-        setPlaylists((current) =>
-          current.map((playlist) =>
-            playlist.id === playlistId
-              ? { ...playlist, trackIds: previousIds ?? [] }
-              : playlist
-          )
-        );
-      },
-    };
-
-    commandManager.execute(command);
-  };
-
-  const createImportedTracks = (paths: string[]) =>
-    paths.map((path) => {
-      importSequenceRef.current += 1;
-      const name = path.split("/").pop() ?? path;
-      const title = name.replace(/\.[^/.]+$/, "");
-      return {
-        id: `import-${Date.now()}-${importSequenceRef.current}`,
-        title,
-        artist: "Unknown Artist",
-        album: "Inbox Import",
-        duration: "--:--",
-        bitrate: "--",
-        rating: 0,
-      };
-    });
-
-  useEffect(() => {
-    if (activeIndex === null || displayedTracks.length === 0) {
-      return;
-    }
-    setActiveIndex(clampIndex(activeIndex));
-  }, [activeIndex, displayedTracks.length]);
-
-  const handleImportPaths = async (paths: string[]) => {
-    if (paths.length === 0) {
-      return;
-    }
-
-    const imported = createImportedTracks(paths);
-    const command: Command = {
-      label: `Import ${imported.length} tracks`,
-      do: () => {
-        setInboxTracks((current) => [...imported, ...current]);
-      },
-      undo: () => {
-        const ids = new Set(imported.map((track) => track.id));
-        setInboxTracks((current) => current.filter((track) => !ids.has(track.id)));
-      },
-    };
-    commandManager.execute(command);
-
-    try {
-      const count = await invoke<number>("import_files", { paths });
-      console.info("Import stub accepted files:", count);
-    } catch (error) {
-      console.error("Import stub failed:", error);
-    }
-  };
-
-  const handleRowSelect = (
-    index: number,
-    id: string,
-    options: { isMetaKey?: boolean; isShiftKey?: boolean } = {}
-  ) => {
-    const isMetaKey = options.isMetaKey ?? false;
-    const isShiftKey = options.isShiftKey ?? false;
-
-    setSelectedIds((current) => {
-      const next = new Set(current);
-
-      if (isShiftKey && lastSelectedIndex !== null) {
-        const start = Math.min(lastSelectedIndex, index);
-        const end = Math.max(lastSelectedIndex, index);
-        for (let i = start; i <= end; i += 1) {
-          const track = displayedTracks[i];
-          if (track) {
-            next.add(track.id);
-          }
-        }
-        setLastSelectedIndex(index);
-        setActiveIndex(index);
-      } else if (isMetaKey) {
-        if (next.has(id)) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
-        setLastSelectedIndex(index);
-        setActiveIndex(index);
-      } else {
-        next.clear();
-        next.add(id);
-        setLastSelectedIndex(index);
-        setActiveIndex(index);
-      }
-
-      return next;
-    });
-  };
-
-  const startColumnResize = (event: React.MouseEvent, key: string, width: number) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startX = event.clientX;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const nextWidth = Math.max(80, width + delta);
-      setColumns((current) =>
-        current.map((column) =>
-          column.key === key ? { ...column, width: nextWidth } : column
-        )
-      );
-    };
-
-    const handleMouseUp = () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  };
-
-  const startPanelResize = (event: React.MouseEvent, side: "left" | "right", width: number) => {
-    event.preventDefault();
-    const startX = event.clientX;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const nextWidth = Math.max(
-        200,
-        side === "right" ? width - delta : width + delta
-      );
-
-      if (side === "left") {
-        setSidebarWidth(Math.min(360, nextWidth));
-      } else {
-        setDetailWidth(Math.min(420, nextWidth));
-      }
-    };
-
-    const handleMouseUp = () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  };
-
-  useEffect(() => {
-    setI18nLocale(locale);
-  }, [locale]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
-
-  useEffect(() => {
-    if (detailCollapsed) {
-      return;
-    }
-
-    detailWidthRef.current = detailWidth;
-  }, [detailCollapsed, detailWidth]);
-
-  useEffect(() => {
-    isInternalDragRef.current = isInternalDrag;
-  }, [isInternalDrag]);
+  const handleRowContextMenu = useCallback(
+    (
+      event: React.MouseEvent,
+      trackId: string,
+      index: number,
+      isSelected: boolean
+    ) => {
+      openForRow(event, trackId, index, isSelected);
+    },
+    [openForRow]
+  );
 
   useEffect(() => {
     if (!isInternalDrag) {
@@ -855,933 +141,129 @@ function App() {
     };
   }, [isInternalDrag]);
 
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!dragStartRef.current) {
-        return;
-      }
-
-      const distance = Math.hypot(
-        event.clientX - dragStartRef.current.x,
-        event.clientY - dragStartRef.current.y
-      );
-
-      if (!isInternalDragRef.current && distance > 4) {
-        dragPayloadRef.current = dragCandidateRef.current;
-        setIsInternalDrag(true);
-        suppressOverlayUntilRef.current = Date.now() + 300;
-        setDragIndicator({
-          x: event.clientX,
-          y: event.clientY,
-          count: dragCandidateRef.current.length,
-        });
-      }
-
-      if (isInternalDragRef.current) {
-        setDragIndicator((current) =>
-          current
-            ? { ...current, x: event.clientX, y: event.clientY }
-            : {
-                x: event.clientX,
-                y: event.clientY,
-                count: dragPayloadRef.current.length,
-              }
-        );
-        const target = document
-          .elementFromPoint(event.clientX, event.clientY)
-          ?.closest?.("[data-playlist-target]") as HTMLElement | null;
-        setDraggingPlaylistId(
-          target ? target.getAttribute("data-playlist-target") : null
-        );
-      }
-    };
-
-    const handleMouseUp = (event: MouseEvent) => {
-      if (isInternalDragRef.current) {
-        const target = document
-          .elementFromPoint(event.clientX, event.clientY)
-          ?.closest?.("[data-playlist-target]") as HTMLElement | null;
-        const playlistId = target?.getAttribute("data-playlist-target") ?? "";
-        if (playlistId) {
-          handlePlaylistDrop(playlistId, dragPayloadRef.current);
-        }
-      }
-
-      dragStartRef.current = null;
-      dragCandidateRef.current = [];
-      dragPayloadRef.current = [];
-      setDragIndicator(null);
-      setDraggingPlaylistId(null);
-      setIsInternalDrag(false);
-      setIsDragging(false);
-      dragCounter.current = 0;
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleWindowDragEnd = () => {
-      dragCounter.current = 0;
-      setIsDragging(false);
-    };
-
-    window.addEventListener("dragend", handleWindowDragEnd, true);
-    window.addEventListener("dragleave", handleWindowDragEnd, true);
-    return () => {
-      window.removeEventListener("dragend", handleWindowDragEnd, true);
-      window.removeEventListener("dragleave", handleWindowDragEnd, true);
-    };
-  }, []);
-
-
-  useEffect(() => {
-    if (nativeDragSetupRef.current) {
+  const handleBackfillSearchText = useCallback(async () => {
+    if (!dbPath.trim()) {
+      setBackfillStatus("Enter a database path to run the backfill.");
       return;
     }
-    nativeDragSetupRef.current = true;
-    // Guard against duplicate listeners in React Strict Mode (dev only).
-    let unlistenNative: UnlistenFn | null = null;
 
-    const setup = async () => {
-      try {
-        getCurrentWindow();
-      } catch {
-        return;
-      }
-      try {
-        unlistenNative = await listen<{ kind: string; paths: string[] }>(
-          "muro://native-drag",
-          (event) => {
-            if (!isImportDragAllowed()) {
-              return;
-            }
-            const payload = event.payload;
-            if (!payload) {
-              return;
-            }
-            if (payload.kind === "over") {
-              setIsDragging(true);
-              setNativeDropStatus("Drop files to import");
-              return;
-            }
-            if (payload.kind === "leave") {
-              setIsDragging(false);
-              dragCounter.current = 0;
-              clearNativeDropStatus();
-              return;
-            }
-            if (payload.kind === "drop") {
-              setIsDragging(false);
-              dragCounter.current = 0;
-              if (payload.paths?.length) {
-                scheduleNativeDropStatus(
-                  `Imported ${payload.paths.length} file${
-                    payload.paths.length === 1 ? "" : "s"
-                  }`
-                );
-                void handleImportPaths(payload.paths);
-              } else {
-                scheduleNativeDropStatus("Drop received, no files found");
-              }
-            }
-          }
-        );
-      } catch (error) {
-        console.error("Drag diagnostics: listener failed", error);
-      }
-    };
-
-    void setup();
-
-    return () => {
-      unlistenNative?.();
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) {
-        return;
-      }
-
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
-      event.preventDefault();
-      setSelectedIds(new Set(displayedTracks.map((track) => track.id)));
-      setLastSelectedIndex(displayedTracks.length - 1);
+    try {
+      setBackfillPending(true);
+      setBackfillStatus("Running backfill...");
+      const updated = await backfillSearchText(dbPath.trim());
+      setBackfillStatus(`Updated ${updated} tracks.`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Backfill failed.";
+      setBackfillStatus(message);
+    } finally {
+      setBackfillPending(false);
     }
-
-      if (event.key === "Escape") {
-        setSelectedIds(new Set());
-        setLastSelectedIndex(null);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [displayedTracks]);
-
-  useEffect(() => {
-    const handleUndoRedo = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) {
-        return;
-      }
-      const key = event.key.toLowerCase();
-      if (key !== "z" && key !== "y") {
-        return;
-      }
-
-      event.preventDefault();
-      if (key === "y" || event.shiftKey) {
-        commandManager.redo();
-        return;
-      }
-      commandManager.undo();
-    };
-
-    window.addEventListener("keydown", handleUndoRedo);
-    return () => window.removeEventListener("keydown", handleUndoRedo);
-  }, []);
+  }, [dbPath]);
 
   return (
     <div
       className="h-screen overflow-hidden bg-[var(--app-bg)] text-[var(--text-primary)]"
       onClick={() => {
-        setOpenMenuId(null);
-        setMenuSelection([]);
-        setShowColumns(false);
+        closeMenu();
+        closeColumnsMenu();
       }}
     >
-      {isDragging && (
-        <div className="drag-overlay pointer-events-none fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
-          <div className="drag-overlay-card rounded-[var(--radius-lg)] border border-[var(--accent)] px-6 py-4 text-sm font-semibold text-[var(--accent)] shadow-[var(--shadow-lg)]">
-            Drop folders or audio files to import.
-          </div>
-        </div>
-      )}
-      {nativeDropStatus && (
-        <div className="pointer-events-none fixed bottom-6 right-6 z-50">
-          <div className="rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] shadow-[var(--shadow-md)]">
-            {nativeDropStatus}
-          </div>
-        </div>
-      )}
-      {dragIndicator && isInternalDrag && (
-        <div
-          className="pointer-events-none fixed z-40"
-          style={{ left: dragIndicator.x + 16, top: dragIndicator.y + 12 }}
-        >
-          <div className="rounded-full bg-[var(--accent)] px-3 py-1 text-xs font-semibold text-white shadow-[var(--shadow-md)]">
-            {dragIndicator.count} track{dragIndicator.count === 1 ? "" : "s"}
-          </div>
-        </div>
-      )}
+      <DragOverlay
+        isDragging={isDragging}
+        nativeDropStatus={nativeDropStatus}
+        dragIndicator={dragIndicator}
+        isInternalDrag={isInternalDrag}
+      />
       <div className="flex h-screen flex-col pb-28">
-        <div
-          className="relative grid flex-1 gap-0 overflow-hidden"
-          style={{
-            gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr) ${detailWidth}px`,
-          }}
-        >
-        <div
-          className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
-          style={{ left: sidebarWidth - 1 }}
-          onMouseDown={(event) => {
-            startPanelResize(event, "left", sidebarWidth);
-          }}
-          role="presentation"
-        />
-        <div
-          className="absolute top-0 z-20 h-full w-2 cursor-col-resize bg-transparent transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
-          style={{ right: detailWidth - 1 }}
-          onMouseDown={(event) => {
-            startPanelResize(event, "right", detailWidth);
-          }}
-          role="presentation"
-        />
-        <aside className="flex h-full flex-col overflow-y-auto border-r border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 pb-32">
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-            {t("app.name")}
-          </div>
-          <div className="mt-6 space-y-2 text-sm">
-            <button
-              className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
-                isLibrary
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
-              }`}
-              onClick={() => setView("library")}
-              type="button"
-            >
-              <span className="flex items-center gap-2">
-                <Folder className="h-4 w-4" />
-                {t("nav.library")}
-              </span>
-              <span
-                className={`text-xs ${
-                  isLibrary ? "font-semibold text-[var(--accent)]" : "text-[var(--text-muted)]"
-                }`}
-              >
-                {tracks.length}
-              </span>
-            </button>
-            <button
-              className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
-                isInbox
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
-              }`}
-              onClick={() => setView("inbox")}
-              type="button"
-            >
-              <span className="flex items-center gap-2">
-                <Inbox className="h-4 w-4" />
-                {t("nav.inbox")}
-              </span>
-              <span
-                className={`text-xs ${
-                  isInbox
-                    ? "font-semibold text-[var(--accent)]"
-                    : "text-[var(--text-muted)]"
-                }`}
-              >
-                {inboxTracks.length}
-              </span>
-            </button>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                <span className="flex items-center gap-2">
-                  <ListMusic className="h-4 w-4" />
-                  {t("nav.playlists")}
-                </span>
-                <span className="text-[10px] text-[var(--text-muted)]">
-                  {playlists.length}
-                </span>
-              </div>
-              <div className="space-y-1">
-                {playlists.map((playlist) => {
-                  const isDropTarget = draggingPlaylistId === playlist.id;
-                  return (
-                    <button
-                      key={playlist.id}
-                      className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] border px-3 py-2 text-left text-sm font-medium transition-colors duration-[var(--motion-fast)] ${
-                        isDropTarget
-                          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                          : "border-transparent text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
-                      }`}
-                      onClick={() => setView("library")}
-                      onDragEnter={(event) => {
-                        event.preventDefault();
-                        setDraggingPlaylistId(playlist.id);
-                      }}
-                      onDragLeave={(event) => {
-                        event.preventDefault();
-                        setDraggingPlaylistId((current) =>
-                          current === playlist.id ? null : current
-                        );
-                      }}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        setDraggingPlaylistId(playlist.id);
-                      }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        const data = event.dataTransfer.getData("text/plain");
-                        const payload = data
-                          ? data.split(",").map((item) => item.trim())
-                          : [];
-                        handlePlaylistDrop(playlist.id, payload);
-                        dragPayloadRef.current = [];
-                        setDraggingPlaylistId(null);
-                        setIsInternalDrag(false);
-                      }}
-                      data-playlist-target={playlist.id}
-                      type="button"
-                    >
-                      <span className="truncate">{playlist.name}</span>
-                      <span className="text-xs text-[var(--text-muted)]">
-                        {playlist.trackIds.length}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <div className="mt-auto" />
-          <button
-            className={`mt-4 flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
-              isSettings
-                ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
-            }`}
-            onClick={() => setView("settings")}
-            type="button"
-          >
-            <span className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              {t("nav.settings")}
-            </span>
-          </button>
-        </aside>
-
-        <main className="flex h-full min-w-0 flex-col overflow-hidden pb-0">
-          <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--panel-bg)] px-6 py-4">
-            <div>
-              <h1 className="text-lg font-semibold">{title}</h1>
-              <p className="text-xs text-[var(--text-muted)]">
-                {isLibrary
-                  ? t("header.library.subtitle")
-                  : isInbox
-                  ? t("header.inbox.subtitle")
-                  : t("header.settings.subtitle")}
-              </p>
-            </div>
-            {!isSettings && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm shadow-[var(--shadow-sm)]">
-                  <Search className="h-4 w-4 text-[var(--text-muted)]" />
-                  <input
-                    className="w-40 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
-                    placeholder={t("search.placeholder")}
-                  />
-                </div>
-                <div className="relative">
-                  <button
-                    className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--panel-border)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      const rect = event.currentTarget.getBoundingClientRect();
-                      setColumnsMenuPosition({ x: rect.left, y: rect.bottom + 8 });
-                      setShowColumns((current) => !current);
-                    }}
-                    ref={columnsButtonRef}
-                    type="button"
-                  >
-                    <Columns2 className="h-4 w-4" />
-                    {t("columns.label")}
-                  </button>
-                </div>
-              </div>
-            )}
-          </header>
-          {openMenuId &&
-            typeof document !== "undefined" &&
-            createPortal(
-              <div
-                className="fixed z-50 w-44 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] py-2 text-left text-sm shadow-[var(--shadow-md)]"
-                onClick={(event) => event.stopPropagation()}
-                style={{ left: menuPosition.x, top: menuPosition.y }}
-              >
-                {menuSelection.length > 1 && (
-                  <div className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                    {menuSelection.length} selected
-                  </div>
-                )}
-                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-                  <Play className="h-4 w-4" />
-                  {t("menu.play")}
-                </button>
-                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-                  <SkipForward className="h-4 w-4" />
-                  {t("menu.playNext")}
-                </button>
-                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-                  <ListChecks className="h-4 w-4" />
-                  {t("menu.addQueue")}
-                </button>
-                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-                  <ListPlus className="h-4 w-4" />
-                  {t("menu.addPlaylist")}
-                </button>
-                <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[var(--panel-muted)]">
-                  <Pencil className="h-4 w-4" />
-                  {t("menu.edit")}
-                </button>
-                <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-[var(--panel-muted)]">
-                  <Trash2 className="h-4 w-4" />
-                  {t("menu.delete")}
-                </button>
-              </div>,
-              document.body
-            )}
-          {showColumns &&
-            typeof document !== "undefined" &&
-            createPortal(
-              <div
-                className="fixed z-50 w-52 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3 text-sm shadow-[var(--shadow-md)]"
-                onClick={(event) => event.stopPropagation()}
-                style={{ left: columnsMenuPosition.x, top: columnsMenuPosition.y }}
-              >
-                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                  {t("columns.visible")}
-                </div>
-                <div className="mt-3 space-y-2">
-                  {columns.map((column) => (
-                    <label
-                      key={column.key}
-                      className="flex cursor-pointer items-center gap-2 text-sm"
-                    >
-                      <input
-                        checked={column.visible}
-                        className="h-4 w-4 accent-[var(--accent)]"
-                        onChange={() => toggleColumn(column.key)}
-                        type="checkbox"
-                      />
-                      <span>{t(column.labelKey)}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>,
-              document.body
-            )}
-
-          <section className="flex min-h-0 flex-1 flex-col bg-[var(--panel-bg)] px-6 pb-4 pt-4">
-            {isSettings ? (
-              <div className="h-full overflow-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-[var(--shadow-sm)]">
-                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                  {t("settings.appearance")}
-                </div>
-                <div className="mt-4 grid gap-3">
-                  <label className="text-sm font-medium">{t("settings.theme")}</label>
-                  <div className="relative w-64">
-                    <select
-                      className="w-full appearance-none rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 pr-10 text-sm text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
-                      onChange={(event) => setTheme(event.target.value)}
-                      value={theme}
-                    >
-                      {themes.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {t("settings.theme.help")}
-                  </p>
-                  <label className="mt-4 text-sm font-medium">
-                    {t("settings.language")}
-                  </label>
-                  <div className="relative w-64">
-                    <select
-                      className="w-full appearance-none rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 pr-10 text-sm text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
-                      onChange={(event) =>
-                        setLocale(event.target.value as Locale)
-                      }
-                      value={locale}
-                    >
-                      {localeOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {t("settings.language.help")}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {isInbox && (
-                  <div className="mb-4 space-y-3">
-                    <div className="rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-muted)] px-4 py-3 text-sm shadow-[var(--shadow-sm)]">
-                      <span className="font-medium">{t("header.inbox")}</span>
-                      <span className="ml-2 text-[var(--text-muted)]">
-                        Tag, edit metadata, and move tracks into the main library when ready.
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-4 py-3 text-sm shadow-[var(--shadow-sm)]">
-                      <div className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                        {t("inbox.review")}
-                      </div>
-                      <button className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white shadow-[var(--shadow-sm)]">
-                        {t("inbox.accept")}
-                      </button>
-                      <button className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]">
-                        {t("inbox.reject")}
-                      </button>
-                      <div className="ml-auto flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                        <span>{t("inbox.selected")}</span>
-                        <span className="font-semibold text-[var(--text-primary)]">
-                          {selectedIds.size}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div
-                  ref={tableContainerRef}
-                  className="relative min-h-0 flex-1 min-w-0 overflow-x-auto overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]"
-                  role="grid"
-                  aria-rowcount={displayedTracks.length}
-                  aria-colcount={visibleColumns.length}
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.currentTarget !== event.target) {
-                      return;
-                    }
-
-                    if (displayedTracks.length === 0) {
-                      return;
-                    }
-
-                    const current = activeIndex ?? 0;
-                    const pageStep = 10;
-                    let nextIndex = current;
-
-                    if (event.key === "ArrowDown") {
-                      nextIndex = clampIndex(current + 1);
-                    } else if (event.key === "ArrowUp") {
-                      nextIndex = clampIndex(current - 1);
-                    } else if (event.key === "PageDown") {
-                      nextIndex = clampIndex(current + pageStep);
-                    } else if (event.key === "PageUp") {
-                      nextIndex = clampIndex(current - pageStep);
-                    } else if (event.key === "Home") {
-                      nextIndex = 0;
-                    } else if (event.key === "End") {
-                      nextIndex = displayedTracks.length - 1;
-                    } else {
-                      return;
-                    }
-
-                    event.preventDefault();
-                    const track = displayedTracks[nextIndex];
-                    if (!track) {
-                      return;
-                    }
-                    handleRowSelect(nextIndex, track.id, {
-                      isShiftKey: event.shiftKey,
-                    });
-                    rowVirtualizer.scrollToIndex(nextIndex, { align: "auto" });
-                  }}
-                >
-                  <div
-                    className="sticky top-0 z-30 bg-[var(--panel-muted)]"
-                    style={{ width: "100%", minWidth: tableWidth }}
-                    role="rowgroup"
-                  >
-                    <div className="relative" style={{ width: "100%", minWidth: tableWidth }}>
-                      <div
-                        className="grid text-left text-xs uppercase tracking-wider text-[var(--text-muted)]"
-                        style={{ gridTemplateColumns }}
-                        role="row"
-                      >
-                        {visibleColumns.map((column) => (
-                          <div
-                            key={column.key}
-                            className="relative bg-[var(--panel-muted)] px-4 py-3 pr-8"
-                            role="columnheader"
-                          >
-                            <span className="block truncate">{t(column.labelKey)}</span>
-                            <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--panel-border)] opacity-70" />
-                            <span
-                              className="absolute right-0 top-0 h-full w-4 cursor-col-resize"
-                              onDoubleClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                autoFitColumn(column.key);
-                              }}
-                            onMouseDown={(event) => {
-                              startColumnResize(event, column.key, column.width);
-                            }}
-                            role="presentation"
-                          />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    className="relative"
-                    style={{ height: rowVirtualizer.getTotalSize(), minWidth: tableWidth }}
-                  >
-                    {virtualRows.map((virtualRow: VirtualItem) => {
-                      const track = displayedTracks[virtualRow.index];
-                      if (!track) {
-                        return null;
-                      }
-                      const isSelected = selectedIds.has(track.id);
-                      return (
-                        <div
-                          key={virtualRow.key}
-                          className={`group grid select-none items-center border-t border-[var(--panel-border)] ${
-                            isSelected
-                              ? "bg-[var(--accent-soft)]"
-                              : "bg-[var(--panel-bg)]"
-                          } hover:bg-[var(--panel-muted)]`}
-                          style={{
-                            gridTemplateColumns,
-                            height: 48,
-                            position: "absolute",
-                            top: virtualRow.start,
-                            left: 0,
-                            width: "100%",
-                            minWidth: tableWidth,
-                          }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleRowSelect(virtualRow.index, track.id, {
-                              isMetaKey: event.metaKey || event.ctrlKey,
-                              isShiftKey: event.shiftKey,
-                            });
-                          }}
-                          onMouseDown={(event) => {
-                            const target = event.target as HTMLElement | null;
-                            if (target?.closest("button, input, select, textarea")) {
-                              return;
-                            }
-                            event.preventDefault();
-                            dragCandidateRef.current = selectedIds.has(track.id)
-                                ? Array.from(selectedIds)
-                                : [track.id];
-                            dragStartRef.current = {
-                              x: event.clientX,
-                              y: event.clientY,
-                            };
-                          }}
-                          onContextMenu={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            if (!selectedIds.has(track.id)) {
-                              handleRowSelect(virtualRow.index, track.id);
-                              setMenuSelection([track.id]);
-                            } else {
-                              setMenuSelection(Array.from(selectedIds));
-                            }
-                            setMenuPosition({ x: event.clientX, y: event.clientY });
-                            setOpenMenuId(track.id);
-                          }}
-                          role="row"
-                        >
-                          {visibleColumns.map((column) => {
-                            const value = track[column.key as keyof typeof track];
-                            if (column.key === "rating") {
-                              const currentRating = Number(value) || 0;
-                              return (
-                                <RatingCell
-                                  key={`${track.id}-${column.key}`}
-                                  trackId={track.id}
-                                  title={track.title}
-                                  rating={currentRating}
-                                  onRate={handleRatingChange}
-                                />
-                              );
-                            }
-                            return (
-                              <div
-                                key={`${track.id}-${column.key}`}
-                                className={`h-12 px-4 py-3 ${
-                                  column.key === "title"
-                                    ? "font-medium"
-                                    : "text-[var(--text-muted)]"
-                                }`}
-                                role="cell"
-                              >
-                                <span className="block truncate">{value}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-          </section>
-        </main>
-
-        <aside className="flex h-full flex-col overflow-y-auto border-l border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 pb-32">
-          <div
-            className={`flex items-center ${
-              detailCollapsed ? "justify-center" : "justify-between"
-            }`}
-          >
-            {!detailCollapsed && (
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                <Play className="h-3.5 w-3.5" />
-                {t("panel.nowPlaying")}
-              </div>
-            )}
-            <button
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] text-xs font-semibold text-[var(--text-muted)] hover:bg-[var(--panel-muted)]"
-              onClick={() => {
-                if (!detailCollapsed) {
-                  detailWidthRef.current = detailWidth;
-                  setDetailWidth(56);
-                  setDetailCollapsed(true);
-                } else {
-                  setDetailWidth(detailWidthRef.current || 320);
-                  setDetailCollapsed(false);
-                }
-              }}
-              title={detailCollapsed ? "Expand panel" : "Collapse panel"}
-              type="button"
-            >
-              {detailCollapsed ? (
-                <ChevronLeft className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-
-          {!detailCollapsed && (
-            <>
-              <div className="mt-4 rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-muted)] p-4 shadow-[var(--shadow-sm)]">
-                <div className="text-sm font-semibold">Glass Elevator</div>
-                <div className="text-xs text-[var(--text-muted)]">Nova Drift</div>
-                <div className="mt-2 text-xs text-[var(--text-muted)]">
-                  Signal Bloom • FLAC
-                </div>
-              </div>
-              <div className="mt-6 flex-1">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                  <ListChecks className="h-3.5 w-3.5" />
-                  {t("panel.queue")}
-                </div>
-                <div className="mt-3 space-y-3 text-sm">
-                  {tracks.map((track) => (
-                    <div
-                      key={`${track.id}-queue`}
-                      className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] px-3 py-2 shadow-[var(--shadow-sm)]"
-                    >
-                      <div className="font-medium">{track.title}</div>
-                      <div className="text-xs text-[var(--text-muted)]">
-                        {track.artist}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-auto flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-muted)] px-3 py-3 text-xs shadow-[var(--shadow-sm)]">
-                <span className="flex items-center gap-2 text-[var(--text-muted)]">
-                  <Speaker className="h-3.5 w-3.5" />
-                  {t("panel.output")}
-                </span>
-                <span className="font-medium">{t("panel.output.device")}</span>
-              </div>
-            </>
-          )}
-        </aside>
-        </div>
-        <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--panel-border)] bg-[var(--panel-bg)] px-6 py-4">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-            <div className="flex min-w-0 items-center gap-3 self-center">
-              <div className="h-11 w-11 shrink-0 rounded-[var(--radius-sm)] bg-[var(--panel-muted)]" />
-              <div className="min-w-0 text-sm">
-                <div className="truncate font-semibold">Glass Elevator</div>
-                <div className="truncate text-xs text-[var(--text-muted)]">
-                  Nova Drift • Signal Bloom
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <button
-                className={`flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] transition-colors duration-[var(--motion-fast)] ${
-                  shuffleEnabled
-                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--panel-muted)]"
-                }`}
-                onClick={() => setShuffleEnabled((current) => !current)}
-                title="Shuffle"
-                type="button"
-              >
-                <Shuffle className="h-5 w-5" />
-              </button>
-              <button
-                className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
-                title="Previous"
-                type="button"
-              >
-                <SkipBack className="h-5 w-5" />
-              </button>
-              <button
-                className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] bg-[var(--panel-muted)] text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
-                onClick={() => setIsPlaying((current) => !current)}
-                title={isPlaying ? "Pause" : "Play"}
-                type="button"
-              >
-                {isPlaying ? (
-                  <Pause className="h-5 w-5" />
-                ) : (
-                  <Play className="h-5 w-5" />
-                )}
-              </button>
-              <button
-                className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
-                title="Next"
-                type="button"
-              >
-                <SkipForward className="h-5 w-5" />
-              </button>
-              <button
-                className={`flex h-11 w-11 items-center justify-center rounded-[var(--radius-sm)] transition-colors duration-[var(--motion-fast)] ${
-                  repeatMode !== "off"
-                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--panel-muted)]"
-                }`}
-                onClick={() =>
-                  setRepeatMode((current) =>
-                    current === "off" ? "all" : current === "all" ? "one" : "off"
-                  )
-                }
-                title={
-                  repeatMode === "off"
-                    ? "Repeat"
-                    : repeatMode === "all"
-                    ? "Repeat all"
-                    : "Repeat one"
-                }
-                type="button"
-              >
-                {repeatMode === "one" ? (
-                  <Repeat1 className="h-5 w-5" />
-                ) : (
-                  <Repeat className="h-5 w-5" />
-                )}
-              </button>
-            </div>
-            <div className="flex items-center justify-end gap-3 text-xs text-[var(--text-muted)] self-center">
-              <Speaker className="h-4 w-4" />
-              <input
-                aria-label="Volume"
-                className="h-1.5 w-28 cursor-pointer accent-[var(--accent)]"
-                max={100}
-                min={0}
-                type="range"
-                defaultValue={80}
-              />
-            </div>
-          </div>
-          <div className="mt-3 flex items-center justify-center gap-3 text-xs text-[var(--text-muted)]">
-            <span>2:14</span>
-            <input
-              aria-label="Seek"
-              className="h-1.5 w-full max-w-xl cursor-pointer accent-[var(--accent)]"
-              max={100}
-              min={0}
-              onChange={(event) => setSeekPosition(Number(event.target.value))}
-              type="range"
-              value={seekPosition}
+        <AppLayout
+          sidebarWidth={sidebarWidth}
+          detailWidth={detailWidth}
+          onSidebarResizeStart={startSidebarResize}
+          onDetailResizeStart={startDetailResize}
+          sidebar={
+            <Sidebar
+              {...sidebarProps}
             />
-            <span>4:01</span>
-          </div>
-        </footer>
+          }
+          main={
+            <main className="flex h-full min-w-0 flex-col overflow-hidden pb-0">
+              <LibraryHeader
+                title={title}
+                subtitle={subtitle}
+                isSettings={isSettings}
+                onColumnsButtonClick={toggleColumnsMenu}
+              />
+              <ContextMenu
+                isOpen={Boolean(openMenuId)}
+                position={menuPosition}
+                selectionCount={menuSelection.length}
+              />
+              <ColumnsMenu
+                isOpen={showColumns}
+                position={columnsMenuPosition}
+                columns={columns}
+                onToggleColumn={toggleColumn}
+              />
+              <section className="flex min-h-0 flex-1 flex-col bg-[var(--panel-bg)] px-6 pb-4 pt-4">
+                {isSettings ? (
+                  <SettingsPanel
+                    theme={theme}
+                    locale={locale}
+                    themes={themes}
+                    localeOptions={localeOptions}
+                    dbPath={dbPath}
+                    backfillPending={backfillPending}
+                    backfillStatus={backfillStatus}
+                    onThemeChange={setTheme}
+                    onLocaleChange={setLocale}
+                    onDbPathChange={setDbPath}
+                    onBackfillSearchText={handleBackfillSearchText}
+                  />
+                ) : (
+                  <>
+                    {isInbox && (
+                      <InboxBanner selectedCount={selectedIds.size} />
+                    )}
+                    <TrackTable
+                      tracks={displayedTracks}
+                      columns={columns}
+                      selectedIds={selectedIds}
+                      activeIndex={activeIndex}
+                      onRowSelect={handleRowSelect}
+                      onRowMouseDown={onRowMouseDown}
+                      onRowContextMenu={handleRowContextMenu}
+                      onSelectAll={selectAll}
+                      onClearSelection={clearSelection}
+                      onColumnResize={handleColumnResize}
+                      onColumnAutoFit={autoFitColumn}
+                      onRatingChange={handleRatingChange}
+                    />
+                  </>
+                )}
+              </section>
+            </main>
+          }
+          detail={
+            <DetailPanel
+              detailCollapsed={detailCollapsed}
+              onToggleCollapsed={() => {
+                toggleDetailCollapsed();
+              }}
+              queueTracks={tracks}
+            />
+          }
+        />
+        <PlayerBar
+          isPlaying={isPlaying}
+          shuffleEnabled={shuffleEnabled}
+          repeatMode={repeatMode}
+          seekPosition={seekPosition}
+          onTogglePlay={togglePlay}
+          onToggleShuffle={toggleShuffle}
+          onToggleRepeat={toggleRepeat}
+          onSeekChange={setSeekPosition}
+        />
       </div>
     </div>
   );
