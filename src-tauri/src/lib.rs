@@ -1,10 +1,36 @@
+pub mod backfill;
+pub mod search;
+
 use serde::Serialize;
+use std::path::Path;
 use tauri::{Emitter, Manager, WindowEvent};
 
 #[tauri::command]
 fn import_files(paths: Vec<String>) -> Result<usize, String> {
+    for path in &paths {
+        let file_name = Path::new(path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(path.as_str());
+        let stem = Path::new(path)
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .unwrap_or(file_name);
+        let title = search::strip_leading_track_number(stem);
+        let search_text = search::normalize_track_search_text(search::TrackSearchParts {
+            title: Some(title),
+            filename: Some(file_name),
+            ..Default::default()
+        });
+        println!("Import stub prepared search text: {}", search_text);
+    }
     println!("Import stub received {} paths", paths.len());
     Ok(paths.len())
+}
+
+#[tauri::command]
+fn backfill_search_text(db_path: String) -> Result<usize, String> {
+    backfill::run_backfill(&db_path)
 }
 
 #[derive(Clone, Serialize)]
@@ -21,6 +47,7 @@ fn emit_drag_event(window: &tauri::WebviewWindow, kind: &'static str, paths: Vec
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -53,7 +80,7 @@ pub fn run() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![import_files])
+        .invoke_handler(tauri::generate_handler![import_files, backfill_search_text])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

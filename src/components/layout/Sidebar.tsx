@@ -1,4 +1,4 @@
-import { Folder, Inbox, ListMusic, Settings } from "lucide-react";
+import { Folder, Inbox, ListMusic, Plus, Settings } from "lucide-react";
 import { t } from "../../i18n";
 import type { Playlist } from "../../types/library";
 
@@ -84,15 +84,16 @@ export const Sidebar = ({
           </span>
         </button>
         <div className="space-y-1">
-          <div className="flex items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          <button
+            className="flex w-full cursor-pointer items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
+            type="button"
+          >
             <span className="flex items-center gap-2">
               <ListMusic className="h-4 w-4" />
               {t("nav.playlists")}
             </span>
-            <span className="text-[10px] text-[var(--text-muted)]">
-              {playlists.length}
-            </span>
-          </div>
+            <Plus className="h-4 w-4" />
+          </button>
           <div className="space-y-1">
             {playlists.map((playlist) => {
               const isDropTarget = draggingPlaylistId === playlist.id;

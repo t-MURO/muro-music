@@ -27,6 +27,8 @@ import { useSidebarData } from "./hooks/useSidebarData";
 import { useTrackRatings } from "./hooks/useTrackRatings";
 import { localeOptions } from "./i18n";
 import { backfillSearchText } from "./utils/tauriDb";
+import { open } from "@tauri-apps/plugin-dialog";
+import { appDataDir, join } from "@tauri-apps/api/path";
 import type { Playlist } from "./types/library";
 
 function App() {
@@ -53,14 +55,11 @@ function App() {
     position: columnsMenuPosition,
     toggleAt: toggleColumnsMenu,
   } = useColumnsMenu();
-  const [playlists, setPlaylists] = useState<Playlist[]>(() => [
-    { id: "p-01", name: "Late Night Routes", trackIds: ["t1", "t4"] },
-    { id: "p-02", name: "Studio Favorites", trackIds: ["t2"] },
-    { id: "p-03", name: "Inbox Review", trackIds: [] },
-    { id: "p-04", name: "Foggy Morning", trackIds: ["t3", "t6"] },
-  ]);
+  const [playlists, setPlaylists] = useState<Playlist[]>(() => []);
   const { sidebarWidth, startSidebarResize } = useSidebarPanel();
   const [dbPath, setDbPath] = useState("");
+  const [dbFileName, setDbFileName] = useState("muro.db");
+  const [useAutoDbPath, setUseAutoDbPath] = useState(true);
   const [backfillPending, setBackfillPending] = useState(false);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const {
@@ -141,6 +140,31 @@ function App() {
     };
   }, [isInternalDrag]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const resolveDbPath = async () => {
+      if (!useAutoDbPath) {
+        return;
+      }
+
+      try {
+        const baseDir = await appDataDir();
+        const defaultPath = await join(baseDir, dbFileName || "muro.db");
+        if (isMounted) {
+          setDbPath(defaultPath);
+        }
+      } catch (error) {
+        console.warn("Failed to resolve default db path", error);
+      }
+    };
+
+    resolveDbPath();
+    return () => {
+      isMounted = false;
+    };
+  }, [dbFileName, useAutoDbPath]);
+
   const handleBackfillSearchText = useCallback(async () => {
     if (!dbPath.trim()) {
       setBackfillStatus("Enter a database path to run the backfill.");
@@ -160,6 +184,52 @@ function App() {
       setBackfillPending(false);
     }
   }, [dbPath]);
+
+  const handleEmptyImport = useCallback(async () => {
+    try {
+      const result = await open({
+        multiple: true,
+        filters: [
+          {
+            name: "Audio",
+            extensions: [
+              "mp3",
+              "flac",
+              "wav",
+              "m4a",
+              "aac",
+              "ogg",
+              "aiff",
+              "alac",
+            ],
+          },
+        ],
+      });
+
+      if (!result) {
+        return;
+      }
+
+      const paths = Array.isArray(result) ? result : [result];
+      handleImportPaths(paths);
+    } catch (error) {
+      console.error("File picker failed:", error);
+    }
+  }, [handleImportPaths]);
+
+  const handleEmptyImportFolder = useCallback(async () => {
+    try {
+      const result = await open({ directory: true });
+      if (!result) {
+        return;
+      }
+
+      const paths = Array.isArray(result) ? result : [result];
+      handleImportPaths(paths);
+    } catch (error) {
+      console.error("Folder picker failed:", error);
+    }
+  }, [handleImportPaths]);
 
   return (
     <div
@@ -207,19 +277,30 @@ function App() {
               />
               <section className="flex min-h-0 flex-1 flex-col bg-[var(--panel-bg)] px-6 pb-4 pt-4">
                 {isSettings ? (
-                  <SettingsPanel
-                    theme={theme}
-                    locale={locale}
-                    themes={themes}
-                    localeOptions={localeOptions}
-                    dbPath={dbPath}
-                    backfillPending={backfillPending}
-                    backfillStatus={backfillStatus}
-                    onThemeChange={setTheme}
-                    onLocaleChange={setLocale}
-                    onDbPathChange={setDbPath}
-                    onBackfillSearchText={handleBackfillSearchText}
-                  />
+                    <SettingsPanel
+                      theme={theme}
+                      locale={locale}
+                      themes={themes}
+                      localeOptions={localeOptions}
+                      dbPath={dbPath}
+                      dbFileName={dbFileName}
+                      backfillPending={backfillPending}
+                      backfillStatus={backfillStatus}
+                      onThemeChange={setTheme}
+                      onLocaleChange={setLocale}
+                      onDbPathChange={(value) => {
+                        setDbPath(value);
+                        setUseAutoDbPath(false);
+                      }}
+                      onDbFileNameChange={(value) => {
+                        setDbFileName(value);
+                        setUseAutoDbPath(true);
+                      }}
+                      onBackfillSearchText={handleBackfillSearchText}
+                      onUseDefaultLocation={() => {
+                        setUseAutoDbPath(true);
+                      }}
+                    />
                 ) : (
                   <>
                     {isInbox && (
@@ -230,6 +311,16 @@ function App() {
                       columns={columns}
                       selectedIds={selectedIds}
                       activeIndex={activeIndex}
+                      emptyTitle={isInbox ? "Inbox is empty" : "No tracks yet"}
+                      emptyDescription={
+                        isInbox
+                          ? "Drop folders or audio files here to stage new imports."
+                          : "Drag folders or files into the app to build your library."
+                      }
+                      emptyActionLabel="Import files"
+                      onEmptyAction={handleEmptyImport}
+                      emptySecondaryActionLabel="Import folder"
+                      onEmptySecondaryAction={handleEmptyImportFolder}
                       onRowSelect={handleRowSelect}
                       onRowMouseDown={onRowMouseDown}
                       onRowContextMenu={handleRowContextMenu}

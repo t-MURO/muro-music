@@ -9,6 +9,12 @@ type TrackTableProps = {
   columns: ColumnConfig[];
   selectedIds: Set<string>;
   activeIndex: number | null;
+  emptyTitle: string;
+  emptyDescription: string;
+  emptyActionLabel?: string;
+  onEmptyAction?: () => void;
+  emptySecondaryActionLabel?: string;
+  onEmptySecondaryAction?: () => void;
   onRowSelect: (
     index: number,
     id: string,
@@ -34,6 +40,12 @@ export const TrackTable = memo(
     columns,
     selectedIds,
     activeIndex,
+    emptyTitle,
+    emptyDescription,
+    emptyActionLabel,
+    onEmptyAction,
+    emptySecondaryActionLabel,
+    onEmptySecondaryAction,
     onRowSelect,
     onRowMouseDown,
     onRowContextMenu,
@@ -134,6 +146,40 @@ export const TrackTable = memo(
           onColumnResize={onColumnResize}
           onColumnAutoFit={onColumnAutoFit}
         />
+        {tracks.length === 0 ? (
+          <div className="flex min-h-[240px] items-center justify-center px-6 py-10">
+            <div className="max-w-md rounded-[var(--radius-lg)] border border-dashed border-[var(--panel-border)] bg-[var(--panel-muted)] px-6 py-5 text-center shadow-[var(--shadow-sm)]">
+              <div className="text-sm font-semibold text-[var(--text-primary)]">
+                {emptyTitle}
+              </div>
+              <div className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
+                {emptyDescription}
+              </div>
+              {(emptyActionLabel || emptySecondaryActionLabel) && (
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                  {emptyActionLabel && onEmptyAction && (
+                    <button
+                      className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-elevated)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition hover:border-[var(--panel-border-strong)]"
+                      type="button"
+                      onClick={onEmptyAction}
+                    >
+                      {emptyActionLabel}
+                    </button>
+                  )}
+                  {emptySecondaryActionLabel && onEmptySecondaryAction && (
+                    <button
+                      className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)] shadow-[var(--shadow-sm)] transition hover:border-[var(--panel-border-strong)] hover:text-[var(--text-primary)]"
+                      type="button"
+                      onClick={onEmptySecondaryAction}
+                    >
+                      {emptySecondaryActionLabel}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
         <div
           className="relative"
           style={{ height: rowVirtualizer.getTotalSize(), minWidth: tableWidth }}
@@ -210,6 +256,7 @@ export const TrackTable = memo(
             );
           })}
         </div>
+        )}
       </div>
     );
   }

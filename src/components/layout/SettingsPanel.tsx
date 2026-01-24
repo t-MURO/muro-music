@@ -8,12 +8,15 @@ type SettingsPanelProps = {
   themes: ReadonlyArray<{ id: string; label: string }>;
   localeOptions: ReadonlyArray<{ id: string; label: string }>;
   dbPath: string;
+  dbFileName: string;
   backfillPending: boolean;
   backfillStatus: string | null;
   onThemeChange: (theme: string) => void;
   onLocaleChange: (locale: Locale) => void;
   onDbPathChange: (value: string) => void;
+  onDbFileNameChange: (value: string) => void;
   onBackfillSearchText: () => void;
+  onUseDefaultLocation: () => void;
 };
 
 export const SettingsPanel = ({
@@ -22,12 +25,15 @@ export const SettingsPanel = ({
   themes,
   localeOptions,
   dbPath,
+  dbFileName,
   backfillPending,
   backfillStatus,
   onThemeChange,
   onLocaleChange,
   onDbPathChange,
+  onDbFileNameChange,
   onBackfillSearchText,
+  onUseDefaultLocation,
 }: SettingsPanelProps) => {
   return (
     <div className="h-full overflow-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-6 shadow-[var(--shadow-sm)]">
@@ -74,6 +80,16 @@ export const SettingsPanel = ({
         Maintenance
       </div>
       <div className="mt-4 grid gap-3">
+        <label className="text-sm font-medium">Database File Name</label>
+        <input
+          className="w-full max-w-md rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
+          placeholder="muro.db"
+          value={dbFileName}
+          onChange={(event) => onDbFileNameChange(event.target.value)}
+        />
+        <p className="text-xs text-[var(--text-muted)]">
+          Stored inside the app data directory unless you override the full path.
+        </p>
         <label className="text-sm font-medium">Database Path</label>
         <input
           className="w-full max-w-xl rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm text-[var(--text-primary)] shadow-[var(--shadow-sm)]"
@@ -81,6 +97,15 @@ export const SettingsPanel = ({
           value={dbPath}
           onChange={(event) => onDbPathChange(event.target.value)}
         />
+        <div>
+          <button
+            className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-transparent px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)] shadow-[var(--shadow-sm)] transition hover:border-[var(--panel-border-strong)] hover:text-[var(--text-primary)]"
+            type="button"
+            onClick={onUseDefaultLocation}
+          >
+            Use default location
+          </button>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
             className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition hover:border-[var(--panel-border-strong)] disabled:cursor-not-allowed disabled:opacity-60"
