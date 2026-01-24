@@ -6,8 +6,10 @@ export type Track = {
   artist: string;
   album: string;
   duration: string;
+  durationSeconds: number;
   bitrate: string;
   rating: number;
+  sourcePath: string;
   coverArt?: string;
 };
 

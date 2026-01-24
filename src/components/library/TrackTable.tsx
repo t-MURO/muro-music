@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef } from "react";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { FileAudio, FolderOpen } from "lucide-react";
+import { Disc3, FileAudio, FolderOpen } from "lucide-react";
 import type { ColumnConfig, Track } from "../../types/library";
 import { RatingCell } from "./RatingCell";
 import { TableHeader } from "./TableHeader";
@@ -28,6 +28,9 @@ type TrackTableProps = {
     index: number,
     isSelected: boolean
   ) => void;
+  onRowDoubleClick?: (trackId: string) => void;
+  playingTrackId?: string;
+  isPlaying?: boolean;
   onSelectAll: () => void;
   onClearSelection: () => void;
   onColumnResize: (key: ColumnConfig["key"], width: number) => void;
@@ -50,6 +53,9 @@ export const TrackTable = memo(
     onRowSelect,
     onRowMouseDown,
     onRowContextMenu,
+    onRowDoubleClick,
+    playingTrackId,
+    isPlaying: isCurrentlyPlaying,
     onSelectAll,
     onClearSelection,
     onColumnResize,
@@ -94,6 +100,15 @@ export const TrackTable = memo(
       if (event.key === "Escape") {
         event.preventDefault();
         onClearSelection();
+        return;
+      }
+
+      if (event.key === "Enter" && activeIndex !== null) {
+        event.preventDefault();
+        const track = tracks[activeIndex];
+        if (track) {
+          onRowDoubleClick?.(track.id);
+        }
         return;
       }
 
@@ -193,6 +208,7 @@ export const TrackTable = memo(
               return null;
             }
             const isSelected = selectedIds.has(track.id);
+            const isPlayingTrack = track.id === playingTrackId;
             return (
               <div
                 key={virtualRow.key}
@@ -214,6 +230,9 @@ export const TrackTable = memo(
                     isMetaKey: event.metaKey || event.ctrlKey,
                     isShiftKey: event.shiftKey,
                   });
+                }}
+                onDoubleClick={() => {
+                  onRowDoubleClick?.(track.id);
                 }}
                 onMouseDown={(event) => {
                   const target = event.target as HTMLElement | null;
@@ -241,17 +260,26 @@ export const TrackTable = memo(
                       />
                     );
                   }
+                  const isTitleColumn = column.key === "title";
+                  const textColorClass = isPlayingTrack 
+                    ? "text-[var(--color-accent)]" 
+                    : isTitleColumn 
+                      ? "" 
+                      : "text-[var(--color-text-muted)]";
                   return (
                     <div
                       key={`${track.id}-${column.key}`}
-                      className={`h-12 px-4 py-3 ${
-                        column.key === "title"
-                          ? "font-medium"
-                          : "text-[var(--text-muted)]"
-                      }`}
+                      className={`h-12 px-4 py-3 ${isTitleColumn ? "font-medium" : ""} ${textColorClass}`}
                       role="cell"
                     >
-                      <span className="block truncate">{value}</span>
+                      {isPlayingTrack && isTitleColumn ? (
+                        <span className="flex items-center gap-2 truncate">
+                          <Disc3 className={`h-4 w-4 shrink-0 ${isCurrentlyPlaying ? "animate-spin-slow" : ""}`} />
+                          <span className="truncate">{value}</span>
+                        </span>
+                      ) : (
+                        <span className="block truncate">{value}</span>
+                      )}
                     </div>
                   );
                 })}

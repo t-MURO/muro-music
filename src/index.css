@@ -444,6 +444,19 @@ html, body, #root {
   color: var(--color-accent);
 }
 
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 3s linear infinite;
+}
+
 @keyframes dragOverlayFade {
   from {
     opacity: 0;

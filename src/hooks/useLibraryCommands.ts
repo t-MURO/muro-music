@@ -2,7 +2,7 @@ import { appDataDir, join } from "@tauri-apps/api/path";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
-import { createPlaylist, importFiles } from "../utils/tauriDb";
+import { createPlaylist, importFiles, importedTrackToTrack } from "../utils/tauriDb";
 import type { Playlist, Track } from "../types/library";
 
 export type ImportProgress = {
@@ -106,10 +106,11 @@ export const useLibraryCommands = ({
           return;
         }
 
+        const convertedTracks = imported.map(importedTrackToTrack);
         const command: Command = {
           label: `Import ${imported.length} tracks`,
           do: () => {
-            setInboxTracks((current) => [...imported, ...current]);
+            setInboxTracks((current) => [...convertedTracks, ...current]);
           },
           undo: () => {
             const ids = new Set(imported.map((track) => track.id));

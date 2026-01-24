@@ -1,12 +1,15 @@
 pub mod backfill;
 pub mod import;
+pub mod playback;
 pub mod search;
 
+use playback::{AudioPlayer, CurrentTrack, PlaybackState};
 use rusqlite::Connection;
 use serde::Serialize;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{Emitter, Manager, State, WindowEvent};
 
 #[tauri::command]
 fn import_files(
@@ -41,6 +44,83 @@ fn clear_tracks(db_path: String) -> Result<(), String> {
 #[tauri::command]
 fn backfill_search_text(db_path: String) -> Result<usize, String> {
     backfill::run_backfill(&db_path)
+}
+
+// Playback commands
+#[tauri::command]
+fn playback_play_file(
+    player: State<'_, Arc<AudioPlayer>>,
+    id: String,
+    title: String,
+    artist: String,
+    album: String,
+    source_path: String,
+    duration_hint: f64,
+) -> Result<(), String> {
+    let track = CurrentTrack {
+        id,
+        title,
+        artist,
+        album,
+        source_path,
+    };
+    player.play_file(track, duration_hint)
+}
+
+#[tauri::command]
+fn playback_toggle(player: State<'_, Arc<AudioPlayer>>) -> bool {
+    player.toggle_play()
+}
+
+#[tauri::command]
+fn playback_play(player: State<'_, Arc<AudioPlayer>>) {
+    player.play();
+}
+
+#[tauri::command]
+fn playback_pause(player: State<'_, Arc<AudioPlayer>>) {
+    player.pause();
+}
+
+#[tauri::command]
+fn playback_stop(player: State<'_, Arc<AudioPlayer>>) {
+    player.stop();
+}
+
+#[tauri::command]
+fn playback_seek(player: State<'_, Arc<AudioPlayer>>, position_secs: f64) -> Result<(), String> {
+    player.seek(position_secs)
+}
+
+#[tauri::command]
+fn playback_set_volume(player: State<'_, Arc<AudioPlayer>>, volume: f64) {
+    player.set_volume(volume);
+}
+
+#[tauri::command]
+fn playback_get_state(player: State<'_, Arc<AudioPlayer>>) -> PlaybackState {
+    player.get_state()
+}
+
+#[tauri::command]
+fn playback_is_finished(player: State<'_, Arc<AudioPlayer>>) -> bool {
+    player.is_finished()
+}
+
+#[tauri::command]
+fn get_track_source_path(db_path: String, track_id: String) -> Result<Option<String>, String> {
+    if !Path::new(&db_path).exists() {
+        return Ok(None);
+    }
+
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT source_path FROM tracks WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let path: Option<String> = stmt.query_row([&track_id], |row| row.get(0)).ok();
+
+    Ok(path)
 }
 
 #[tauri::command]
@@ -83,11 +163,17 @@ fn emit_drag_event(window: &tauri::WebviewWindow, kind: &'static str, paths: Vec
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let audio_player = Arc::new(AudioPlayer::new());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
+        .manage(audio_player.clone())
+        .setup(move |app| {
+            // Initialize audio player with app handle
+            audio_player.init(app.handle().clone());
+
             let window = app
                 .get_webview_window("main")
                 .ok_or_else(|| "No main window found to enable drag drop.")?;
@@ -123,7 +209,17 @@ pub fn run() {
             create_playlist,
             load_tracks,
             load_playlists,
-            clear_tracks
+            clear_tracks,
+            playback_play_file,
+            playback_toggle,
+            playback_play,
+            playback_pause,
+            playback_stop,
+            playback_seek,
+            playback_set_volume,
+            playback_get_state,
+            playback_is_finished,
+            get_track_source_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

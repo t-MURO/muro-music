@@ -23,8 +23,10 @@ pub struct ImportedTrack {
     pub artist: String,
     pub album: String,
     pub duration: String,
+    pub duration_seconds: f64,
     pub bitrate: String,
     pub rating: f32,
+    pub source_path: String,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -155,7 +157,7 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, title, artist, album, rating, duration_seconds, bitrate_kbps, import_status FROM tracks ORDER BY added_at DESC",
+            "SELECT id, title, artist, album, rating, duration_seconds, bitrate_kbps, import_status, source_path FROM tracks ORDER BY added_at DESC",
         )
         .map_err(|error| error.to_string())?;
 
@@ -169,6 +171,7 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             let duration_seconds: Option<f64> = row.get(5)?;
             let bitrate_kbps: Option<i32> = row.get(6)?;
             let import_status: Option<String> = row.get(7)?;
+            let source_path: Option<String> = row.get(8)?;
 
             let duration = duration_seconds
                 .map(|value| format_duration(value as f32))
@@ -185,8 +188,10 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
                     artist: artist.unwrap_or_else(|| "Unknown Artist".to_string()),
                     album: album.unwrap_or_else(|| "Unknown Album".to_string()),
                     duration,
+                    duration_seconds: duration_seconds.unwrap_or(0.0),
                     bitrate,
                     rating: rating.unwrap_or(0.0) as f32,
+                    source_path: source_path.unwrap_or_default(),
                 },
                 import_status.unwrap_or_else(|| "accepted".to_string()),
             ))
@@ -413,8 +418,10 @@ fn import_single(conn: &Connection, path: &Path, now: i64) -> Result<ImportedTra
         artist,
         album,
         duration: duration_text,
+        duration_seconds: duration_seconds as f64,
         bitrate: bitrate_text,
         rating,
+        source_path: path.to_string_lossy().to_string(),
     })
 }
 

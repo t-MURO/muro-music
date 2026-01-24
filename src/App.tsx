@@ -21,13 +21,13 @@ import { useContextMenu } from "./hooks/useContextMenu";
 import { useDetailPanel } from "./hooks/useDetailPanel";
 import { useNativeDrag } from "./hooks/useNativeDrag";
 import { usePlaylistDrag } from "./hooks/usePlaylistDrag";
-import { usePlayerState } from "./hooks/usePlayerState";
+import { useAudioPlayback } from "./hooks/useAudioPlayback";
 import { useSelection } from "./hooks/useSelection";
 import { useSidebarPanel } from "./hooks/useSidebarPanel";
 import { useSidebarData } from "./hooks/useSidebarData";
 import { useTrackRatings } from "./hooks/useTrackRatings";
 import { localeOptions, t } from "./i18n";
-import { backfillSearchText, clearTracks, loadPlaylists, loadTracks } from "./utils/tauriDb";
+import { backfillSearchText, clearTracks, importedTrackToTrack, loadPlaylists, loadTracks } from "./utils/tauriDb";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import type { Playlist } from "./types/library";
@@ -83,16 +83,101 @@ function App() {
     startDetailResize,
     toggleDetailCollapsed,
   } = useDetailPanel();
+
+  // Playback state
+  const [shuffleEnabled, setShuffleEnabled] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
+  const [queueIndex, setQueueIndex] = useState(0);
+
+  const allTracks = [...tracks, ...inboxTracks];
+
+  const handleTrackEnd = useCallback(() => {
+    // Handle repeat and queue progression
+    if (repeatMode === "one") {
+      // Replay the same track - will be handled in playback
+      const currentTrack = allTracks[queueIndex];
+      if (currentTrack) {
+        playTrack(currentTrack);
+      }
+    } else if (queueIndex < allTracks.length - 1) {
+      // Play next track
+      const nextIndex = shuffleEnabled
+        ? Math.floor(Math.random() * allTracks.length)
+        : queueIndex + 1;
+      setQueueIndex(nextIndex);
+      const nextTrack = allTracks[nextIndex];
+      if (nextTrack) {
+        playTrack(nextTrack);
+      }
+    } else if (repeatMode === "all" && allTracks.length > 0) {
+      // Loop back to beginning
+      setQueueIndex(0);
+      playTrack(allTracks[0]);
+    }
+  }, [repeatMode, shuffleEnabled, queueIndex, allTracks]);
+
   const {
     isPlaying,
-    repeatMode,
-    seekPosition,
-    setSeekPosition,
-    shuffleEnabled,
+    currentPosition,
+    duration,
+    volume,
+    currentTrack,
+    playTrack,
     togglePlay,
-    toggleRepeat,
-    toggleShuffle,
-  } = usePlayerState();
+    seek,
+    setVolume,
+  } = useAudioPlayback({
+    onTrackEnd: handleTrackEnd,
+  });
+
+  const toggleShuffle = useCallback(() => {
+    setShuffleEnabled((current) => !current);
+  }, []);
+
+  const toggleRepeat = useCallback(() => {
+    setRepeatMode((current) =>
+      current === "off" ? "all" : current === "all" ? "one" : "off"
+    );
+  }, []);
+
+  const handleSkipPrevious = useCallback(() => {
+    if (currentPosition > 3) {
+      // If more than 3 seconds in, restart current track
+      seek(0);
+    } else if (queueIndex > 0) {
+      // Go to previous track
+      const prevIndex = queueIndex - 1;
+      setQueueIndex(prevIndex);
+      const prevTrack = allTracks[prevIndex];
+      if (prevTrack) {
+        playTrack(prevTrack);
+      }
+    }
+  }, [currentPosition, queueIndex, allTracks, seek, playTrack]);
+
+  const handleSkipNext = useCallback(() => {
+    if (queueIndex < allTracks.length - 1) {
+      const nextIndex = shuffleEnabled
+        ? Math.floor(Math.random() * allTracks.length)
+        : queueIndex + 1;
+      setQueueIndex(nextIndex);
+      const nextTrack = allTracks[nextIndex];
+      if (nextTrack) {
+        playTrack(nextTrack);
+      }
+    } else if (repeatMode === "all" && allTracks.length > 0) {
+      setQueueIndex(0);
+      playTrack(allTracks[0]);
+    }
+  }, [queueIndex, allTracks, shuffleEnabled, repeatMode, playTrack]);
+
+  const handlePlayTrack = useCallback((trackId: string) => {
+    const trackIndex = allTracks.findIndex((t) => t.id === trackId);
+    if (trackIndex !== -1) {
+      setQueueIndex(trackIndex);
+      playTrack(allTracks[trackIndex]);
+    }
+  }, [allTracks, playTrack]);
 
   const { handleRatingChange } = useTrackRatings({ setTracks });
 
@@ -210,8 +295,8 @@ function App() {
         if (!isMounted) {
           return;
         }
-        setTracks(snapshot.library);
-        setInboxTracks(snapshot.inbox);
+        setTracks(snapshot.library.map(importedTrackToTrack));
+        setInboxTracks(snapshot.inbox.map(importedTrackToTrack));
         setPlaylists(
           playlistSnapshot.playlists.map((playlist) => ({
             id: playlist.id,
@@ -464,6 +549,9 @@ function App() {
                       onRowSelect={handleRowSelect}
                       onRowMouseDown={onRowMouseDown}
                       onRowContextMenu={handleRowContextMenu}
+                      onRowDoubleClick={handlePlayTrack}
+                      playingTrackId={currentTrack?.id}
+                      isPlaying={isPlaying}
                       onSelectAll={selectAll}
                       onClearSelection={clearSelection}
                       onColumnResize={handleColumnResize}
@@ -489,11 +577,17 @@ function App() {
           isPlaying={isPlaying}
           shuffleEnabled={shuffleEnabled}
           repeatMode={repeatMode}
-          seekPosition={seekPosition}
+          currentPosition={currentPosition}
+          duration={duration}
+          volume={volume}
+          currentTrack={currentTrack}
           onTogglePlay={togglePlay}
           onToggleShuffle={toggleShuffle}
           onToggleRepeat={toggleRepeat}
-          onSeekChange={setSeekPosition}
+          onSeekChange={seek}
+          onVolumeChange={setVolume}
+          onSkipPrevious={handleSkipPrevious}
+          onSkipNext={handleSkipNext}
         />
       </div>
     </div>
