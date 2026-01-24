@@ -11,6 +11,7 @@ export const useNativeDrag = (
   const nativeDropTimerRef = useRef<number | null>(null);
   const nativeDragSetupRef = useRef(false);
   const dragCounterRef = useRef(0);
+  const wasShowingOverlayRef = useRef(false);
   const onImportRef = useRef(onImport);
   const isImportAllowedRef = useRef(isImportAllowed);
 
@@ -75,27 +76,38 @@ export const useNativeDrag = (
         unlistenNative = await listen<{ kind: string; paths: string[] }>(
           "muro://native-drag",
           (event) => {
-            if (!isImportAllowedRef.current()) {
-              return;
-            }
             const payload = event.payload;
             if (!payload) {
               return;
             }
+            const isImportAllowed = isImportAllowedRef.current();
+            
             if (payload.kind === "over") {
+              if (!isImportAllowed) {
+                return;
+              }
+              wasShowingOverlayRef.current = true;
               setIsDragging(true);
               setNativeDropStatus("Drop files to import");
               return;
             }
             if (payload.kind === "leave") {
+              wasShowingOverlayRef.current = false;
               setIsDragging(false);
               dragCounterRef.current = 0;
               clearNativeDropStatus();
               return;
             }
             if (payload.kind === "drop") {
+              const wasShowingOverlay = wasShowingOverlayRef.current;
+              wasShowingOverlayRef.current = false;
               setIsDragging(false);
               dragCounterRef.current = 0;
+              // Ignore drops if we weren't showing the file import overlay
+              if (!wasShowingOverlay) {
+                clearNativeDropStatus();
+                return;
+              }
               if (payload.paths?.length) {
                 scheduleNativeDropStatus(
                   `Imported ${payload.paths.length} file${

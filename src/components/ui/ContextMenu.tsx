@@ -6,61 +6,62 @@ import {
   SkipForward,
   Trash2,
 } from "lucide-react";
-import { createPortal } from "react-dom";
 import { t } from "../../i18n";
+import { Popover, PopoverDivider, PopoverHeader, PopoverItem } from "./Popover";
 
 type ContextMenuProps = {
   isOpen: boolean;
   position: { x: number; y: number };
   selectionCount: number;
+  onPlay?: () => void;
+  onPlayNext?: () => void;
+  onAddToQueue?: () => void;
+  onAddToPlaylist?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 };
 
 export const ContextMenu = ({
   isOpen,
   position,
   selectionCount,
+  onPlay,
+  onPlayNext,
+  onAddToQueue,
+  onAddToPlaylist,
+  onEdit,
+  onDelete,
 }: ContextMenuProps) => {
-  if (!isOpen || typeof document === "undefined") {
-    return null;
-  }
-
-  return createPortal(
-    <div
-      className="fixed z-50 w-52 rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)]/95 py-2 text-left text-sm shadow-[var(--shadow-lg)] backdrop-blur-xl"
-      onClick={(event) => event.stopPropagation()}
-      style={{ left: position.x, top: position.y }}
-    >
+  return (
+    <Popover isOpen={isOpen} position={position} className="w-52 py-1">
       {selectionCount > 1 && (
-        <div className="mx-3 mb-2 rounded-md bg-[var(--accent-soft)] px-2 py-1.5 text-xs font-semibold text-[var(--accent)]">
-          {selectionCount} selected
-        </div>
+        <PopoverHeader>{selectionCount} selected</PopoverHeader>
       )}
-      <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-medium transition-colors hover:bg-[var(--panel-muted)]">
-        <Play className="h-4 w-4" />
+      <PopoverItem onClick={onPlay}>
+        <Play className="h-4 w-4 opacity-60" />
         {t("menu.play")}
-      </button>
-      <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-medium transition-colors hover:bg-[var(--panel-muted)]">
-        <SkipForward className="h-4 w-4" />
+      </PopoverItem>
+      <PopoverItem onClick={onPlayNext}>
+        <SkipForward className="h-4 w-4 opacity-60" />
         {t("menu.playNext")}
-      </button>
-      <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-medium transition-colors hover:bg-[var(--panel-muted)]">
-        <ListChecks className="h-4 w-4" />
+      </PopoverItem>
+      <PopoverItem onClick={onAddToQueue}>
+        <ListChecks className="h-4 w-4 opacity-60" />
         {t("menu.addQueue")}
-      </button>
-      <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-medium transition-colors hover:bg-[var(--panel-muted)]">
-        <ListPlus className="h-4 w-4" />
+      </PopoverItem>
+      <PopoverItem onClick={onAddToPlaylist}>
+        <ListPlus className="h-4 w-4 opacity-60" />
         {t("menu.addPlaylist")}
-      </button>
-      <div className="my-1 h-px bg-[var(--panel-border)]" />
-      <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-medium transition-colors hover:bg-[var(--panel-muted)]">
-        <Pencil className="h-4 w-4" />
+      </PopoverItem>
+      <PopoverDivider />
+      <PopoverItem onClick={onEdit}>
+        <Pencil className="h-4 w-4 opacity-60" />
         {t("menu.edit")}
-      </button>
-      <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30">
-        <Trash2 className="h-4 w-4" />
+      </PopoverItem>
+      <PopoverItem variant="danger" onClick={onDelete}>
+        <Trash2 className="h-4 w-4 opacity-70" />
         {t("menu.delete")}
-      </button>
-    </div>,
-    document.body
+      </PopoverItem>
+    </Popover>
   );
 };

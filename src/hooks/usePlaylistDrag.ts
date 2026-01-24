@@ -91,6 +91,14 @@ export const usePlaylistDrag = ({
     []
   );
 
+  const setInternalDragActive = useCallback((active: boolean) => {
+    isInternalDragRef.current = active;
+    setIsInternalDrag(active);
+    // Suppress overlay when drag starts AND for a bit after it ends
+    // to handle race conditions with native drop events
+    suppressOverlayUntilRef.current = Date.now() + 300;
+  }, []);
+
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
       if (!dragStartRef.current) {
@@ -164,5 +172,6 @@ export const usePlaylistDrag = ({
     onPlaylistDragOver,
     onPlaylistDropEvent,
     onRowMouseDown,
+    setInternalDragActive,
   };
 };

@@ -1,6 +1,6 @@
-import { createPortal } from "react-dom";
 import { t } from "../../i18n";
 import type { ColumnConfig } from "../../types/library";
+import { Popover } from "../ui/Popover";
 
 type ColumnsMenuProps = {
   isOpen: boolean;
@@ -15,28 +15,20 @@ export const ColumnsMenu = ({
   columns,
   onToggleColumn,
 }: ColumnsMenuProps) => {
-  if (!isOpen || typeof document === "undefined") {
-    return null;
-  }
-
   const sortedColumns = [...columns].sort((a, b) =>
     t(a.labelKey).localeCompare(t(b.labelKey), undefined, { sensitivity: "base" })
   );
 
-  return createPortal(
-    <div
-      className="fixed z-50 w-60 rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)]/95 p-4 text-sm shadow-[var(--shadow-lg)] backdrop-blur-xl"
-      onClick={(event) => event.stopPropagation()}
-      style={{ left: position.x, top: position.y }}
-    >
-      <div className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+  return (
+    <Popover isOpen={isOpen} position={position} className="w-60 p-3">
+      <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
         {t("columns.visible")}
       </div>
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         {sortedColumns.map((column) => (
           <label
             key={column.key}
-            className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors hover:bg-[var(--panel-muted)]"
+            className="flex cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 py-1.5 text-sm transition-colors duration-100 hover:bg-[var(--color-bg-hover)]"
           >
             <input
               checked={column.visible}
@@ -48,7 +40,6 @@ export const ColumnsMenu = ({
           </label>
         ))}
       </div>
-    </div>,
-    document.body
+    </Popover>
   );
 };

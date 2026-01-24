@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 type AppLayoutProps = {
   onSidebarResizeStart: (event: React.MouseEvent) => void;
-  onDetailResizeStart: (event: React.MouseEvent) => void;
+  onQueuePanelResizeStart: (event: React.MouseEvent) => void;
   sidebar: ReactNode;
   main: ReactNode;
   detail: ReactNode;
@@ -10,7 +10,7 @@ type AppLayoutProps = {
 
 export const AppLayout = ({
   onSidebarResizeStart,
-  onDetailResizeStart,
+  onQueuePanelResizeStart,
   sidebar,
   main,
   detail,
@@ -40,7 +40,7 @@ export const AppLayout = ({
           className="absolute left-0 top-0 h-full w-2 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--color-border)]"
           role="separator"
           aria-orientation="vertical"
-          onMouseDown={onDetailResizeStart}
+          onMouseDown={onQueuePanelResizeStart}
         />
       </div>
     </>

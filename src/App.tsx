@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { AppLayout } from "./components/layout/AppLayout";
-import { DetailPanel } from "./components/layout/DetailPanel";
+import { QueuePanel } from "./components/layout/QueuePanel";
 import { LibraryHeader } from "./components/layout/LibraryHeader";
 import { PlayerBar } from "./components/layout/PlayerBar";
 import { SettingsPanel } from "./components/layout/SettingsPanel";
@@ -20,7 +20,7 @@ import { useAppPreferences } from "./hooks/useAppPreferences";
 import { useColumns } from "./hooks/useColumns";
 import { useColumnsMenu } from "./hooks/useColumnsMenu";
 import { useContextMenu } from "./hooks/useContextMenu";
-import { useDetailPanel } from "./hooks/useDetailPanel";
+import { useQueuePanel } from "./hooks/useQueuePanel";
 import { useNativeDrag } from "./hooks/useNativeDrag";
 import { usePlaylistMenu } from "./hooks/usePlaylistMenu";
 import { usePlaylistDrag } from "./hooks/usePlaylistDrag";
@@ -166,17 +166,42 @@ function App() {
   const [coverArtBackfillPending, setCoverArtBackfillPending] = useState(false);
   const [coverArtBackfillStatus, setCoverArtBackfillStatus] = useState<string | null>(null);
   const {
-    detailCollapsed,
-    detailWidth,
-    startDetailResize,
-    toggleDetailCollapsed,
-  } = useDetailPanel();
+    queuePanelCollapsed,
+    queuePanelWidth,
+    startQueuePanelResize,
+    toggleQueuePanelCollapsed,
+  } = useQueuePanel();
 
   // Playback state
   const [shuffleEnabled, setShuffleEnabled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
+  const [queue, setQueue] = useState<string[]>([]); // Array of track IDs
 
   const allTracks = [...tracks, ...inboxTracks];
+
+  // Queue operations
+  const addToQueue = useCallback((trackIds: string[]) => {
+    setQueue(q => [...q, ...trackIds]);
+  }, []);
+
+  const playNext = useCallback((trackIds: string[]) => {
+    setQueue(q => [...trackIds, ...q]);
+  }, []);
+
+  const removeFromQueue = useCallback((index: number) => {
+    setQueue(q => q.filter((_, i) => i !== index));
+  }, []);
+
+  const clearQueue = useCallback(() => {
+    setQueue([]);
+  }, []);
+
+  // Get actual track objects for queue display
+  const queueTracks = useMemo(() => {
+    return queue
+      .map(id => allTracks.find(t => t.id === id))
+      .filter((t): t is Track => t !== undefined);
+  }, [queue, allTracks]);
 
   // Refs for track-end handler - declared before useAudioPlayback so the stable callback can use them
   const allTracksRef = useRef(allTracks);
@@ -184,6 +209,8 @@ function App() {
   const shuffleEnabledRef = useRef(shuffleEnabled);
   const currentTrackIdRef = useRef<string | null>(null);
   const playTrackRef = useRef<((track: Track) => void) | null>(null);
+  const queueRef = useRef(queue);
+  const setQueueRef = useRef(setQueue);
 
   // Stable callback that reads from refs
   const handleTrackEnd = useCallback(() => {
@@ -192,8 +219,24 @@ function App() {
     const repeat = repeatModeRef.current;
     const shuffle = shuffleEnabledRef.current;
     const play = playTrackRef.current;
+    const currentQueue = queueRef.current;
+    const updateQueue = setQueueRef.current;
 
-    if (tracks.length === 0 || !play) return;
+    if (!play) return;
+
+    // If there's a track in the queue, play it and remove from queue
+    if (currentQueue.length > 0) {
+      const nextTrackId = currentQueue[0];
+      const nextTrack = tracks.find(t => t.id === nextTrackId);
+      if (nextTrack) {
+        updateQueue(q => q.slice(1));
+        play(nextTrack);
+        return;
+      }
+    }
+
+    // No queue, fall back to normal progression
+    if (tracks.length === 0) return;
 
     const currentIndex = trackId ? tracks.findIndex(t => t.id === trackId) : -1;
 
@@ -226,6 +269,7 @@ function App() {
   useEffect(() => { shuffleEnabledRef.current = shuffleEnabled; }, [shuffleEnabled]);
   useEffect(() => { currentTrackIdRef.current = currentTrack?.id ?? null; }, [currentTrack]);
   useEffect(() => { playTrackRef.current = playTrack; }, [playTrack]);
+  useEffect(() => { queueRef.current = queue; }, [queue]);
 
   const toggleShuffle = useCallback(() => {
     setShuffleEnabled((current) => !current);
@@ -722,13 +766,13 @@ function App() {
         style={
           {
             "--sidebar-width": `${sidebarWidth}px`,
-            "--queue-width": `${detailWidth}px`,
+            "--queue-width": `${queuePanelWidth}px`,
           } as CSSProperties
         }
       >
         <AppLayout
           onSidebarResizeStart={startSidebarResize}
-          onDetailResizeStart={startDetailResize}
+          onQueuePanelResizeStart={startQueuePanelResize}
           sidebar={
             <Sidebar
               {...sidebarProps}
@@ -760,6 +804,23 @@ function App() {
                 isOpen={Boolean(openMenuId)}
                 position={menuPosition}
                 selectionCount={menuSelection.length}
+                onPlay={() => {
+                  if (menuSelection.length > 0) {
+                    const firstTrack = allTracks.find(t => t.id === menuSelection[0]);
+                    if (firstTrack) {
+                      playTrack(firstTrack);
+                    }
+                  }
+                  closeMenu();
+                }}
+                onPlayNext={() => {
+                  playNext(menuSelection);
+                  closeMenu();
+                }}
+                onAddToQueue={() => {
+                  addToQueue(menuSelection);
+                  closeMenu();
+                }}
               />
               <PlaylistContextMenu
                 isOpen={isPlaylistMenuOpen}
@@ -845,13 +906,13 @@ function App() {
             </>
           }
           detail={
-            <DetailPanel
-              detailCollapsed={detailCollapsed}
-              onToggleCollapsed={() => {
-                toggleDetailCollapsed();
-              }}
-              queueTracks={tracks}
+            <QueuePanel
+              collapsed={queuePanelCollapsed}
+              onToggleCollapsed={toggleQueuePanelCollapsed}
+              queueTracks={queueTracks}
               currentTrack={currentTrack}
+              onRemoveFromQueue={removeFromQueue}
+              onClearQueue={clearQueue}
             />
           }
         />

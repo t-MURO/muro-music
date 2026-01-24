@@ -1,32 +1,36 @@
-import { ChevronLeft, ChevronRight, ListChecks, Music2, Play, Speaker } from "lucide-react";
+import { ChevronLeft, ChevronRight, GripVertical, ListChecks, Music2, Play, Speaker, Trash2, X } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
 import type { Track } from "../../types/library";
 import type { CurrentTrack } from "../../hooks/useAudioPlayback";
 
-type DetailPanelProps = {
-  detailCollapsed: boolean;
+type QueuePanelProps = {
+  collapsed: boolean;
   onToggleCollapsed: () => void;
   queueTracks: Track[];
   currentTrack: CurrentTrack | null;
+  onRemoveFromQueue: (index: number) => void;
+  onClearQueue: () => void;
 };
 
-export const DetailPanel = ({
-  detailCollapsed,
+export const QueuePanel = ({
+  collapsed,
   onToggleCollapsed,
   queueTracks,
   currentTrack,
-}: DetailPanelProps) => {
+  onRemoveFromQueue,
+  onClearQueue,
+}: QueuePanelProps) => {
   return (
     <aside className="flex h-full flex-col overflow-hidden border-l border-[var(--color-border)] bg-[var(--color-bg-primary)]">
       {/* Now Playing Section */}
       <div
         className={`p-[var(--spacing-lg)] ${
-          detailCollapsed ? "" : "border-b border-[var(--color-border-light)]"
+          collapsed ? "" : "border-b border-[var(--color-border-light)]"
         }`}
       >
         <div className="relative flex items-center gap-[var(--spacing-sm)]">
-          {!detailCollapsed && (
+          {!collapsed && (
             <>
               <Play className="h-[14px] w-[14px] text-[var(--color-text-muted)]" />
               <h3 className="flex-1 text-[var(--font-size-xs)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -37,10 +41,10 @@ export const DetailPanel = ({
           <button
             className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] shadow-[var(--shadow-sm)] transition hover:border-[var(--color-accent)] hover:text-[var(--color-text-primary)]"
             onClick={onToggleCollapsed}
-            title={detailCollapsed ? "Expand panel" : "Collapse panel"}
+            title={collapsed ? "Expand panel" : "Collapse panel"}
             type="button"
           >
-            {detailCollapsed ? (
+            {collapsed ? (
               <ChevronLeft className="h-4 w-4 text-[var(--color-text-muted)]" />
             ) : (
               <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
@@ -48,7 +52,7 @@ export const DetailPanel = ({
           </button>
         </div>
 
-        {!detailCollapsed && (
+        {!collapsed && (
           <div className="mt-[var(--spacing-md)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-[var(--spacing-md)]">
             {/* Large cover art */}
             <div className="mb-[var(--spacing-md)] aspect-square w-full overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-primary)]">
@@ -83,7 +87,7 @@ export const DetailPanel = ({
       </div>
 
       {/* Queue Section */}
-      {!detailCollapsed && (
+      {!collapsed && (
         <>
           <div className="flex-1 overflow-y-auto border-b border-[var(--color-border-light)] p-[var(--spacing-lg)]">
             <div className="mb-[var(--spacing-md)] flex items-center gap-[var(--spacing-sm)]">
@@ -98,20 +102,37 @@ export const DetailPanel = ({
                 Queue is empty
               </p>
             ) : (
-              <div className="space-y-2">
-                {queueTracks.map((track) => (
+              <div className="space-y-1">
+                {queueTracks.map((track, index) => (
                   <div
-                    key={`${track.id}-queue`}
-                    className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-[var(--spacing-sm)] transition-colors hover:bg-[var(--color-bg-hover)]"
+                    key={`${track.id}-queue-${index}`}
+                    className="group flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] p-[var(--spacing-sm)] transition-colors hover:bg-[var(--color-bg-hover)]"
                   >
-                    <div className="text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)]">
-                      {track.title}
+                    <GripVertical className="h-4 w-4 flex-shrink-0 text-[var(--color-text-muted)] opacity-30" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)]">
+                        {track.title}
+                      </div>
+                      <div className="truncate text-[var(--font-size-xs)] text-[var(--color-text-secondary)]">
+                        {track.artist}
+                      </div>
                     </div>
-                    <div className="text-[var(--font-size-xs)] text-[var(--color-text-secondary)]">
-                      {track.artist}
-                    </div>
+                    <button
+                      onClick={() => onRemoveFromQueue(index)}
+                      className="flex-shrink-0 rounded p-1 text-[var(--color-text-muted)] opacity-0 transition-all hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)] group-hover:opacity-100"
+                      title="Remove from queue"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
+                <button
+                  onClick={onClearQueue}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] py-2 text-[var(--font-size-xs)] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Clear queue
+                </button>
               </div>
             )}
           </div>

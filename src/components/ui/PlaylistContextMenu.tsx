@@ -1,6 +1,6 @@
 import { Pencil, Trash2 } from "lucide-react";
-import { createPortal } from "react-dom";
 import { t } from "../../i18n";
+import { Popover, PopoverItem } from "./Popover";
 
 type PlaylistContextMenuProps = {
   isOpen: boolean;
@@ -17,38 +17,21 @@ export const PlaylistContextMenu = ({
   onEdit,
   onDelete,
 }: PlaylistContextMenuProps) => {
-  if (!isOpen || typeof document === "undefined") {
-    return null;
-  }
-
-  return createPortal(
-    <div
-      className="fixed z-50 w-52 rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)]/95 py-2 text-left text-sm shadow-[var(--shadow-lg)] backdrop-blur-xl"
-      onClick={(event) => event.stopPropagation()}
-      style={{ left: position.x, top: position.y }}
-    >
+  return (
+    <Popover isOpen={isOpen} position={position} className="w-52 py-1">
       {playlistName && (
-        <div className="mx-3 mb-2 truncate rounded-md bg-[var(--panel-muted)] px-2 py-1.5 text-xs font-semibold text-[var(--color-text-muted)]">
+        <div className="mx-2 mb-1 truncate rounded-[var(--radius-md)] bg-[var(--panel-muted)] px-2 py-1 text-xs font-medium text-[var(--color-text-muted)]">
           {playlistName}
         </div>
       )}
-      <button
-        className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-medium transition-colors hover:bg-[var(--panel-muted)]"
-        onClick={onEdit}
-        type="button"
-      >
-        <Pencil className="h-4 w-4" />
+      <PopoverItem onClick={onEdit}>
+        <Pencil className="h-4 w-4 opacity-60" />
         {t("menu.edit")}
-      </button>
-      <button
-        className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
-        onClick={onDelete}
-        type="button"
-      >
-        <Trash2 className="h-4 w-4" />
+      </PopoverItem>
+      <PopoverItem variant="danger" onClick={onDelete}>
+        <Trash2 className="h-4 w-4 opacity-70" />
         {t("menu.delete")}
-      </button>
-    </div>,
-    document.body
+      </PopoverItem>
+    </Popover>
   );
 };
