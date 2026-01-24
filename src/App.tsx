@@ -45,7 +45,8 @@ function App() {
     inboxTracks,
   });
 
-  const { locale, setLocale, setTheme, theme } = useAppPreferences();
+  const { locale, seekMode, setLocale, setSeekMode, setTheme, theme } =
+    useAppPreferences();
 
   const displayedTracks = viewConfig.trackTable?.tracks ?? [];
 
@@ -128,6 +129,7 @@ function App() {
     setVolume,
   } = useAudioPlayback({
     onTrackEnd: handleTrackEnd,
+    seekMode,
   });
 
   const toggleShuffle = useCallback(() => {
@@ -514,8 +516,10 @@ function App() {
                       backfillPending={backfillPending}
                       backfillStatus={backfillStatus}
                       clearSongsPending={clearSongsPending}
+                      seekMode={seekMode}
                       onThemeChange={setTheme}
                       onLocaleChange={setLocale}
+                      onSeekModeChange={setSeekMode}
                       onDbPathChange={(value) => {
                         setDbPath(value);
                         setUseAutoDbPath(false);

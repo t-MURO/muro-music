@@ -30,6 +30,7 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 lofty = "0.19"
 uuid = { version = "1", features = ["v4"] }
 rodio = { version = "0.19", features = ["symphonia-all"] }
+symphonia = { version = "0.5.4", features = ["all"] }
 souvlaki = "0.7"
 parking_lot = "0.12"
 lazy_static = "1.4"

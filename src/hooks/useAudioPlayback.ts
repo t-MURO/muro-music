@@ -8,6 +8,7 @@ import {
   playbackPlay,
   playbackPlayFile,
   playbackSeek,
+  playbackSetSeekMode,
   playbackSetVolume,
   playbackToggle,
   type PlaybackState,
@@ -33,10 +34,11 @@ export type AudioPlaybackState = {
 type UseAudioPlaybackOptions = {
   onTrackEnd?: () => void;
   onMediaControl?: (action: string) => void;
+  seekMode?: "fast" | "accurate";
 };
 
 export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
-  const { onTrackEnd, onMediaControl } = options;
+  const { onTrackEnd, onMediaControl, seekMode } = options;
 
   const [state, setState] = useState<AudioPlaybackState>({
     isPlaying: false,
@@ -124,6 +126,13 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
 
     return () => clearInterval(checkInterval);
   }, [state.isPlaying, state.currentTrack, onTrackEnd]);
+
+  useEffect(() => {
+    if (!seekMode) {
+      return;
+    }
+    playbackSetSeekMode(seekMode).catch(console.error);
+  }, [seekMode]);
 
   const playTrack = useCallback(async (track: Track) => {
     try {

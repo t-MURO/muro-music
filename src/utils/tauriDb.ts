@@ -93,6 +93,10 @@ export const playbackSetVolume = (volume: number) => {
   return invoke<void>("playback_set_volume", { volume });
 };
 
+export const playbackSetSeekMode = (mode: "fast" | "accurate") => {
+  return invoke<void>("playback_set_seek_mode", { mode });
+};
+
 export const playbackGetState = () => {
   return invoke<PlaybackState>("playback_get_state");
 };

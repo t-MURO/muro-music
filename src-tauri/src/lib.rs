@@ -3,7 +3,7 @@ pub mod import;
 pub mod playback;
 pub mod search;
 
-use playback::{AudioPlayer, CurrentTrack, PlaybackState};
+use playback::{AudioPlayer, CurrentTrack, PlaybackState, SeekModePreference};
 use rusqlite::Connection;
 use serde::Serialize;
 use std::path::Path;
@@ -95,6 +95,12 @@ fn playback_seek(player: State<'_, Arc<AudioPlayer>>, position_secs: f64) -> Res
 #[tauri::command]
 fn playback_set_volume(player: State<'_, Arc<AudioPlayer>>, volume: f64) {
     player.set_volume(volume);
+}
+
+#[tauri::command]
+fn playback_set_seek_mode(player: State<'_, Arc<AudioPlayer>>, mode: String) {
+    let preference = SeekModePreference::from_str(&mode);
+    player.set_seek_mode(preference);
 }
 
 #[tauri::command]
@@ -217,6 +223,7 @@ pub fn run() {
             playback_stop,
             playback_seek,
             playback_set_volume,
+            playback_set_seek_mode,
             playback_get_state,
             playback_is_finished,
             get_track_source_path

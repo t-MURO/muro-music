@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, type PointerEvent } from "react";
 import {
   Pause,
   Play,
@@ -50,9 +50,11 @@ export const PlayerBar = ({
   // Local state for seeking - only send to backend on release
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekValue, setSeekValue] = useState(0);
+  const progressRef = useRef<HTMLDivElement | null>(null);
 
   const displayPosition = isSeeking ? seekValue : currentPosition;
-  const progress = duration > 0 ? (displayPosition / duration) * 100 : 0;
+  const progress =
+    duration > 0 ? Math.min(100, Math.max(0, (displayPosition / duration) * 100)) : 0;
   const volumePercent = volume * 100;
 
   const formatTime = (seconds: number) => {
@@ -61,19 +63,68 @@ export const PlayerBar = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSeekStart = useCallback(() => {
-    setIsSeeking(true);
-    setSeekValue(currentPosition);
-  }, [currentPosition]);
+  const getSeekValue = useCallback(
+    (clientX: number) => {
+      if (!progressRef.current || duration <= 0) {
+        return 0;
+      }
+      const rect = progressRef.current.getBoundingClientRect();
+      const clamped = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+      const ratio = rect.width > 0 ? clamped / rect.width : 0;
+      return ratio * duration;
+    },
+    [duration]
+  );
 
-  const handleSeekChange = useCallback((value: number) => {
-    setSeekValue(value);
-  }, []);
+  const updateSeekValue = useCallback(
+    (clientX: number) => {
+      const value = getSeekValue(clientX);
+      setSeekValue(value);
+      return value;
+    },
+    [getSeekValue]
+  );
 
-  const handleSeekEnd = useCallback(() => {
+  const handleSeekStart = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (duration <= 0) {
+        return;
+      }
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setIsSeeking(true);
+      updateSeekValue(event.clientX);
+    },
+    [duration, updateSeekValue]
+  );
+
+  const handleSeekMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!isSeeking) {
+        return;
+      }
+      updateSeekValue(event.clientX);
+    },
+    [isSeeking, updateSeekValue]
+  );
+
+  const handleSeekEnd = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (!isSeeking) {
+        return;
+      }
+      const value = updateSeekValue(event.clientX);
+      setIsSeeking(false);
+      onSeekChange(value);
+    },
+    [isSeeking, onSeekChange, updateSeekValue]
+  );
+
+  const handleSeekCancel = useCallback(() => {
+    if (!isSeeking) {
+      return;
+    }
     setIsSeeking(false);
-    onSeekChange(seekValue);
-  }, [seekValue, onSeekChange]);
+  }, [isSeeking]);
 
   return (
     <footer className="player-bar col-span-3 col-start-1 row-start-3 grid h-[var(--media-controls-height)] grid-cols-[1fr_2fr_1fr] items-center gap-[var(--spacing-lg)] border-t border-[var(--color-border)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] pb-[var(--spacing-xl)] pt-[var(--spacing-md)]">
@@ -163,21 +214,19 @@ export const PlayerBar = ({
           <span className="min-w-[40px] text-right text-[var(--font-size-xs)] tabular-nums text-[var(--color-text-muted)]">
             {formatTime(displayPosition)}
           </span>
-          <div className="player-progress-bar relative h-1 flex-1 rounded-[var(--radius-full)]">
-            <input
-              type="range"
-              min="0"
-              max={duration || 100}
-              step="0.1"
-              value={displayPosition}
-              onMouseDown={handleSeekStart}
-              onTouchStart={handleSeekStart}
-              onChange={(event) => handleSeekChange(Number(event.target.value))}
-              onMouseUp={handleSeekEnd}
-              onTouchEnd={handleSeekEnd}
-              className="absolute left-0 top-0 z-[2] h-full w-full cursor-pointer opacity-0"
-              aria-label="Seek"
-            />
+          <div
+            ref={progressRef}
+            className="player-progress-bar relative h-1 flex-1 touch-none rounded-[var(--radius-full)]"
+            onPointerDown={handleSeekStart}
+            onPointerMove={handleSeekMove}
+            onPointerUp={handleSeekEnd}
+            onPointerCancel={handleSeekCancel}
+            role="slider"
+            aria-label="Seek"
+            aria-valuemin={0}
+            aria-valuemax={duration}
+            aria-valuenow={displayPosition}
+          >
             <div 
               className="player-progress-fill"
               style={{ width: `${progress}%` }}

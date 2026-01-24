@@ -13,8 +13,10 @@ type SettingsPanelProps = {
   backfillPending: boolean;
   backfillStatus: string | null;
   clearSongsPending: boolean;
+  seekMode: "fast" | "accurate";
   onThemeChange: (theme: string) => void;
   onLocaleChange: (locale: Locale) => void;
+  onSeekModeChange: (mode: "fast" | "accurate") => void;
   onDbPathChange: (value: string) => void;
   onDbFileNameChange: (value: string) => void;
   onBackfillSearchText: () => void;
@@ -43,8 +45,10 @@ export const SettingsPanel = ({
   backfillPending,
   backfillStatus,
   clearSongsPending,
+  seekMode,
   onThemeChange,
   onLocaleChange,
+  onSeekModeChange,
   onDbPathChange,
   onDbFileNameChange,
   onBackfillSearchText,
@@ -149,6 +153,33 @@ export const SettingsPanel = ({
                 </div>
                 <p className="text-[var(--font-size-xs)] text-[var(--color-text-secondary)]">
                   {t("settings.language.help")}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-[var(--spacing-md)] text-[var(--font-size-sm)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                Playback
+              </h3>
+              <div className="space-y-3">
+                <label className="text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)]">
+                  Seek Mode
+                </label>
+                <div className="relative w-64">
+                  <select
+                    className="h-[var(--input-height)] w-full appearance-none rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-[var(--spacing-md)] pr-10 text-[var(--font-size-sm)] text-[var(--color-text-primary)] transition-all duration-[var(--transition-fast)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--color-accent-light)]"
+                    onChange={(event) =>
+                      onSeekModeChange(event.target.value as "fast" | "accurate")
+                    }
+                    value={seekMode}
+                  >
+                    <option value="fast">Fast (Recommended)</option>
+                    <option value="accurate">Accurate</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                </div>
+                <p className="text-[var(--font-size-xs)] text-[var(--color-text-secondary)]">
+                  Fast seeking is snappier but can be slightly less precise on some formats.
                 </p>
               </div>
             </div>

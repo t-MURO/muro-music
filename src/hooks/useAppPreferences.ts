@@ -11,6 +11,14 @@ export const useAppPreferences = () => {
     parse: (raw) => (isLocale(raw) ? raw : "en"),
     serialize: (value) => value,
   });
+  const [seekMode, setSeekMode] = useStickyState<"fast" | "accurate">(
+    "muro-seek-mode",
+    "fast",
+    {
+      parse: (raw) => (raw === "accurate" ? "accurate" : "fast"),
+      serialize: (value) => value,
+    }
+  );
 
   useEffect(() => {
     setI18nLocale(locale);
@@ -24,5 +32,5 @@ export const useAppPreferences = () => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  return { locale, setLocale, setTheme, theme };
+  return { locale, seekMode, setLocale, setSeekMode, setTheme, theme };
 };
