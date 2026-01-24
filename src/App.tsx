@@ -27,7 +27,7 @@ import { useSidebarPanel } from "./hooks/useSidebarPanel";
 import { useSidebarData } from "./hooks/useSidebarData";
 import { useTrackRatings } from "./hooks/useTrackRatings";
 import { localeOptions } from "./i18n";
-import { backfillSearchText } from "./utils/tauriDb";
+import { backfillSearchText, loadPlaylists, loadTracks } from "./utils/tauriDb";
 import { open } from "@tauri-apps/plugin-dialog";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import type { Playlist } from "./types/library";
@@ -174,6 +174,48 @@ function App() {
       isMounted = false;
     };
   }, [dbFileName, useAutoDbPath]);
+
+  const resolveDbPath = useCallback(async () => {
+    const trimmed = dbPath.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+    const baseDir = await appDataDir();
+    return join(baseDir, dbFileName || "muro.db");
+  }, [dbFileName, dbPath]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadLibrary = async () => {
+      try {
+        const resolvedPath = await resolveDbPath();
+        const [snapshot, playlistSnapshot] = await Promise.all([
+          loadTracks(resolvedPath),
+          loadPlaylists(resolvedPath),
+        ]);
+        if (!isMounted) {
+          return;
+        }
+        setTracks(snapshot.library);
+        setInboxTracks(snapshot.inbox);
+        setPlaylists(
+          playlistSnapshot.playlists.map((playlist) => ({
+            id: playlist.id,
+            name: playlist.name,
+            trackIds: playlist.track_ids,
+          }))
+        );
+      } catch (error) {
+        console.error("Load tracks failed:", error);
+      }
+    };
+
+    loadLibrary();
+    return () => {
+      isMounted = false;
+    };
+  }, [resolveDbPath]);
 
   const handleBackfillSearchText = useCallback(async () => {
     if (!dbPath.trim()) {

@@ -1,8 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { useCallback, useEffect, useRef } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
-import { createPlaylist } from "../utils/tauriDb";
+import { createPlaylist, importFiles } from "../utils/tauriDb";
 import type { Playlist, Track } from "../types/library";
 
 type UseLibraryCommandsArgs = {
@@ -18,8 +17,16 @@ export const useLibraryCommands = ({
   setPlaylists,
   setInboxTracks,
 }: UseLibraryCommandsArgs) => {
-  const importSequenceRef = useRef(0);
   const playlistSequenceRef = useRef(0);
+
+  const resolveDbPath = useCallback(async () => {
+    const trimmed = dbPath.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+    const baseDir = await appDataDir();
+    return join(baseDir, dbFileName || "muro.db");
+  }, [dbFileName, dbPath]);
 
   const handlePlaylistDrop = useCallback(
     (playlistId: string, payload: string[] = []) => {
@@ -63,52 +70,37 @@ export const useLibraryCommands = ({
     [setPlaylists]
   );
 
-  const createImportedTracks = useCallback((paths: string[]) => {
-    return paths.map((path) => {
-      importSequenceRef.current += 1;
-      const name = path.split("/").pop() ?? path;
-      const title = name.replace(/\.[^/.]+$/, "");
-      return {
-        id: `import-${Date.now()}-${importSequenceRef.current}`,
-        title,
-        artist: "Unknown Artist",
-        album: "Inbox Import",
-        duration: "--:--",
-        bitrate: "--",
-        rating: 0,
-      };
-    });
-  }, []);
-
   const handleImportPaths = useCallback(
     async (paths: string[]) => {
       if (paths.length === 0) {
         return;
       }
 
-      const imported = createImportedTracks(paths);
-      const command: Command = {
-        label: `Import ${imported.length} tracks`,
-        do: () => {
-          setInboxTracks((current) => [...imported, ...current]);
-        },
-        undo: () => {
-          const ids = new Set(imported.map((track) => track.id));
-          setInboxTracks((current) =>
-            current.filter((track) => !ids.has(track.id))
-          );
-        },
-      };
-      commandManager.execute(command);
-
       try {
-        const count = await invoke<number>("import_files", { paths });
-        console.info("Import stub accepted files:", count);
+        const resolvedDbPath = await resolveDbPath();
+        const imported = await importFiles(resolvedDbPath, paths);
+        if (imported.length === 0) {
+          return;
+        }
+
+        const command: Command = {
+          label: `Import ${imported.length} tracks`,
+          do: () => {
+            setInboxTracks((current) => [...imported, ...current]);
+          },
+          undo: () => {
+            const ids = new Set(imported.map((track) => track.id));
+            setInboxTracks((current) =>
+              current.filter((track) => !ids.has(track.id))
+            );
+          },
+        };
+        commandManager.execute(command);
       } catch (error) {
-        console.error("Import stub failed:", error);
+        console.error("Import failed:", error);
       }
     },
-    [createImportedTracks, setInboxTracks]
+    [resolveDbPath, setInboxTracks]
   );
 
   const handleCreatePlaylist = useCallback(
@@ -140,18 +132,13 @@ export const useLibraryCommands = ({
       commandManager.execute(command);
 
       try {
-        let resolvedDbPath = dbPath.trim();
-        if (!resolvedDbPath) {
-          const baseDir = await appDataDir();
-          resolvedDbPath = await join(baseDir, dbFileName || "muro.db");
-        }
-
+        const resolvedDbPath = await resolveDbPath();
         await createPlaylist(resolvedDbPath, playlist.id, playlist.name);
       } catch (error) {
         console.error("Playlist create failed:", error);
       }
     },
-    [dbFileName, dbPath, setPlaylists]
+    [resolveDbPath, setPlaylists]
   );
 
   useEffect(() => {

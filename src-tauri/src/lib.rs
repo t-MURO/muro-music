@@ -1,4 +1,5 @@
 pub mod backfill;
+pub mod import;
 pub mod search;
 
 use rusqlite::Connection;
@@ -8,26 +9,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager, WindowEvent};
 
 #[tauri::command]
-fn import_files(paths: Vec<String>) -> Result<usize, String> {
-    for path in &paths {
-        let file_name = Path::new(path)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or(path.as_str());
-        let stem = Path::new(path)
-            .file_stem()
-            .and_then(|name| name.to_str())
-            .unwrap_or(file_name);
-        let title = search::strip_leading_track_number(stem);
-        let search_text = search::normalize_track_search_text(search::TrackSearchParts {
-            title: Some(title),
-            filename: Some(file_name),
-            ..Default::default()
-        });
-        println!("Import stub prepared search text: {}", search_text);
+fn import_files(paths: Vec<String>, db_path: String) -> Result<Vec<import::ImportedTrack>, String> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
     }
-    println!("Import stub received {} paths", paths.len());
-    Ok(paths.len())
+
+    import::import_files(paths, &db_path)
+}
+
+#[tauri::command]
+fn load_tracks(db_path: String) -> Result<import::LibrarySnapshot, String> {
+    import::load_tracks(&db_path)
+}
+
+#[tauri::command]
+fn load_playlists(db_path: String) -> Result<import::PlaylistSnapshot, String> {
+    import::load_playlists(&db_path)
 }
 
 #[tauri::command]
@@ -112,7 +109,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             import_files,
             backfill_search_text,
-            create_playlist
+            create_playlist,
+            load_tracks,
+            load_playlists
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

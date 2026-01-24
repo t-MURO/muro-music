@@ -695,6 +695,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "data-encoding"
+version = "2.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7a1e2f27636f116493b8b860f5546edb47c8d8f8ea73e1d2a20be88e28d1fea"
+
+[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2075,6 +2081,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "lofty"
+version = "0.19.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee8436c21042327836a52493b8cb2e1bb8a8f44c723a838d8c8b01f0bb657ea2"
+dependencies = [
+ "byteorder",
+ "data-encoding",
+ "flate2",
+ "lofty_attr",
+ "log",
+ "ogg_pager",
+ "paste",
+]
+
+[[package]]
+name = "lofty_attr"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83e2dcdba64a01c3ce936b02401ab17b52db3c72720cf484c9df3387ca7517d3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2532,6 +2564,15 @@ dependencies = [
  "objc2-foundation",
  "objc2-javascript-core",
  "objc2-security",
+]
+
+[[package]]
+name = "ogg_pager"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87b0bef808533c5890ab77279538212efdbbbd9aa4ef1ccdfcfbf77a42f7e6fa"
+dependencies = [
+ "byteorder",
 ]
 
 [[package]]
@@ -4146,6 +4187,7 @@ dependencies = [
 name = "tauri-app"
 version = "0.1.0"
 dependencies = [
+ "lofty",
  "rusqlite",
  "serde",
  "serde_json",
@@ -4155,6 +4197,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-sql",
  "unicode-normalization",
+ "uuid",
 ]
 
 [[package]]
