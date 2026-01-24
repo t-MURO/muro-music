@@ -19,6 +19,10 @@ export const ColumnsMenu = ({
     return null;
   }
 
+  const sortedColumns = [...columns].sort((a, b) =>
+    t(a.labelKey).localeCompare(t(b.labelKey), undefined, { sensitivity: "base" })
+  );
+
   return createPortal(
     <div
       className="fixed z-50 w-60 rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)]/95 p-4 text-sm shadow-[var(--shadow-lg)] backdrop-blur-xl"
@@ -29,7 +33,7 @@ export const ColumnsMenu = ({
         {t("columns.visible")}
       </div>
       <div className="space-y-1">
-        {columns.map((column) => (
+        {sortedColumns.map((column) => (
           <label
             key={column.key}
             className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors hover:bg-[var(--panel-muted)]"

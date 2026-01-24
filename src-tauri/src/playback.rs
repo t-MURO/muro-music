@@ -147,10 +147,7 @@ impl SymphoniaSource {
             .map_err(|e| format!("Failed to create decoder: {}", e))?;
 
         let mut buffer = VecDeque::new();
-        let mut signal_spec: Option<SignalSpec> = None;
-        let mut sample_rate = 0;
-        let mut channels = 0;
-        loop {
+        let (signal_spec, sample_rate, channels) = loop {
             let packet = format
                 .next_packet()
                 .map_err(|e| format!("Failed to read packet: {}", e))?;
@@ -163,16 +160,11 @@ impl SymphoniaSource {
                 Err(err) => return Err(format!("Failed to decode packet: {}", err)),
             };
             let spec = *decoded.spec();
-            signal_spec = Some(spec);
-            sample_rate = spec.rate;
-            channels = spec.channels.count() as u16;
             let mut sample_buf = SampleBuffer::<i16>::new(decoded.capacity() as u64, spec);
             sample_buf.copy_interleaved_ref(decoded);
             buffer.extend(sample_buf.samples());
-            break;
-        }
-
-        let signal_spec = signal_spec.ok_or_else(|| "No audio data found".to_string())?;
+            break (spec, spec.rate, spec.channels.count() as u16);
+        };
         if sample_rate == 0 || channels == 0 {
             return Err("Invalid audio stream parameters".to_string());
         }

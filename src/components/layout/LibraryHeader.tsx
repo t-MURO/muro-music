@@ -1,18 +1,16 @@
-import { Columns2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { t } from "../../i18n";
 
 type LibraryHeaderProps = {
   title: string;
   subtitle: string;
   isSettings: boolean;
-  onColumnsButtonClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
 };
 
 export const LibraryHeader = ({
   title,
   subtitle,
   isSettings,
-  onColumnsButtonClick,
 }: LibraryHeaderProps) => {
   return (
     <header className="flex items-start justify-between border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] p-[var(--spacing-lg)]">
@@ -36,14 +34,6 @@ export const LibraryHeader = ({
               type="text"
             />
           </div>
-          <button
-            className="flex h-[var(--button-height)] items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-[var(--spacing-md)] text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)] transition-all duration-[var(--transition-fast)] hover:bg-[var(--color-bg-hover)]"
-            onClick={onColumnsButtonClick}
-            type="button"
-          >
-            <Columns2 className="h-[var(--icon-size)] w-[var(--icon-size)]" />
-            <span>{t("columns.label")}</span>
-          </button>
         </div>
       )}
     </header>

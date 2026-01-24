@@ -37,7 +37,10 @@ export const useColumns = ({ tracks }: UseColumnsArgs) => {
 
       const maxLength = Math.max(
         t(column.labelKey as typeof column.labelKey).length,
-        ...tracks.map((track) => String(track[key as keyof Track]).length)
+        ...tracks.map((track) => {
+          const value = track[key as keyof Track];
+          return value === undefined || value === null ? 0 : String(value).length;
+        })
       );
       const nextWidth = Math.min(360, Math.max(120, maxLength * 8 + 48));
 
@@ -61,5 +64,22 @@ export const useColumns = ({ tracks }: UseColumnsArgs) => {
     [setColumns]
   );
 
-  return { autoFitColumn, columns, handleColumnResize, toggleColumn };
+  const reorderColumns = useCallback(
+    (dragKey: ColumnConfig["key"], targetIndex: number) => {
+      setColumns((current) => {
+        const fromIndex = current.findIndex((column) => column.key === dragKey);
+        if (fromIndex === -1) {
+          return current;
+        }
+        const next = [...current];
+        const [moved] = next.splice(fromIndex, 1);
+        const clampedIndex = Math.max(0, Math.min(next.length, targetIndex));
+        next.splice(clampedIndex, 0, moved);
+        return next;
+      });
+    },
+    [setColumns]
+  );
+
+  return { autoFitColumn, columns, handleColumnResize, reorderColumns, toggleColumn };
 };

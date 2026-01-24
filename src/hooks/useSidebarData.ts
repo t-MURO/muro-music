@@ -14,6 +14,7 @@ type UseSidebarDataArgs = {
   onPlaylistDragLeave: (id: string) => void;
   onPlaylistDragOver: (id: string) => void;
   onCreatePlaylist: () => void;
+  onPlaylistContextMenu: (event: React.MouseEvent<HTMLButtonElement>, id: string) => void;
 };
 
 export const useSidebarData = ({
@@ -28,6 +29,7 @@ export const useSidebarData = ({
   onPlaylistDragLeave,
   onPlaylistDragOver,
   onCreatePlaylist,
+  onPlaylistContextMenu,
 }: UseSidebarDataArgs) => {
   return useMemo(
     () => ({
@@ -42,10 +44,12 @@ export const useSidebarData = ({
       onPlaylistDragLeave,
       onPlaylistDragOver,
       onCreatePlaylist,
+      onPlaylistContextMenu,
     }),
     [
       draggingPlaylistId,
       inboxCount,
+      onPlaylistContextMenu,
       onPlaylistDragEnter,
       onPlaylistDragLeave,
       onPlaylistDragOver,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { AppLayout } from "./components/layout/AppLayout";
 import { DetailPanel } from "./components/layout/DetailPanel";
 import { LibraryHeader } from "./components/layout/LibraryHeader";
@@ -10,7 +10,9 @@ import { InboxBanner } from "./components/library/InboxBanner";
 import { TrackTable } from "./components/library/TrackTable";
 import { ContextMenu } from "./components/ui/ContextMenu";
 import { DragOverlay } from "./components/ui/DragOverlay";
+import { PlaylistContextMenu } from "./components/ui/PlaylistContextMenu";
 import { PlaylistCreateModal } from "./components/ui/PlaylistCreateModal";
+import { PlaylistEditModal } from "./components/ui/PlaylistEditModal";
 import { useLibraryCommands } from "./hooks/useLibraryCommands";
 import { useViewConfig, type LibraryView } from "./hooks/useLibraryView";
 import { initialInboxTracks, initialTracks, themes } from "./data/library";
@@ -20,6 +22,7 @@ import { useColumnsMenu } from "./hooks/useColumnsMenu";
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useDetailPanel } from "./hooks/useDetailPanel";
 import { useNativeDrag } from "./hooks/useNativeDrag";
+import { usePlaylistMenu } from "./hooks/usePlaylistMenu";
 import { usePlaylistDrag } from "./hooks/usePlaylistDrag";
 import { useAudioPlayback } from "./hooks/useAudioPlayback";
 import { useSelection } from "./hooks/useSelection";
@@ -28,9 +31,58 @@ import { useSidebarData } from "./hooks/useSidebarData";
 import { useTrackRatings } from "./hooks/useTrackRatings";
 import { localeOptions, t } from "./i18n";
 import { backfillSearchText, clearTracks, importedTrackToTrack, loadPlaylists, loadTracks } from "./utils/tauriDb";
+import { commandManager } from "./command-manager/commandManager";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { appDataDir, join } from "@tauri-apps/api/path";
-import type { Playlist } from "./types/library";
+import type { ColumnConfig, Playlist, Track } from "./types/library";
+
+const getSortableValue = (track: Track, key: ColumnConfig["key"]) => {
+  switch (key) {
+    case "duration":
+      return track.durationSeconds;
+    case "rating":
+      return track.rating;
+    case "trackNumber":
+      return track.trackNumber ?? null;
+    case "trackTotal":
+      return track.trackTotal ?? null;
+    case "year":
+      return track.year ?? null;
+    case "artists":
+      return track.artists ?? track.artist;
+    case "key":
+      return track.key ?? null;
+    case "date":
+    case "dateAdded":
+    case "dateModified": {
+      const raw =
+        key === "date"
+          ? track.date
+          : key === "dateAdded"
+          ? track.dateAdded
+          : track.dateModified;
+      if (!raw) {
+        return null;
+      }
+      const parsed = Date.parse(raw);
+      return Number.isNaN(parsed) ? raw : parsed;
+    }
+    default: {
+      const value = track[key as keyof Track];
+      return value === undefined || value === null ? null : value;
+    }
+  }
+};
+
+const compareSortValues = (left: string | number, right: string | number) => {
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+  return String(left).localeCompare(String(right), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+};
 
 function App() {
   const [view, setView] = useState<LibraryView>("library");
@@ -49,12 +101,42 @@ function App() {
     useAppPreferences();
 
   const displayedTracks = viewConfig.trackTable?.tracks ?? [];
+  const [sortState, setSortState] = useState<{
+    key: ColumnConfig["key"];
+    direction: "asc" | "desc";
+  } | null>(null);
+
+  const sortedTracks = useMemo(() => {
+    if (!sortState) {
+      return displayedTracks;
+    }
+    const next = [...displayedTracks];
+    next.sort((left, right) => {
+      const leftValue = getSortableValue(left, sortState.key);
+      const rightValue = getSortableValue(right, sortState.key);
+
+      if (leftValue === null && rightValue === null) {
+        return 0;
+      }
+      if (leftValue === null) {
+        return 1;
+      }
+      if (rightValue === null) {
+        return -1;
+      }
+
+      const result = compareSortValues(leftValue, rightValue);
+      return sortState.direction === "asc" ? result : -result;
+    });
+    return next;
+  }, [displayedTracks, sortState]);
 
   const { selectedIds, activeIndex, handleRowSelect, selectAll, clearSelection } =
-    useSelection(displayedTracks);
-  const { autoFitColumn, columns, handleColumnResize, toggleColumn } = useColumns({
-    tracks,
-  });
+    useSelection(sortedTracks);
+  const { autoFitColumn, columns, handleColumnResize, reorderColumns, toggleColumn } =
+    useColumns({
+      tracks,
+    });
   const { closeMenu, menuPosition, menuSelection, openForRow, openMenuId } =
     useContextMenu({
       selectedIds,
@@ -64,7 +146,7 @@ function App() {
     closeMenu: closeColumnsMenu,
     isOpen: showColumns,
     position: columnsMenuPosition,
-    toggleAt: toggleColumnsMenu,
+    openAt: openColumnsMenu,
   } = useColumnsMenu();
   const [importProgress, setImportProgress] = useState<
     { imported: number; total: number; phase: "scanning" | "importing" } | null
@@ -72,6 +154,9 @@ function App() {
   const [clearSongsPending, setClearSongsPending] = useState(false);
   const [isPlaylistModalOpen, setPlaylistModalOpen] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
+  const [isPlaylistEditOpen, setPlaylistEditOpen] = useState(false);
+  const [playlistEditName, setPlaylistEditName] = useState("");
+  const [playlistEditId, setPlaylistEditId] = useState<string | null>(null);
   const { sidebarWidth, startSidebarResize } = useSidebarPanel();
   const [dbPath, setDbPath] = useState("");
   const [dbFileName, setDbFileName] = useState("muro.db");
@@ -204,6 +289,19 @@ function App() {
     onRowMouseDown,
   } = usePlaylistDrag({ selectedIds, onDropToPlaylist: handlePlaylistDrop });
 
+  const {
+    closeMenu: closePlaylistMenu,
+    isOpen: isPlaylistMenuOpen,
+    openAt: openPlaylistMenu,
+    playlistId: playlistMenuId,
+    position: playlistMenuPosition,
+  } = usePlaylistMenu();
+
+  const playlistMenuTarget = useMemo(
+    () => playlists.find((playlist) => playlist.id === playlistMenuId) ?? null,
+    [playlists, playlistMenuId]
+  );
+
   const sidebarProps = useSidebarData({
     view,
     tracksCount: tracks.length,
@@ -219,6 +317,7 @@ function App() {
       setPlaylistName("");
       setPlaylistModalOpen(true);
     },
+    onPlaylistContextMenu: openPlaylistMenu,
   });
 
   const { isDragging, nativeDropStatus } = useNativeDrag(
@@ -237,6 +336,128 @@ function App() {
     },
     [openForRow]
   );
+
+  const handleSortChange = useCallback((key: ColumnConfig["key"]) => {
+    setSortState((current) => {
+      if (!current || current.key !== key) {
+        return { key, direction: "asc" };
+      }
+      if (current.direction === "asc") {
+        return { key, direction: "desc" };
+      }
+      return null;
+    });
+  }, []);
+
+  const handleOpenPlaylistEdit = useCallback((playlist: Playlist) => {
+    setPlaylistEditId(playlist.id);
+    setPlaylistEditName(playlist.name);
+    setPlaylistEditOpen(true);
+  }, []);
+
+  const handleRenamePlaylist = useCallback(
+    (playlistId: string, nextName: string) => {
+      let previousName: string | null = null;
+      const command = {
+        label: `Rename playlist to ${nextName}`,
+        do: () => {
+          setPlaylists((current) =>
+            current.map((playlist) => {
+              if (playlist.id !== playlistId) {
+                return playlist;
+              }
+              previousName = playlist.name;
+              return { ...playlist, name: nextName };
+            })
+          );
+        },
+        undo: () => {
+          if (previousName === null) {
+            return;
+          }
+          setPlaylists((current) =>
+            current.map((playlist) =>
+              playlist.id === playlistId
+                ? { ...playlist, name: previousName ?? playlist.name }
+                : playlist
+            )
+          );
+        },
+      };
+
+      commandManager.execute(command);
+    },
+    [setPlaylists]
+  );
+
+  const handleDeletePlaylist = useCallback(
+    (playlistId: string) => {
+      let removedPlaylist: Playlist | null = null;
+      let removedIndex = -1;
+      let previousView: LibraryView | null = null;
+      const command = {
+        label: "Delete playlist",
+        do: () => {
+          setPlaylists((current) => {
+            removedIndex = current.findIndex((playlist) => playlist.id === playlistId);
+            removedPlaylist = removedIndex >= 0 ? current[removedIndex] : null;
+            return current.filter((playlist) => playlist.id !== playlistId);
+          });
+          setView((current) => {
+            previousView = current;
+            return current === `playlist:${playlistId}` ? "library" : current;
+          });
+        },
+        undo: () => {
+          if (!removedPlaylist || removedIndex < 0) {
+            return;
+          }
+          setPlaylists((current) => {
+            const next = [...current];
+            const insertIndex = Math.min(removedIndex, next.length);
+            next.splice(insertIndex, 0, removedPlaylist as Playlist);
+            return next;
+          });
+          if (previousView === `playlist:${playlistId}`) {
+            setView(previousView);
+          }
+        },
+      };
+
+      commandManager.execute(command);
+    },
+    [setPlaylists, setView]
+  );
+
+  const handlePlaylistEditSubmit = useCallback(() => {
+    if (!playlistEditId) {
+      return;
+    }
+    const trimmed = playlistEditName.trim();
+    if (!trimmed) {
+      return;
+    }
+    handleRenamePlaylist(playlistEditId, trimmed);
+    setPlaylistEditOpen(false);
+    setPlaylistEditId(null);
+    setPlaylistEditName("");
+  }, [handleRenamePlaylist, playlistEditId, playlistEditName]);
+
+  const handlePlaylistMenuEdit = useCallback(() => {
+    if (!playlistMenuTarget) {
+      return;
+    }
+    handleOpenPlaylistEdit(playlistMenuTarget);
+    closePlaylistMenu();
+  }, [closePlaylistMenu, handleOpenPlaylistEdit, playlistMenuTarget]);
+
+  const handlePlaylistMenuDelete = useCallback(() => {
+    if (!playlistMenuId) {
+      return;
+    }
+    closePlaylistMenu();
+    handleDeletePlaylist(playlistMenuId);
+  }, [closePlaylistMenu, handleDeletePlaylist, playlistMenuId]);
 
   useEffect(() => {
     if (!isInternalDrag) {
@@ -438,6 +659,7 @@ function App() {
         onClick={() => {
           closeMenu();
           closeColumnsMenu();
+          closePlaylistMenu();
         }}
       >
       <DragOverlay
@@ -452,6 +674,17 @@ function App() {
         onChange={setPlaylistName}
         onClose={() => setPlaylistModalOpen(false)}
         onSubmit={handlePlaylistSubmit}
+      />
+      <PlaylistEditModal
+        isOpen={isPlaylistEditOpen}
+        value={playlistEditName}
+        onChange={setPlaylistEditName}
+        onClose={() => {
+          setPlaylistEditOpen(false);
+          setPlaylistEditId(null);
+          setPlaylistEditName("");
+        }}
+        onSubmit={handlePlaylistEditSubmit}
       />
       <div
         className="grid h-screen grid-cols-[var(--sidebar-width)_1fr_var(--queue-width)] grid-rows-[1fr_auto_var(--media-controls-height)] overflow-hidden"
@@ -476,7 +709,6 @@ function App() {
                 title={viewConfig.title}
                 subtitle={viewConfig.subtitle}
                 isSettings={viewConfig.type === "settings"}
-                onColumnsButtonClick={toggleColumnsMenu}
               />
               {viewConfig.trackTable && importProgress && (
                 <div className="border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
@@ -497,6 +729,13 @@ function App() {
                 isOpen={Boolean(openMenuId)}
                 position={menuPosition}
                 selectionCount={menuSelection.length}
+              />
+              <PlaylistContextMenu
+                isOpen={isPlaylistMenuOpen}
+                position={playlistMenuPosition}
+                playlistName={playlistMenuTarget?.name}
+                onEdit={handlePlaylistMenuEdit}
+                onDelete={handlePlaylistMenuDelete}
               />
               <ColumnsMenu
                 isOpen={showColumns}
@@ -540,7 +779,7 @@ function App() {
                       <InboxBanner selectedCount={selectedIds.size} />
                     )}
                     <TrackTable
-                      tracks={viewConfig.trackTable.tracks}
+                      tracks={sortedTracks}
                       columns={columns}
                       selectedIds={selectedIds}
                       activeIndex={activeIndex}
@@ -560,6 +799,10 @@ function App() {
                       onClearSelection={clearSelection}
                       onColumnResize={handleColumnResize}
                       onColumnAutoFit={autoFitColumn}
+                      onColumnReorder={reorderColumns}
+                      onHeaderContextMenu={openColumnsMenu}
+                      onSortChange={handleSortChange}
+                      sortState={sortState}
                       onRatingChange={handleRatingChange}
                     />
                   </>

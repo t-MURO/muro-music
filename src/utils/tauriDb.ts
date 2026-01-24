@@ -16,7 +16,15 @@ export type ImportedTrack = {
   id: string;
   title: string;
   artist: string;
+  artists?: string;
   album: string;
+  track_number?: number;
+  track_total?: number;
+  key?: string;
+  year?: number;
+  date?: string;
+  date_added?: string;
+  date_modified?: string;
   duration: string;
   duration_seconds: number;
   bitrate: string;
@@ -29,7 +37,15 @@ export const importedTrackToTrack = (imported: ImportedTrack) => ({
   id: imported.id,
   title: imported.title,
   artist: imported.artist,
+  artists: imported.artists,
   album: imported.album,
+  trackNumber: imported.track_number,
+  trackTotal: imported.track_total,
+  key: imported.key,
+  year: imported.year,
+  date: imported.date,
+  dateAdded: imported.date_added,
+  dateModified: imported.date_modified,
   duration: imported.duration,
   durationSeconds: imported.duration_seconds,
   bitrate: imported.bitrate,

@@ -4,10 +4,18 @@ import type { ColumnConfig } from "../types/library";
 export const parseColumns = (raw: string): ColumnConfig[] => {
   try {
     const parsed = JSON.parse(raw) as ColumnConfig[];
-    return baseColumns.map((column) => {
-      const saved = parsed.find((item) => item.key === column.key);
-      return saved ? { ...column, ...saved, labelKey: column.labelKey } : column;
-    });
+    const savedByKey = new Map(parsed.map((column) => [column.key, column]));
+    const ordered = parsed
+      .map((column) => {
+        const base = baseColumns.find((item) => item.key === column.key);
+        if (!base) {
+          return null;
+        }
+        return { ...base, ...column, labelKey: base.labelKey };
+      })
+      .filter((column): column is ColumnConfig => column !== null);
+    const missing = baseColumns.filter((column) => !savedByKey.has(column.key));
+    return [...ordered, ...missing];
   } catch {
     return baseColumns;
   }

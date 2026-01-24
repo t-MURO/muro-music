@@ -35,6 +35,10 @@ type TrackTableProps = {
   onClearSelection: () => void;
   onColumnResize: (key: ColumnConfig["key"], width: number) => void;
   onColumnAutoFit: (key: ColumnConfig["key"]) => void;
+  onColumnReorder?: (dragKey: ColumnConfig["key"], targetIndex: number) => void;
+  onHeaderContextMenu?: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onSortChange?: (key: ColumnConfig["key"]) => void;
+  sortState?: { key: ColumnConfig["key"]; direction: "asc" | "desc" } | null;
   onRatingChange: (id: string, rating: number) => void;
 };
 
@@ -60,6 +64,10 @@ export const TrackTable = memo(
     onClearSelection,
     onColumnResize,
     onColumnAutoFit,
+    onColumnReorder,
+    onHeaderContextMenu,
+    onSortChange,
+    sortState,
     onRatingChange,
   }: TrackTableProps) => {
     const tableContainerRef = useRef<HTMLDivElement | null>(null);
@@ -145,6 +153,37 @@ export const TrackTable = memo(
       rowVirtualizer.scrollToIndex(nextIndex, { align: "auto" });
     };
 
+    const getColumnDisplayValue = (track: Track, key: ColumnConfig["key"]) => {
+      switch (key) {
+        case "artists":
+          return track.artists ?? track.artist;
+        case "trackNumber":
+          return track.trackNumber === undefined || track.trackNumber === null
+            ? ""
+            : String(track.trackNumber);
+        case "trackTotal":
+          return track.trackTotal === undefined || track.trackTotal === null
+            ? ""
+            : String(track.trackTotal);
+        case "key":
+          return track.key ?? "";
+        case "year":
+          return track.year === undefined || track.year === null
+            ? ""
+            : String(track.year);
+        case "date":
+          return track.date ?? "";
+        case "dateAdded":
+          return track.dateAdded ?? "";
+        case "dateModified":
+          return track.dateModified ?? "";
+        default: {
+          const value = track[key as keyof Track];
+          return value === undefined || value === null ? "" : String(value);
+        }
+      }
+    };
+
     return (
       <div
         ref={tableContainerRef}
@@ -161,6 +200,10 @@ export const TrackTable = memo(
           gridTemplateColumns={gridTemplateColumns}
           onColumnResize={onColumnResize}
           onColumnAutoFit={onColumnAutoFit}
+          onColumnReorder={onColumnReorder}
+          onHeaderContextMenu={onHeaderContextMenu}
+          onSortChange={onSortChange}
+          sortState={sortState}
         />
         {tracks.length === 0 ? (
           <div className="flex min-h-[240px] items-center justify-center px-[var(--spacing-lg)] py-10">
@@ -247,9 +290,9 @@ export const TrackTable = memo(
                 role="row"
               >
                 {visibleColumns.map((column) => {
-                  const value = track[column.key as keyof Track];
+                  const value = getColumnDisplayValue(track, column.key);
                   if (column.key === "rating") {
-                    const currentRating = Number(value) || 0;
+                    const currentRating = Number(track.rating) || 0;
                     return (
                       <RatingCell
                         key={`${track.id}-${column.key}`}

@@ -15,6 +15,7 @@ type SidebarProps = {
   onPlaylistDragLeave: (id: string) => void;
   onPlaylistDragOver: (id: string) => void;
   onCreatePlaylist: () => void;
+  onPlaylistContextMenu: (event: React.MouseEvent<HTMLButtonElement>, id: string) => void;
 };
 
 export const Sidebar = ({
@@ -29,6 +30,7 @@ export const Sidebar = ({
   onPlaylistDragLeave,
   onPlaylistDragOver,
   onCreatePlaylist,
+  onPlaylistContextMenu,
 }: SidebarProps) => {
   const isLibrary = currentView === "library";
   const isInbox = currentView === "inbox";
@@ -135,6 +137,7 @@ export const Sidebar = ({
                 event.preventDefault();
                 onPlaylistDragOver(playlist.id);
               }}
+              onContextMenu={(event) => onPlaylistContextMenu(event, playlist.id)}
               onDrop={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
