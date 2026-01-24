@@ -12,15 +12,17 @@ type SettingsPanelProps = {
   dbFileName: string;
   backfillPending: boolean;
   backfillStatus: string | null;
+  clearSongsPending: boolean;
   onThemeChange: (theme: string) => void;
   onLocaleChange: (locale: Locale) => void;
   onDbPathChange: (value: string) => void;
   onDbFileNameChange: (value: string) => void;
   onBackfillSearchText: () => void;
+  onClearSongs: () => void;
   onUseDefaultLocation: () => void;
 };
 
-type Tab = "application" | "theme";
+type Tab = "dev" | "application" | "theme";
 
 const themeDescriptions: Record<string, { label: string; description: string }> = {
   "light": { label: "Light", description: "Polished, spacious design with light colors" },
@@ -40,19 +42,37 @@ export const SettingsPanel = ({
   dbFileName,
   backfillPending,
   backfillStatus,
+  clearSongsPending,
   onThemeChange,
   onLocaleChange,
   onDbPathChange,
   onDbFileNameChange,
   onBackfillSearchText,
+  onClearSongs,
   onUseDefaultLocation,
 }: SettingsPanelProps) => {
-  const [activeTab, setActiveTab] = useState<Tab>("application");
+  const isDevMode = import.meta.env.DEV;
+  const [activeTab, setActiveTab] = useState<Tab>(
+    isDevMode ? "dev" : "application"
+  );
 
   return (
     <div className="flex h-full flex-col">
       {/* Tabs */}
       <div className="flex gap-1 border-b border-[var(--color-border-light)] px-[var(--spacing-lg)]">
+        {isDevMode && (
+          <button
+            className={`px-[var(--spacing-md)] py-[var(--spacing-sm)] text-[var(--font-size-sm)] font-medium transition-all duration-[var(--transition-fast)] ${
+              activeTab === "dev"
+                ? "border-b-2 border-[var(--color-accent)] text-[var(--color-text-primary)]"
+                : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            }`}
+            onClick={() => setActiveTab("dev")}
+            type="button"
+          >
+            Dev
+          </button>
+        )}
         <button
           className={`px-[var(--spacing-md)] py-[var(--spacing-sm)] text-[var(--font-size-sm)] font-medium transition-all duration-[var(--transition-fast)] ${
             activeTab === "application"
@@ -79,6 +99,29 @@ export const SettingsPanel = ({
 
       {/* Tab Content */}
       <div className="flex-1 overflow-auto p-[var(--spacing-lg)]">
+        {activeTab === "dev" && isDevMode && (
+          <div className="space-y-8">
+            <div>
+              <h3 className="mb-[var(--spacing-md)] text-[var(--font-size-sm)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                Songs
+              </h3>
+              <div className="space-y-3">
+                <p className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
+                  Clear the song tables for a clean slate during development.
+                </p>
+                <button
+                  className="flex h-[var(--button-height)] items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-[var(--spacing-md)] text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)] transition-all duration-[var(--transition-fast)] hover:bg-[var(--color-bg-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={onClearSongs}
+                  disabled={clearSongsPending}
+                  type="button"
+                >
+                  {clearSongsPending ? "Clearing..." : "Empty song database"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "application" && (
           <div className="space-y-8">
             {/* Language Section */}

@@ -34,6 +34,11 @@ fn load_playlists(db_path: String) -> Result<import::PlaylistSnapshot, String> {
 }
 
 #[tauri::command]
+fn clear_tracks(db_path: String) -> Result<(), String> {
+    import::clear_tracks(&db_path)
+}
+
+#[tauri::command]
 fn backfill_search_text(db_path: String) -> Result<usize, String> {
     backfill::run_backfill(&db_path)
 }
@@ -117,7 +122,8 @@ pub fn run() {
             backfill_search_text,
             create_playlist,
             load_tracks,
-            load_playlists
+            load_playlists,
+            clear_tracks
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

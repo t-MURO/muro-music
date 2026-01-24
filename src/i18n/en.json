@@ -23,6 +23,8 @@
   "settings.theme.help": "Theme colors are driven by CSS variables and update instantly.",
   "settings.language": "Language",
   "settings.language.help": "Controls the language for app text.",
+  "settings.dev.clearSongs.confirm.title": "Empty song database",
+  "settings.dev.clearSongs.confirm.body": "This will delete all songs from the database. Continue?",
   "panel.nowPlaying": "Now Playing",
   "panel.queue": "Queue",
   "panel.output": "Output",
@@ -45,5 +47,9 @@
   "columns.album": "Album",
   "columns.duration": "Duration",
   "columns.bitrate": "Bitrate",
-  "columns.rating": "Rating"
+  "columns.rating": "Rating",
+  "header.playlist.subtitle": "{count} tracks",
+  "header.playlist.notFound": "Playlist not found",
+  "playlist.empty.title": "Playlist is empty",
+  "playlist.empty.description": "Drag tracks here from the library to add them to this playlist."
 }

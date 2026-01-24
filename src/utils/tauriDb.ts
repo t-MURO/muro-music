@@ -49,3 +49,7 @@ export const loadTracks = (dbPath: string) => {
 export const loadPlaylists = (dbPath: string) => {
   return invoke<PlaylistSnapshot>("load_playlists", { dbPath });
 };
+
+export const clearTracks = (dbPath: string) => {
+  return invoke<void>("clear_tracks", { dbPath });
+};

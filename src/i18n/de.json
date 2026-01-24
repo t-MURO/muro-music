@@ -23,6 +23,8 @@
   "settings.theme.help": "Themenfarben werden uber CSS-Variablen gesteuert und sofort angewendet.",
   "settings.language": "Sprache",
   "settings.language.help": "Aussprache der UI-Texte fur die App.",
+  "settings.dev.clearSongs.confirm.title": "Song-Datenbank leeren",
+  "settings.dev.clearSongs.confirm.body": "Dadurch werden alle Songs aus der Datenbank entfernt. Fortfahren?",
   "panel.nowPlaying": "Gerade spielt",
   "panel.queue": "Warteschlange",
   "panel.output": "Ausgabe",
@@ -45,5 +47,9 @@
   "columns.album": "Album",
   "columns.duration": "Dauer",
   "columns.bitrate": "Bitrate",
-  "columns.rating": "Bewertung"
+  "columns.rating": "Bewertung",
+  "header.playlist.subtitle": "{count} Titel",
+  "header.playlist.notFound": "Playlist nicht gefunden",
+  "playlist.empty.title": "Playlist ist leer",
+  "playlist.empty.description": "Ziehe Titel aus der Bibliothek hierher, um sie zur Playlist hinzuzufugen."
 }

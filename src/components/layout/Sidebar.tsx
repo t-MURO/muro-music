@@ -1,14 +1,15 @@
 import { Folder, Inbox, ListMusic, Plus, Settings } from "lucide-react";
 import { t } from "../../i18n";
 import type { Playlist } from "../../types/library";
+import type { LibraryView } from "../../hooks/useLibraryView";
 
 type SidebarProps = {
-  currentView: "library" | "inbox" | "settings";
+  currentView: LibraryView;
   trackCount: number;
   inboxCount: number;
   playlists: Playlist[];
   draggingPlaylistId: string | null;
-  onViewChange: (view: "library" | "inbox" | "settings") => void;
+  onViewChange: (view: LibraryView) => void;
   onPlaylistDrop: (event: React.DragEvent<HTMLButtonElement>, id: string) => void;
   onPlaylistDragEnter: (id: string) => void;
   onPlaylistDragLeave: (id: string) => void;
@@ -110,15 +111,18 @@ export const Sidebar = ({
         
         {playlists.map((playlist) => {
           const isDropTarget = draggingPlaylistId === playlist.id;
+          const isActive = currentView === `playlist:${playlist.id}`;
           return (
             <button
               key={playlist.id}
               className={`mb-1 flex w-full items-center justify-between rounded-[var(--radius-md)] px-[var(--spacing-md)] py-[var(--spacing-sm)] text-left text-[var(--font-size-sm)] font-medium transition-all duration-[var(--transition-fast)] ${
-                isDropTarget
+                isActive
+                  ? "bg-[var(--color-accent)] text-white"
+                  : isDropTarget
                   ? "bg-[var(--color-accent-light)] text-[var(--color-accent)]"
                   : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
               }`}
-              onClick={() => onViewChange("library")}
+              onClick={() => onViewChange(`playlist:${playlist.id}`)}
               onDragEnter={(event) => {
                 event.preventDefault();
                 onPlaylistDragEnter(playlist.id);
@@ -140,7 +144,13 @@ export const Sidebar = ({
               type="button"
             >
               <span className="truncate">{playlist.name}</span>
-              <span className="ml-2 rounded-[var(--radius-full)] bg-[var(--color-bg-tertiary)] px-2 py-0.5 text-[var(--font-size-xs)]">
+              <span
+                className={`ml-2 rounded-[var(--radius-full)] px-2 py-0.5 text-[var(--font-size-xs)] ${
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "bg-[var(--color-bg-tertiary)]"
+                }`}
+              >
                 {playlist.trackIds.length}
               </span>
             </button>

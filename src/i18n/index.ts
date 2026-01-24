@@ -28,4 +28,12 @@ export const setLocale = (locale: Locale) => {
 
 export const getLocale = () => currentLocale;
 
-export const t = (key: MessageKey) => currentMessages[key] ?? key;
+export const t = (key: MessageKey, params?: Record<string, string>) => {
+  let message = currentMessages[key] ?? key;
+  if (params) {
+    for (const [placeholder, value] of Object.entries(params)) {
+      message = message.replace(new RegExp(`\\{${placeholder}\\}`, "g"), value);
+    }
+  }
+  return message;
+};

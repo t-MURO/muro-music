@@ -246,6 +246,18 @@ pub fn load_playlists(db_path: &str) -> Result<PlaylistSnapshot, String> {
     Ok(PlaylistSnapshot { playlists })
 }
 
+pub fn clear_tracks(db_path: &str) -> Result<(), String> {
+    if !Path::new(db_path).exists() {
+        return Ok(());
+    }
+
+    let conn = Connection::open(db_path).map_err(|error| error.to_string())?;
+    ensure_schema(&conn)?;
+    conn.execute("DELETE FROM tracks", [])
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 fn collect_audio_paths(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
     if path.is_dir() {
         for entry in std::fs::read_dir(path).map_err(|error| error.to_string())? {

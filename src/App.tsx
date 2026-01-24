@@ -12,7 +12,7 @@ import { ContextMenu } from "./components/ui/ContextMenu";
 import { DragOverlay } from "./components/ui/DragOverlay";
 import { PlaylistCreateModal } from "./components/ui/PlaylistCreateModal";
 import { useLibraryCommands } from "./hooks/useLibraryCommands";
-import { useLibraryView, type LibraryView } from "./hooks/useLibraryView";
+import { useViewConfig, type LibraryView } from "./hooks/useLibraryView";
 import { initialInboxTracks, initialTracks, themes } from "./data/library";
 import { useAppPreferences } from "./hooks/useAppPreferences";
 import { useColumns } from "./hooks/useColumns";
@@ -26,9 +26,9 @@ import { useSelection } from "./hooks/useSelection";
 import { useSidebarPanel } from "./hooks/useSidebarPanel";
 import { useSidebarData } from "./hooks/useSidebarData";
 import { useTrackRatings } from "./hooks/useTrackRatings";
-import { localeOptions } from "./i18n";
-import { backfillSearchText, loadPlaylists, loadTracks } from "./utils/tauriDb";
-import { open } from "@tauri-apps/plugin-dialog";
+import { localeOptions, t } from "./i18n";
+import { backfillSearchText, clearTracks, loadPlaylists, loadTracks } from "./utils/tauriDb";
+import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import type { Playlist } from "./types/library";
 
@@ -36,10 +36,19 @@ function App() {
   const [view, setView] = useState<LibraryView>("library");
   const [tracks, setTracks] = useState(() => initialTracks);
   const [inboxTracks, setInboxTracks] = useState(() => initialInboxTracks);
-  const { isInbox, isSettings, subtitle, title } = useLibraryView(view);
+  const [playlists, setPlaylists] = useState<Playlist[]>(() => []);
+
+  const viewConfig = useViewConfig({
+    view,
+    playlists,
+    libraryTracks: tracks,
+    inboxTracks,
+  });
 
   const { locale, setLocale, setTheme, theme } = useAppPreferences();
-  const displayedTracks = isInbox ? inboxTracks : tracks;
+
+  const displayedTracks = viewConfig.trackTable?.tracks ?? [];
+
   const { selectedIds, activeIndex, handleRowSelect, selectAll, clearSelection } =
     useSelection(displayedTracks);
   const { autoFitColumn, columns, handleColumnResize, toggleColumn } = useColumns({
@@ -56,10 +65,10 @@ function App() {
     position: columnsMenuPosition,
     toggleAt: toggleColumnsMenu,
   } = useColumnsMenu();
-  const [playlists, setPlaylists] = useState<Playlist[]>(() => []);
   const [importProgress, setImportProgress] = useState<
     { imported: number; total: number; phase: "scanning" | "importing" } | null
   >(null);
+  const [clearSongsPending, setClearSongsPending] = useState(false);
   const [isPlaylistModalOpen, setPlaylistModalOpen] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
   const { sidebarWidth, startSidebarResize } = useSidebarPanel();
@@ -298,6 +307,35 @@ function App() {
     setPlaylistModalOpen(false);
   }, [handleCreatePlaylist, playlistName]);
 
+  const handleClearSongs = useCallback(async () => {
+    if (clearSongsPending) {
+      return;
+    }
+
+    const shouldClear = await confirm(
+      t("settings.dev.clearSongs.confirm.body"),
+      {
+        title: t("settings.dev.clearSongs.confirm.title"),
+        kind: "warning",
+      }
+    );
+    if (!shouldClear) {
+      return;
+    }
+
+    setClearSongsPending(true);
+    try {
+      const resolvedPath = await resolveDbPath();
+      await clearTracks(resolvedPath);
+      setTracks([]);
+      setInboxTracks([]);
+    } catch (error) {
+      console.error("Clear songs failed:", error);
+    } finally {
+      setClearSongsPending(false);
+    }
+  }, [clearSongsPending, resolveDbPath]);
+
   const importPercent = importProgress
     ? Math.min(
         100,
@@ -348,12 +386,12 @@ function App() {
           main={
             <>
               <LibraryHeader
-                title={title}
-                subtitle={subtitle}
-                isSettings={isSettings}
+                title={viewConfig.title}
+                subtitle={viewConfig.subtitle}
+                isSettings={viewConfig.type === "settings"}
                 onColumnsButtonClick={toggleColumnsMenu}
               />
-              {!isSettings && importProgress && (
+              {viewConfig.trackTable && importProgress && (
                 <div className="border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
                   <div className="mb-[var(--spacing-xs)] text-[var(--font-size-xs)] font-semibold text-[var(--color-text-secondary)]">
                     {importProgress.phase === "scanning" || importProgress.total === 0
@@ -380,7 +418,7 @@ function App() {
                 onToggleColumn={toggleColumn}
               />
               <section className="flex min-h-0 flex-1 flex-col bg-[var(--color-bg-primary)]">
-                {isSettings ? (
+                {viewConfig.type === "settings" ? (
                     <SettingsPanel
                       theme={theme}
                       locale={locale}
@@ -390,6 +428,7 @@ function App() {
                       dbFileName={dbFileName}
                       backfillPending={backfillPending}
                       backfillStatus={backfillStatus}
+                      clearSongsPending={clearSongsPending}
                       onThemeChange={setTheme}
                       onLocaleChange={setLocale}
                       onDbPathChange={(value) => {
@@ -401,30 +440,27 @@ function App() {
                         setUseAutoDbPath(true);
                       }}
                       onBackfillSearchText={handleBackfillSearchText}
+                      onClearSongs={handleClearSongs}
                       onUseDefaultLocation={() => {
                         setUseAutoDbPath(true);
                       }}
                     />
-                ) : (
+                ) : viewConfig.trackTable && (
                   <>
-                    {isInbox && (
+                    {viewConfig.trackTable.banner === "inbox" && (
                       <InboxBanner selectedCount={selectedIds.size} />
                     )}
                     <TrackTable
-                      tracks={displayedTracks}
+                      tracks={viewConfig.trackTable.tracks}
                       columns={columns}
                       selectedIds={selectedIds}
                       activeIndex={activeIndex}
-                      emptyTitle={isInbox ? "Inbox is empty" : "No tracks yet"}
-                      emptyDescription={
-                        isInbox
-                          ? "Drop folders or audio files here to stage new imports."
-                          : "Drag folders or files into the app to build your library."
-                      }
-                      emptyActionLabel="Import files"
-                      onEmptyAction={handleEmptyImport}
-                      emptySecondaryActionLabel="Import folder"
-                      onEmptySecondaryAction={handleEmptyImportFolder}
+                      emptyTitle={viewConfig.trackTable.emptyState.title}
+                      emptyDescription={viewConfig.trackTable.emptyState.description}
+                      emptyActionLabel={viewConfig.trackTable.emptyState.primaryAction?.label}
+                      onEmptyAction={viewConfig.trackTable.showImportActions ? handleEmptyImport : undefined}
+                      emptySecondaryActionLabel={viewConfig.trackTable.emptyState.secondaryAction?.label}
+                      onEmptySecondaryAction={viewConfig.trackTable.showImportActions ? handleEmptyImportFolder : undefined}
                       onRowSelect={handleRowSelect}
                       onRowMouseDown={onRowMouseDown}
                       onRowContextMenu={handleRowContextMenu}
