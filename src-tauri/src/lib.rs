@@ -9,12 +9,18 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager, WindowEvent};
 
 #[tauri::command]
-fn import_files(paths: Vec<String>, db_path: String) -> Result<Vec<import::ImportedTrack>, String> {
+fn import_files(
+    app: tauri::AppHandle,
+    paths: Vec<String>,
+    db_path: String,
+) -> Result<Vec<import::ImportedTrack>, String> {
     if paths.is_empty() {
         return Ok(Vec::new());
     }
 
-    import::import_files(paths, &db_path)
+    import::import_files_with_progress(paths, &db_path, |progress| {
+        let _ = app.emit("muro://import-progress", progress);
+    })
 }
 
 #[tauri::command]

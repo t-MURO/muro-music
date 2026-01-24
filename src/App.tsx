@@ -57,6 +57,9 @@ function App() {
     toggleAt: toggleColumnsMenu,
   } = useColumnsMenu();
   const [playlists, setPlaylists] = useState<Playlist[]>(() => []);
+  const [importProgress, setImportProgress] = useState<
+    { imported: number; total: number; phase: "scanning" | "importing" } | null
+  >(null);
   const [isPlaylistModalOpen, setPlaylistModalOpen] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
   const { sidebarWidth, startSidebarResize } = useSidebarPanel();
@@ -88,6 +91,7 @@ function App() {
     useLibraryCommands({
       dbPath,
       dbFileName,
+      setImportProgress,
       setPlaylists,
       setInboxTracks,
     });
@@ -294,6 +298,15 @@ function App() {
     setPlaylistModalOpen(false);
   }, [handleCreatePlaylist, playlistName]);
 
+  const importPercent = importProgress
+    ? Math.min(
+        100,
+        importProgress.total > 0
+          ? Math.round((importProgress.imported / importProgress.total) * 100)
+          : 0
+      )
+    : 0;
+
   return (
       <div
         className="theme-transition h-screen overflow-hidden bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
@@ -340,6 +353,21 @@ function App() {
                 isSettings={isSettings}
                 onColumnsButtonClick={toggleColumnsMenu}
               />
+              {!isSettings && importProgress && (
+                <div className="border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
+                  <div className="mb-[var(--spacing-xs)] text-[var(--font-size-xs)] font-semibold text-[var(--color-text-secondary)]">
+                    {importProgress.phase === "scanning" || importProgress.total === 0
+                      ? "Scanning files..."
+                      : `${importProgress.imported} of ${importProgress.total} songs imported`}
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-[var(--radius-full)] bg-[var(--color-bg-tertiary)]">
+                    <div
+                      className="h-full rounded-[var(--radius-full)] bg-[var(--color-accent)] transition-all duration-[var(--transition-normal)]"
+                      style={{ width: `${importPercent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
               <ContextMenu
                 isOpen={Boolean(openMenuId)}
                 position={menuPosition}

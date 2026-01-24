@@ -28,6 +28,12 @@ pub struct ImportedTrack {
 }
 
 #[derive(Debug, Serialize, Clone)]
+pub struct ImportProgress {
+    pub imported: usize,
+    pub total: usize,
+}
+
+#[derive(Debug, Serialize, Clone)]
 pub struct LibrarySnapshot {
     pub library: Vec<ImportedTrack>,
     pub inbox: Vec<ImportedTrack>,
@@ -81,6 +87,17 @@ struct NormalizedMetadata {
 }
 
 pub fn import_files(paths: Vec<String>, db_path: &str) -> Result<Vec<ImportedTrack>, String> {
+    import_files_with_progress(paths, db_path, |_| {})
+}
+
+pub fn import_files_with_progress<F>(
+    paths: Vec<String>,
+    db_path: &str,
+    mut on_progress: F,
+) -> Result<Vec<ImportedTrack>, String>
+where
+    F: FnMut(ImportProgress),
+{
     let mut file_paths = Vec::new();
     for path in paths {
         collect_audio_paths(Path::new(&path), &mut file_paths)?;
@@ -100,6 +117,12 @@ pub fn import_files(paths: Vec<String>, db_path: &str) -> Result<Vec<ImportedTra
     let tx = conn.transaction().map_err(|error| error.to_string())?;
     let mut imported = Vec::new();
     let now = current_timestamp();
+    let total = file_paths.len();
+    let mut processed = 0;
+    on_progress(ImportProgress {
+        imported: processed,
+        total,
+    });
 
     for path in file_paths {
         match import_single(&tx, &path, now) {
@@ -108,6 +131,11 @@ pub fn import_files(paths: Vec<String>, db_path: &str) -> Result<Vec<ImportedTra
                 eprintln!("Import failed for {}: {}", path.display(), error);
             }
         }
+        processed += 1;
+        on_progress(ImportProgress {
+            imported: processed,
+            total,
+        });
     }
 
     tx.commit().map_err(|error| error.to_string())?;

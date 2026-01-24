@@ -1,12 +1,20 @@
 import { appDataDir, join } from "@tauri-apps/api/path";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
 import { createPlaylist, importFiles } from "../utils/tauriDb";
 import type { Playlist, Track } from "../types/library";
 
+export type ImportProgress = {
+  imported: number;
+  total: number;
+  phase: "scanning" | "importing";
+};
+
 type UseLibraryCommandsArgs = {
   dbPath: string;
   dbFileName: string;
+  setImportProgress: React.Dispatch<React.SetStateAction<ImportProgress | null>>;
   setPlaylists: React.Dispatch<React.SetStateAction<Playlist[]>>;
   setInboxTracks: React.Dispatch<React.SetStateAction<Track[]>>;
 };
@@ -14,10 +22,12 @@ type UseLibraryCommandsArgs = {
 export const useLibraryCommands = ({
   dbPath,
   dbFileName,
+  setImportProgress,
   setPlaylists,
   setInboxTracks,
 }: UseLibraryCommandsArgs) => {
   const playlistSequenceRef = useRef(0);
+  const clearProgressTimerRef = useRef<number | null>(null);
 
   const resolveDbPath = useCallback(async () => {
     const trimmed = dbPath.trim();
@@ -77,9 +87,22 @@ export const useLibraryCommands = ({
       }
 
       try {
+        if (clearProgressTimerRef.current !== null && typeof window !== "undefined") {
+          window.clearTimeout(clearProgressTimerRef.current);
+          clearProgressTimerRef.current = null;
+        }
+        setImportProgress({ imported: 0, total: 0, phase: "scanning" });
         const resolvedDbPath = await resolveDbPath();
         const imported = await importFiles(resolvedDbPath, paths);
         if (imported.length === 0) {
+          if (typeof window !== "undefined") {
+            clearProgressTimerRef.current = window.setTimeout(() => {
+              setImportProgress(null);
+              clearProgressTimerRef.current = null;
+            }, 500);
+          } else {
+            setImportProgress(null);
+          }
           return;
         }
 
@@ -96,11 +119,20 @@ export const useLibraryCommands = ({
           },
         };
         commandManager.execute(command);
+        if (typeof window !== "undefined") {
+          clearProgressTimerRef.current = window.setTimeout(() => {
+            setImportProgress(null);
+            clearProgressTimerRef.current = null;
+          }, 800);
+        } else {
+          setImportProgress(null);
+        }
       } catch (error) {
         console.error("Import failed:", error);
+        setImportProgress(null);
       }
     },
-    [resolveDbPath, setInboxTracks]
+    [resolveDbPath, setImportProgress, setInboxTracks]
   );
 
   const handleCreatePlaylist = useCallback(
@@ -162,6 +194,45 @@ export const useLibraryCommands = ({
     window.addEventListener("keydown", handleUndoRedo);
     return () => window.removeEventListener("keydown", handleUndoRedo);
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const unlistenPromise = listen<ImportProgress>(
+      "muro://import-progress",
+      (event) => {
+        if (!isMounted) {
+          return;
+        }
+        const payload = event.payload;
+        if (!payload) {
+          return;
+        }
+        setImportProgress({
+          imported: payload.imported,
+          total: payload.total,
+          phase: "importing",
+        });
+        if (payload.total > 0 && payload.imported >= payload.total) {
+          if (clearProgressTimerRef.current !== null && typeof window !== "undefined") {
+            window.clearTimeout(clearProgressTimerRef.current);
+          }
+          if (typeof window !== "undefined") {
+            clearProgressTimerRef.current = window.setTimeout(() => {
+              setImportProgress(null);
+              clearProgressTimerRef.current = null;
+            }, 800);
+          } else {
+            setImportProgress(null);
+          }
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      unlistenPromise.then((unlisten) => unlisten()).catch(() => undefined);
+    };
+  }, [setImportProgress]);
 
   return { handleImportPaths, handlePlaylistDrop, handleCreatePlaylist };
 };
