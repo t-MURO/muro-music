@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { AppLayout } from "./components/layout/AppLayout";
 import { DetailPanel } from "./components/layout/DetailPanel";
 import { LibraryHeader } from "./components/layout/LibraryHeader";
@@ -175,34 +175,38 @@ function App() {
   // Playback state
   const [shuffleEnabled, setShuffleEnabled] = useState(false);
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
-  const [queueIndex, setQueueIndex] = useState(0);
 
   const allTracks = [...tracks, ...inboxTracks];
 
+  // Refs for track-end handler - declared before useAudioPlayback so the stable callback can use them
+  const allTracksRef = useRef(allTracks);
+  const repeatModeRef = useRef(repeatMode);
+  const shuffleEnabledRef = useRef(shuffleEnabled);
+  const currentTrackIdRef = useRef<string | null>(null);
+  const playTrackRef = useRef<((track: Track) => void) | null>(null);
+
+  // Stable callback that reads from refs
   const handleTrackEnd = useCallback(() => {
-    // Handle repeat and queue progression
-    if (repeatMode === "one") {
-      // Replay the same track - will be handled in playback
-      const currentTrack = allTracks[queueIndex];
-      if (currentTrack) {
-        playTrack(currentTrack);
-      }
-    } else if (queueIndex < allTracks.length - 1) {
-      // Play next track
-      const nextIndex = shuffleEnabled
-        ? Math.floor(Math.random() * allTracks.length)
-        : queueIndex + 1;
-      setQueueIndex(nextIndex);
-      const nextTrack = allTracks[nextIndex];
-      if (nextTrack) {
-        playTrack(nextTrack);
-      }
-    } else if (repeatMode === "all" && allTracks.length > 0) {
-      // Loop back to beginning
-      setQueueIndex(0);
-      playTrack(allTracks[0]);
+    const tracks = allTracksRef.current;
+    const trackId = currentTrackIdRef.current;
+    const repeat = repeatModeRef.current;
+    const shuffle = shuffleEnabledRef.current;
+    const play = playTrackRef.current;
+
+    if (tracks.length === 0 || !play) return;
+
+    const currentIndex = trackId ? tracks.findIndex(t => t.id === trackId) : -1;
+
+    if (repeat === "one" && currentIndex !== -1) {
+      play(tracks[currentIndex]);
+    } else if (shuffle) {
+      play(tracks[Math.floor(Math.random() * tracks.length)]);
+    } else if (currentIndex < tracks.length - 1) {
+      play(tracks[currentIndex + 1]);
+    } else if (repeat === "all") {
+      play(tracks[0]);
     }
-  }, [repeatMode, shuffleEnabled, queueIndex, allTracks]);
+  }, []);
 
   const {
     isPlaying,
@@ -214,10 +218,14 @@ function App() {
     togglePlay,
     seek,
     setVolume,
-  } = useAudioPlayback({
-    onTrackEnd: handleTrackEnd,
-    seekMode,
-  });
+  } = useAudioPlayback({ onTrackEnd: handleTrackEnd, seekMode });
+
+  // Keep refs in sync
+  useEffect(() => { allTracksRef.current = allTracks; }, [allTracks]);
+  useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
+  useEffect(() => { shuffleEnabledRef.current = shuffleEnabled; }, [shuffleEnabled]);
+  useEffect(() => { currentTrackIdRef.current = currentTrack?.id ?? null; }, [currentTrack]);
+  useEffect(() => { playTrackRef.current = playTrack; }, [playTrack]);
 
   const toggleShuffle = useCallback(() => {
     setShuffleEnabled((current) => !current);
@@ -231,40 +239,36 @@ function App() {
 
   const handleSkipPrevious = useCallback(() => {
     if (currentPosition > 3) {
-      // If more than 3 seconds in, restart current track
       seek(0);
-    } else if (queueIndex > 0) {
-      // Go to previous track
-      const prevIndex = queueIndex - 1;
-      setQueueIndex(prevIndex);
-      const prevTrack = allTracks[prevIndex];
-      if (prevTrack) {
-        playTrack(prevTrack);
-      }
+      return;
     }
-  }, [currentPosition, queueIndex, allTracks, seek, playTrack]);
+    const currentIndex = currentTrack 
+      ? allTracks.findIndex(t => t.id === currentTrack.id) 
+      : -1;
+    if (currentIndex > 0) {
+      playTrack(allTracks[currentIndex - 1]);
+    }
+  }, [currentPosition, currentTrack, allTracks, seek, playTrack]);
 
   const handleSkipNext = useCallback(() => {
-    if (queueIndex < allTracks.length - 1) {
-      const nextIndex = shuffleEnabled
-        ? Math.floor(Math.random() * allTracks.length)
-        : queueIndex + 1;
-      setQueueIndex(nextIndex);
-      const nextTrack = allTracks[nextIndex];
-      if (nextTrack) {
-        playTrack(nextTrack);
-      }
+    const currentIndex = currentTrack 
+      ? allTracks.findIndex(t => t.id === currentTrack.id) 
+      : -1;
+    
+    if (shuffleEnabled) {
+      const randomIndex = Math.floor(Math.random() * allTracks.length);
+      playTrack(allTracks[randomIndex]);
+    } else if (currentIndex < allTracks.length - 1) {
+      playTrack(allTracks[currentIndex + 1]);
     } else if (repeatMode === "all" && allTracks.length > 0) {
-      setQueueIndex(0);
       playTrack(allTracks[0]);
     }
-  }, [queueIndex, allTracks, shuffleEnabled, repeatMode, playTrack]);
+  }, [currentTrack, allTracks, shuffleEnabled, repeatMode, playTrack]);
 
   const handlePlayTrack = useCallback((trackId: string) => {
-    const trackIndex = allTracks.findIndex((t) => t.id === trackId);
-    if (trackIndex !== -1) {
-      setQueueIndex(trackIndex);
-      playTrack(allTracks[trackIndex]);
+    const track = allTracks.find((t) => t.id === trackId);
+    if (track) {
+      playTrack(track);
     }
   }, [allTracks, playTrack]);
 

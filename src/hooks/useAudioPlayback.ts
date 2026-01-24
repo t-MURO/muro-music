@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { Track } from "../types/library";
 import {
   playbackGetState,
-  playbackIsFinished,
   playbackPause,
   playbackPlay,
   playbackPlayFile,
@@ -50,6 +49,18 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
     currentTrack: null,
   });
 
+  // Use refs for callbacks to avoid effect re-runs
+  const onTrackEndRef = useRef(onTrackEnd);
+  const onMediaControlRef = useRef(onMediaControl);
+
+  useEffect(() => {
+    onTrackEndRef.current = onTrackEnd;
+  }, [onTrackEnd]);
+
+  useEffect(() => {
+    onMediaControlRef.current = onMediaControl;
+  }, [onMediaControl]);
+
   // Convert Rust PlaybackState to our state format
   const updateFromRustState = useCallback((rustState: PlaybackState) => {
     setState((prev) => ({
@@ -74,62 +85,66 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
   }, []);
 
   // Listen for playback state updates from Rust
+  const listenersSetupRef = useRef(false);
+
   useEffect(() => {
-    const unlistenState = listen<PlaybackState>(
-      "muro://playback-state",
-      (event) => {
-        updateFromRustState(event.payload);
+    if (listenersSetupRef.current) {
+      return;
+    }
+    listenersSetupRef.current = true;
+
+    let unlistenState: (() => void) | null = null;
+    let unlistenPosition: (() => void) | null = null;
+    let unlistenControl: (() => void) | null = null;
+    let unlistenTrackEnded: (() => void) | null = null;
+
+    const setup = async () => {
+      unlistenState = await listen<PlaybackState>(
+        "muro://playback-state",
+        (event) => {
+          updateFromRustState(event.payload);
+        }
+      );
+
+      unlistenPosition = await listen<number>(
+        "muro://playback-position",
+        (event) => {
+          setState((prev) => ({
+            ...prev,
+            currentPosition: event.payload,
+          }));
+        }
+      );
+
+      unlistenControl = await listen<string>("muro://media-control", (event) => {
+        onMediaControlRef.current?.(event.payload);
+      });
+
+      unlistenTrackEnded = await listen("muro://track-ended", () => {
+        onTrackEndRef.current?.();
+      });
+
+      // Get initial state
+      try {
+        const initialState = await playbackGetState();
+        updateFromRustState(initialState);
+      } catch (error) {
+        console.error("Failed to get initial playback state:", error);
       }
-    );
+    };
 
-    // Listen for position updates (more frequent, just position number)
-    const unlistenPosition = listen<number>(
-      "muro://playback-position",
-      (event) => {
-        setState((prev) => ({
-          ...prev,
-          currentPosition: event.payload,
-        }));
-      }
-    );
-
-    const unlistenControl = listen<string>("muro://media-control", (event) => {
-      onMediaControl?.(event.payload);
-    });
-
-    const unlistenTrackEnded = listen("muro://track-ended", () => {
-      onTrackEnd?.();
-    });
-
-    // Get initial state
-    playbackGetState().then(updateFromRustState).catch(console.error);
+    void setup();
 
     return () => {
-      unlistenState.then((fn) => fn());
-      unlistenPosition.then((fn) => fn());
-      unlistenControl.then((fn) => fn());
-      unlistenTrackEnded.then((fn) => fn());
+      unlistenState?.();
+      unlistenPosition?.();
+      unlistenControl?.();
+      unlistenTrackEnded?.();
     };
-  }, [updateFromRustState, onMediaControl, onTrackEnd]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once, callbacks use refs
+  }, []);
 
-  // Check for track end periodically as backup
-  useEffect(() => {
-    if (!state.isPlaying || !state.currentTrack) return;
 
-    const checkInterval = setInterval(async () => {
-      try {
-        const finished = await playbackIsFinished();
-        if (finished) {
-          setState((prev) => ({ ...prev, isPlaying: false }));
-          onTrackEnd?.();
-        }
-      } catch {
-        // Ignore errors
-      }
-    }, 500);
-
-    return () => clearInterval(checkInterval);
-  }, [state.isPlaying, state.currentTrack, onTrackEnd]);
 
   useEffect(() => {
     if (!seekMode) {
