@@ -1,7 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export const backfillSearchText = (dbPath: string) => {
-  return invoke<number>("backfill_search_text", { db_path: dbPath });
+  return invoke<number>("backfill_search_text", { dbPath });
+};
+
+export const backfillCoverArt = (dbPath: string) => {
+  return invoke<number>("backfill_cover_art", { dbPath });
 };
 
 export const createPlaylist = (dbPath: string, id: string, name: string) => {
@@ -30,6 +34,8 @@ export type ImportedTrack = {
   bitrate: string;
   rating: number;
   source_path: string;
+  cover_art_path?: string;
+  cover_art_thumb_path?: string;
 };
 
 // Convert snake_case ImportedTrack from Rust to camelCase Track for TypeScript
@@ -51,6 +57,8 @@ export const importedTrackToTrack = (imported: ImportedTrack) => ({
   bitrate: imported.bitrate,
   rating: imported.rating,
   sourcePath: imported.source_path,
+  coverArtPath: imported.cover_art_path,
+  coverArtThumbPath: imported.cover_art_thumb_path,
 });
 
 export type PlaybackState = {
@@ -64,6 +72,8 @@ export type PlaybackState = {
     artist: string;
     album: string;
     source_path: string;
+    cover_art_path?: string;
+    cover_art_thumb_path?: string;
   } | null;
 };
 
@@ -73,7 +83,9 @@ export const playbackPlayFile = (
   artist: string,
   album: string,
   sourcePath: string,
-  durationHint: number
+  durationHint: number,
+  coverArtPath?: string,
+  coverArtThumbPath?: string
 ) => {
   return invoke<void>("playback_play_file", {
     id,
@@ -82,6 +94,8 @@ export const playbackPlayFile = (
     album,
     sourcePath,
     durationHint,
+    coverArtPath,
+    coverArtThumbPath,
   });
 };
 
@@ -136,8 +150,8 @@ export type PlaylistSnapshot = {
 
 export const importFiles = (dbPath: string, paths: string[]) => {
   return invoke<ImportedTrack[]>("import_files", {
-    dbPath,
     paths,
+    dbPath,
   });
 };
 

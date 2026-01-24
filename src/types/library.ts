@@ -18,7 +18,8 @@ export type Track = {
   bitrate: string;
   rating: number;
   sourcePath: string;
-  coverArt?: string;
+  coverArtPath?: string;
+  coverArtThumbPath?: string;
 };
 
 export type Playlist = {

@@ -1,17 +1,21 @@
 import { ChevronLeft, ChevronRight, ListChecks, Music2, Play, Speaker } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
 import type { Track } from "../../types/library";
+import type { CurrentTrack } from "../../hooks/useAudioPlayback";
 
 type DetailPanelProps = {
   detailCollapsed: boolean;
   onToggleCollapsed: () => void;
   queueTracks: Track[];
+  currentTrack: CurrentTrack | null;
 };
 
 export const DetailPanel = ({
   detailCollapsed,
   onToggleCollapsed,
   queueTracks,
+  currentTrack,
 }: DetailPanelProps) => {
   return (
     <aside className="flex h-full flex-col overflow-hidden border-l border-[var(--color-border)] bg-[var(--color-bg-primary)]">
@@ -46,18 +50,33 @@ export const DetailPanel = ({
 
         {!detailCollapsed && (
           <div className="mt-[var(--spacing-md)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-[var(--spacing-md)]">
-            <div className="flex items-center gap-[var(--spacing-md)]">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-muted)]">
-                <Music2 className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[var(--font-size-md)] font-semibold text-[var(--color-text-primary)]">
-                  {t("player.empty.title")}
+            {/* Large cover art */}
+            <div className="mb-[var(--spacing-md)] aspect-square w-full overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-primary)]">
+              {currentTrack?.coverArtPath ? (
+                <img
+                  src={convertFileSrc(currentTrack.coverArtPath)}
+                  alt={`${currentTrack.title} cover`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[var(--color-text-muted)]">
+                  <Music2 className="h-16 w-16" />
+                </div>
+              )}
+            </div>
+            {/* Song info */}
+            <div className="min-w-0">
+              <p className="truncate text-[var(--font-size-md)] font-semibold text-[var(--color-text-primary)]">
+                {currentTrack ? currentTrack.title : t("player.empty.title")}
+              </p>
+              <p className="truncate text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
+                {currentTrack ? currentTrack.artist : t("player.empty.subtitle")}
+              </p>
+              {currentTrack && (
+                <p className="mt-[var(--spacing-xs)] truncate text-[var(--font-size-xs)] text-[var(--color-text-muted)]">
+                  {currentTrack.album}
                 </p>
-                <p className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
-                  {t("player.empty.subtitle")}
-                </p>
-              </div>
+              )}
             </div>
           </div>
         )}

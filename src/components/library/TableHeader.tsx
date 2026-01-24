@@ -12,6 +12,7 @@ type SortState = {
 type TableHeaderProps = {
   columns: ColumnConfig[];
   tableWidth: number;
+  leadingColumnWidth: number;
   gridTemplateColumns: string;
   onColumnResize: (key: ColumnConfig["key"], width: number) => void;
   onColumnAutoFit: (key: ColumnConfig["key"]) => void;
@@ -31,6 +32,7 @@ type DragState = {
 export const TableHeader = ({
   columns,
   tableWidth,
+  leadingColumnWidth,
   gridTemplateColumns,
   onColumnResize,
   onColumnAutoFit,
@@ -164,6 +166,12 @@ export const TableHeader = ({
           style={{ gridTemplateColumns }}
           role="row"
         >
+          <div
+            className="sticky left-0 z-40 flex items-center justify-center bg-[var(--color-bg-secondary)]"
+            style={{ width: leadingColumnWidth }}
+            role="columnheader"
+            aria-hidden="true"
+          />
           {columns.map((column) => {
             const isSorted = sortState?.key === column.key;
             const isDragging = dragState?.key === column.key && dragState.isDragging;

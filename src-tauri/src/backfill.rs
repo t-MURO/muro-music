@@ -1,6 +1,9 @@
+use crate::cover_art;
 use crate::search;
+use lofty::probe::Probe;
 use rusqlite::Connection;
 use serde_json::Value;
+use std::path::Path;
 
 #[derive(Debug)]
 struct TrackSearchRow {
@@ -111,4 +114,65 @@ fn parse_json_array(raw: Option<String>) -> Vec<String> {
         Ok(Value::String(value)) => vec![value],
         _ => vec![text],
     }
+}
+
+/// Backfill cover art for tracks that don't have it cached yet
+pub fn run_cover_art_backfill(db_path: &str, cache_dir: &Path) -> Result<usize, String> {
+    // Ensure cache directory exists
+    std::fs::create_dir_all(cache_dir).map_err(|e| e.to_string())?;
+
+    let mut conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+
+    // Find tracks without cover art but with source path
+    let mut pending: Vec<(String, String)> = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, source_path FROM tracks 
+                 WHERE source_path IS NOT NULL 
+                 AND source_path != '' 
+                 AND (cover_art_path IS NULL OR cover_art_path = '')",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                let id: String = row.get(0)?;
+                let source_path: String = row.get(1)?;
+                Ok((id, source_path))
+            })
+            .map_err(|e| e.to_string())?;
+
+        for row in rows {
+            pending.push(row.map_err(|e| e.to_string())?);
+        }
+    }
+
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let mut updated = 0;
+
+    for (id, source_path) in pending {
+        let path = Path::new(&source_path);
+        if !path.exists() {
+            continue;
+        }
+
+        // Try to read the file and extract cover art
+        let tagged = match Probe::open(path).and_then(|p| p.read()) {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+
+        if let Some(cached) = cover_art::process_cover_art(&tagged, cache_dir) {
+            tx.execute(
+                "UPDATE tracks SET cover_art_path = ?1, cover_art_thumb_path = ?2 WHERE id = ?3",
+                (&cached.full_path, &cached.thumb_path, &id),
+            )
+            .map_err(|e| e.to_string())?;
+            updated += 1;
+        }
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(updated)
 }

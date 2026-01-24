@@ -30,7 +30,7 @@ import { useSidebarPanel } from "./hooks/useSidebarPanel";
 import { useSidebarData } from "./hooks/useSidebarData";
 import { useTrackRatings } from "./hooks/useTrackRatings";
 import { localeOptions, t } from "./i18n";
-import { backfillSearchText, clearTracks, importedTrackToTrack, loadPlaylists, loadTracks } from "./utils/tauriDb";
+import { backfillCoverArt, backfillSearchText, clearTracks, importedTrackToTrack, loadPlaylists, loadTracks } from "./utils/tauriDb";
 import { commandManager } from "./command-manager/commandManager";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { appDataDir, join } from "@tauri-apps/api/path";
@@ -163,6 +163,8 @@ function App() {
   const [useAutoDbPath, setUseAutoDbPath] = useState(true);
   const [backfillPending, setBackfillPending] = useState(false);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
+  const [coverArtBackfillPending, setCoverArtBackfillPending] = useState(false);
+  const [coverArtBackfillStatus, setCoverArtBackfillStatus] = useState<string | null>(null);
   const {
     detailCollapsed,
     detailWidth,
@@ -558,6 +560,31 @@ function App() {
     }
   }, [dbPath]);
 
+  const handleBackfillCoverArt = useCallback(async () => {
+    if (!dbPath.trim()) {
+      setCoverArtBackfillStatus("Enter a database path to run the backfill.");
+      return;
+    }
+
+    try {
+      setCoverArtBackfillPending(true);
+      setCoverArtBackfillStatus("Extracting cover art...");
+      const updated = await backfillCoverArt(dbPath.trim());
+      setCoverArtBackfillStatus(`Extracted cover art for ${updated} tracks.`);
+      // Reload tracks to get the new cover art paths
+      const resolvedPath = await resolveDbPath();
+      const snapshot = await loadTracks(resolvedPath);
+      setTracks(snapshot.library.map(importedTrackToTrack));
+      setInboxTracks(snapshot.inbox.map(importedTrackToTrack));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Cover art extraction failed.";
+      setCoverArtBackfillStatus(message);
+    } finally {
+      setCoverArtBackfillPending(false);
+    }
+  }, [dbPath, resolveDbPath]);
+
   const handleEmptyImport = useCallback(async () => {
     try {
       const result = await open({
@@ -754,6 +781,8 @@ function App() {
                       dbFileName={dbFileName}
                       backfillPending={backfillPending}
                       backfillStatus={backfillStatus}
+                      coverArtBackfillPending={coverArtBackfillPending}
+                      coverArtBackfillStatus={coverArtBackfillStatus}
                       clearSongsPending={clearSongsPending}
                       seekMode={seekMode}
                       onThemeChange={setTheme}
@@ -768,6 +797,7 @@ function App() {
                         setUseAutoDbPath(true);
                       }}
                       onBackfillSearchText={handleBackfillSearchText}
+                      onBackfillCoverArt={handleBackfillCoverArt}
                       onClearSongs={handleClearSongs}
                       onUseDefaultLocation={() => {
                         setUseAutoDbPath(true);
@@ -817,6 +847,7 @@ function App() {
                 toggleDetailCollapsed();
               }}
               queueTracks={tracks}
+              currentTrack={currentTrack}
             />
           }
         />

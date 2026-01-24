@@ -67,15 +67,30 @@ export const useColumns = ({ tracks }: UseColumnsArgs) => {
   const reorderColumns = useCallback(
     (dragKey: ColumnConfig["key"], targetIndex: number) => {
       setColumns((current) => {
-        const fromIndex = current.findIndex((column) => column.key === dragKey);
-        if (fromIndex === -1) {
+        const visibleKeys = current
+          .filter((column) => column.visible)
+          .map((column) => column.key);
+        if (!visibleKeys.includes(dragKey)) {
           return current;
         }
-        const next = [...current];
-        const [moved] = next.splice(fromIndex, 1);
-        const clampedIndex = Math.max(0, Math.min(next.length, targetIndex));
-        next.splice(clampedIndex, 0, moved);
-        return next;
+
+        const nextVisible = visibleKeys.filter((key) => key !== dragKey);
+        const clampedIndex = Math.max(
+          0,
+          Math.min(nextVisible.length, targetIndex)
+        );
+        nextVisible.splice(clampedIndex, 0, dragKey);
+
+        const byKey = new Map(current.map((column) => [column.key, column]));
+        let visibleIndex = 0;
+        return current.map((column) => {
+          if (!column.visible) {
+            return column;
+          }
+          const key = nextVisible[visibleIndex];
+          visibleIndex += 1;
+          return key ? (byKey.get(key) ?? column) : column;
+        });
       });
     },
     [setColumns]

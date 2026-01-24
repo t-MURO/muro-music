@@ -70,17 +70,24 @@ export const TrackTable = memo(
     sortState,
     onRatingChange,
   }: TrackTableProps) => {
+    const leadingColumnWidth = 48;
     const tableContainerRef = useRef<HTMLDivElement | null>(null);
     const visibleColumns = useMemo(
       () => columns.filter((column) => column.visible),
       [columns]
     );
     const tableWidth = useMemo(() => {
-      return visibleColumns.reduce((total, column) => total + column.width, 0);
-    }, [visibleColumns]);
+      return (
+        visibleColumns.reduce((total, column) => total + column.width, 0) +
+        leadingColumnWidth
+      );
+    }, [leadingColumnWidth, visibleColumns]);
     const gridTemplateColumns = useMemo(
-      () => visibleColumns.map((column) => `${column.width}px`).join(" "),
-      [visibleColumns]
+      () =>
+        [`${leadingColumnWidth}px`, ...visibleColumns.map((column) => `${column.width}px`)].join(
+          " "
+        ),
+      [leadingColumnWidth, visibleColumns]
     );
 
     const rowVirtualizer = useVirtualizer({
@@ -190,13 +197,14 @@ export const TrackTable = memo(
         className="relative min-h-0 flex-1 min-w-0 overflow-x-auto overflow-y-auto"
         role="grid"
         aria-rowcount={tracks.length}
-        aria-colcount={visibleColumns.length}
+        aria-colcount={visibleColumns.length + 1}
         tabIndex={0}
         onKeyDown={handleKeyDown}
       >
         <TableHeader
           columns={visibleColumns}
           tableWidth={tableWidth}
+          leadingColumnWidth={leadingColumnWidth}
           gridTemplateColumns={gridTemplateColumns}
           onColumnResize={onColumnResize}
           onColumnAutoFit={onColumnAutoFit}
@@ -252,11 +260,14 @@ export const TrackTable = memo(
             }
             const isSelected = selectedIds.has(track.id);
             const isPlayingTrack = track.id === playingTrackId;
+            const rowBaseClass = isSelected
+              ? "bg-[var(--color-accent-light)]"
+              : "bg-[var(--color-bg-primary)]";
             return (
               <div
                 key={virtualRow.key}
                 className={`group grid select-none items-center ${
-                  isSelected ? "bg-[var(--color-accent-light)]" : "bg-[var(--color-bg-primary)]"
+                  rowBaseClass
                 } hover:bg-[var(--color-bg-hover)]`}
                 style={{
                   gridTemplateColumns,
@@ -289,6 +300,24 @@ export const TrackTable = memo(
                 }
                 role="row"
               >
+                <div
+                  className="sticky left-0 z-30 flex h-12 items-center justify-center bg-[var(--color-bg-primary)] group-hover:bg-[var(--color-bg-hover)] relative"
+                  role="cell"
+                >
+                  {isSelected && (
+                    <span
+                      className="pointer-events-none absolute inset-0 bg-[var(--color-accent-light)]"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {isPlayingTrack && (
+                    <Disc3
+                      className={`relative z-10 h-4 w-4 shrink-0 text-[var(--color-accent)] ${
+                        isCurrentlyPlaying ? "animate-spin-slow" : ""
+                      }`}
+                    />
+                  )}
+                </div>
                 {visibleColumns.map((column) => {
                   const value = getColumnDisplayValue(track, column.key);
                   if (column.key === "rating") {
@@ -315,14 +344,7 @@ export const TrackTable = memo(
                       className={`h-12 px-4 py-3 ${isTitleColumn ? "font-medium" : ""} ${textColorClass}`}
                       role="cell"
                     >
-                      {isPlayingTrack && isTitleColumn ? (
-                        <span className="flex items-center gap-2 truncate">
-                          <Disc3 className={`h-4 w-4 shrink-0 ${isCurrentlyPlaying ? "animate-spin-slow" : ""}`} />
-                          <span className="truncate">{value}</span>
-                        </span>
-                      ) : (
-                        <span className="block truncate">{value}</span>
-                      )}
+                      <span className="block truncate">{value}</span>
                     </div>
                   );
                 })}

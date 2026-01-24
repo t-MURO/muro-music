@@ -12,6 +12,8 @@ type SettingsPanelProps = {
   dbFileName: string;
   backfillPending: boolean;
   backfillStatus: string | null;
+  coverArtBackfillPending: boolean;
+  coverArtBackfillStatus: string | null;
   clearSongsPending: boolean;
   seekMode: "fast" | "accurate";
   onThemeChange: (theme: string) => void;
@@ -20,6 +22,7 @@ type SettingsPanelProps = {
   onDbPathChange: (value: string) => void;
   onDbFileNameChange: (value: string) => void;
   onBackfillSearchText: () => void;
+  onBackfillCoverArt: () => void;
   onClearSongs: () => void;
   onUseDefaultLocation: () => void;
 };
@@ -44,6 +47,8 @@ export const SettingsPanel = ({
   dbFileName,
   backfillPending,
   backfillStatus,
+  coverArtBackfillPending,
+  coverArtBackfillStatus,
   clearSongsPending,
   seekMode,
   onThemeChange,
@@ -52,6 +57,7 @@ export const SettingsPanel = ({
   onDbPathChange,
   onDbFileNameChange,
   onBackfillSearchText,
+  onBackfillCoverArt,
   onClearSongs,
   onUseDefaultLocation,
 }: SettingsPanelProps) => {
@@ -242,6 +248,27 @@ export const SettingsPanel = ({
                   </div>
                   <p className="mt-2 text-[var(--font-size-xs)] text-[var(--color-text-secondary)]">
                     Runs a one-time search index update for existing tracks.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      className="flex h-[var(--button-height)] items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] bg-[var(--color-accent)] px-[var(--spacing-md)] text-[var(--font-size-sm)] font-medium text-white transition-all duration-[var(--transition-fast)] hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={onBackfillCoverArt}
+                      disabled={coverArtBackfillPending}
+                      type="button"
+                    >
+                      {coverArtBackfillPending ? "Extracting..." : "Extract cover art"}
+                    </button>
+                    {coverArtBackfillStatus && (
+                      <span className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
+                        {coverArtBackfillStatus}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-[var(--font-size-xs)] text-[var(--color-text-secondary)]">
+                    Extracts and caches cover art for tracks imported before this feature was added.
                   </p>
                 </div>
               </div>

@@ -11,6 +11,7 @@ import {
   VolumeX,
   Music2,
 } from "lucide-react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
 import type { CurrentTrack } from "../../hooks/useAudioPlayback";
 
@@ -130,9 +131,18 @@ export const PlayerBar = ({
     <footer className="player-bar col-span-3 col-start-1 row-start-3 grid h-[var(--media-controls-height)] grid-cols-[1fr_2fr_1fr] items-center gap-[var(--spacing-lg)] border-t border-[var(--color-border)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] pb-[var(--spacing-xl)] pt-[var(--spacing-md)]">
       {/* Left section - Track info */}
       <div className="flex min-w-0 items-center gap-[var(--spacing-md)]">
-        <div className="flex h-[var(--avatar-size)] w-[var(--avatar-size)] shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]">
-          <Music2 className="h-5 w-5" />
-        </div>
+        {currentTrack?.coverArtThumbPath ? (
+          <img
+            src={convertFileSrc(currentTrack.coverArtThumbPath)}
+            alt={`${currentTrack.title} cover`}
+
+            className="h-[var(--avatar-size)] w-[var(--avatar-size)] shrink-0 rounded-[var(--radius-md)] border border-[var(--color-border)] object-cover"
+          />
+        ) : (
+          <div className="flex h-[var(--avatar-size)] w-[var(--avatar-size)] shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]">
+            <Music2 className="h-5 w-5" />
+          </div>
+        )}
         <div className="min-w-0 overflow-hidden">
           <p className="truncate text-[var(--font-size-sm)] font-semibold text-[var(--color-text-primary)]">
             {currentTrack ? currentTrack.title : t("player.empty.title")}

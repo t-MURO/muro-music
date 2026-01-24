@@ -1,3 +1,4 @@
+use crate::cover_art;
 use crate::search;
 use lofty::file::FileType;
 use lofty::file::TaggedFile;
@@ -27,6 +28,8 @@ pub struct ImportedTrack {
     pub bitrate: String,
     pub rating: f32,
     pub source_path: String,
+    pub cover_art_path: Option<String>,
+    pub cover_art_thumb_path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -88,13 +91,18 @@ struct NormalizedMetadata {
     musicbrainz_albumtype: Option<String>,
 }
 
-pub fn import_files(paths: Vec<String>, db_path: &str) -> Result<Vec<ImportedTrack>, String> {
-    import_files_with_progress(paths, db_path, |_| {})
+pub fn import_files(
+    paths: Vec<String>,
+    db_path: &str,
+    cache_dir: &Path,
+) -> Result<Vec<ImportedTrack>, String> {
+    import_files_with_progress(paths, db_path, cache_dir, |_| {})
 }
 
 pub fn import_files_with_progress<F>(
     paths: Vec<String>,
     db_path: &str,
+    cache_dir: &Path,
     mut on_progress: F,
 ) -> Result<Vec<ImportedTrack>, String>
 where
@@ -113,6 +121,9 @@ where
         std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
 
+    // Ensure cover art cache directory exists
+    std::fs::create_dir_all(cache_dir).map_err(|error| error.to_string())?;
+
     let mut conn = Connection::open(db_path).map_err(|error| error.to_string())?;
     ensure_schema(&conn)?;
 
@@ -127,7 +138,7 @@ where
     });
 
     for path in file_paths {
-        match import_single(&tx, &path, now) {
+        match import_single(&tx, &path, now, cache_dir) {
             Ok(track) => imported.push(track),
             Err(error) => {
                 eprintln!("Import failed for {}: {}", path.display(), error);
@@ -157,7 +168,7 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, title, artist, album, rating, duration_seconds, bitrate_kbps, import_status, source_path FROM tracks ORDER BY added_at DESC",
+            "SELECT id, title, artist, album, rating, duration_seconds, bitrate_kbps, import_status, source_path, cover_art_path, cover_art_thumb_path FROM tracks ORDER BY added_at DESC",
         )
         .map_err(|error| error.to_string())?;
 
@@ -172,6 +183,8 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             let bitrate_kbps: Option<i32> = row.get(6)?;
             let import_status: Option<String> = row.get(7)?;
             let source_path: Option<String> = row.get(8)?;
+            let cover_art_path: Option<String> = row.get(9)?;
+            let cover_art_thumb_path: Option<String> = row.get(10)?;
 
             let duration = duration_seconds
                 .map(|value| format_duration(value as f32))
@@ -192,6 +205,8 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
                     bitrate,
                     rating: rating.unwrap_or(0.0) as f32,
                     source_path: source_path.unwrap_or_default(),
+                    cover_art_path,
+                    cover_art_thumb_path,
                 },
                 import_status.unwrap_or_else(|| "accepted".to_string()),
             ))
@@ -251,7 +266,20 @@ pub fn load_playlists(db_path: &str) -> Result<PlaylistSnapshot, String> {
     Ok(PlaylistSnapshot { playlists })
 }
 
-pub fn clear_tracks(db_path: &str) -> Result<(), String> {
+pub fn clear_tracks(db_path: &str, cache_dir: &Path) -> Result<(), String> {
+    // Clear cover art cache directory
+    if cache_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(cache_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    let _ = std::fs::remove_file(path);
+                }
+            }
+        }
+    }
+
+    // Clear database
     if !Path::new(db_path).exists() {
         return Ok(());
     }
@@ -283,7 +311,12 @@ fn collect_audio_paths(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), Stri
     Ok(())
 }
 
-fn import_single(conn: &Connection, path: &Path, now: i64) -> Result<ImportedTrack, String> {
+fn import_single(
+    conn: &Connection,
+    path: &Path,
+    now: i64,
+    cache_dir: &Path,
+) -> Result<ImportedTrack, String> {
     let tagged = Probe::open(path)
         .map_err(|error| error.to_string())?
         .read()
@@ -304,6 +337,11 @@ fn import_single(conn: &Connection, path: &Path, now: i64) -> Result<ImportedTra
         .clone()
         .unwrap_or_else(|| "Unknown Album".to_string());
     let rating = metadata.rating.unwrap_or(0.0);
+
+    // Extract and cache cover art
+    let cached_cover = cover_art::process_cover_art(&tagged, cache_dir);
+    let cover_art_path = cached_cover.as_ref().map(|c| c.full_path.clone());
+    let cover_art_thumb_path = cached_cover.as_ref().map(|c| c.thumb_path.clone());
 
     let duration_seconds = properties.duration().as_secs_f32();
     let bitrate = properties.audio_bitrate().unwrap_or(0) as i32;
@@ -358,14 +396,15 @@ fn import_single(conn: &Connection, path: &Path, now: i64) -> Result<ImportedTra
             musicbrainz_albumid, musicbrainz_artistid, musicbrainz_albumartistid,
             musicbrainz_releasegroupid, musicbrainz_trackid, musicbrainz_releasetrackid,
             musicbrainz_albumstatus, musicbrainz_albumtype, source_path, search_text,
-            import_status, duration_seconds, bitrate_kbps, added_at, updated_at, is_missing
+            import_status, duration_seconds, bitrate_kbps, added_at, updated_at, is_missing,
+            cover_art_path, cover_art_thumb_path
         ) VALUES (
             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,
             ?10, ?11, ?12, ?13, ?14, ?15, ?16,
             ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24,
             ?25, ?26, ?27, ?28, ?29, ?30,
             ?31, ?32, ?33, ?34,
-            ?35, ?36, ?37, ?38, ?39, ?40
+            ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42
         )",
         params![
             id,
@@ -407,7 +446,9 @@ fn import_single(conn: &Connection, path: &Path, now: i64) -> Result<ImportedTra
             bitrate,
             now,
             now,
-            0
+            0,
+            cover_art_path,
+            cover_art_thumb_path
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -422,6 +463,8 @@ fn import_single(conn: &Connection, path: &Path, now: i64) -> Result<ImportedTra
         bitrate: bitrate_text,
         rating,
         source_path: path.to_string_lossy().to_string(),
+        cover_art_path,
+        cover_art_thumb_path,
     })
 }
 
@@ -714,10 +757,19 @@ fn ensure_schema(conn: &Connection) -> Result<(), String> {
             added_at INTEGER,
             updated_at INTEGER,
             last_write_error TEXT,
-            is_missing INTEGER DEFAULT 0
+            is_missing INTEGER DEFAULT 0,
+            cover_art_path TEXT,
+            cover_art_thumb_path TEXT
         );",
     )
     .map_err(|error| error.to_string())?;
+
+    // Add cover art columns if they don't exist (for existing databases)
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN cover_art_path TEXT", []);
+    let _ = conn.execute(
+        "ALTER TABLE tracks ADD COLUMN cover_art_thumb_path TEXT",
+        [],
+    );
 
     Ok(())
 }

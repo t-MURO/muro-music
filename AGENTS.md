@@ -1,5 +1,10 @@
 # Music Player Requirements (Agents)
 
+## Agent rules
+- NEVER start or run the dev server (`npm run tauri dev`, `npm run dev`, etc.)
+- NEVER run long-running background processes
+- Only run quick commands like `cargo check`, `npx tsc --noEmit`, etc.
+
 ## Product goals
 - Cross-platform desktop music player/library
 - Pro, data-dense UI with strong customization

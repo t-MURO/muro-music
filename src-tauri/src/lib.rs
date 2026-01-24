@@ -1,4 +1,5 @@
 pub mod backfill;
+pub mod cover_art;
 pub mod import;
 pub mod playback;
 pub mod search;
@@ -11,7 +12,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager, State, WindowEvent};
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn import_files(
     app: tauri::AppHandle,
     paths: Vec<String>,
@@ -21,29 +22,51 @@ fn import_files(
         return Ok(Vec::new());
     }
 
-    import::import_files_with_progress(paths, &db_path, |progress| {
+    // Resolve cover art cache directory
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("covers");
+
+    import::import_files_with_progress(paths, &db_path, &cache_dir, |progress| {
         let _ = app.emit("muro://import-progress", progress);
     })
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn load_tracks(db_path: String) -> Result<import::LibrarySnapshot, String> {
     import::load_tracks(&db_path)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn load_playlists(db_path: String) -> Result<import::PlaylistSnapshot, String> {
     import::load_playlists(&db_path)
 }
 
-#[tauri::command]
-fn clear_tracks(db_path: String) -> Result<(), String> {
-    import::clear_tracks(&db_path)
+#[tauri::command(rename_all = "camelCase")]
+fn clear_tracks(app: tauri::AppHandle, db_path: String) -> Result<(), String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("covers");
+    import::clear_tracks(&db_path, &cache_dir)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn backfill_search_text(db_path: String) -> Result<usize, String> {
     backfill::run_backfill(&db_path)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn backfill_cover_art(app: tauri::AppHandle, db_path: String) -> Result<usize, String> {
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("covers");
+    backfill::run_cover_art_backfill(&db_path, &cache_dir)
 }
 
 // Playback commands
@@ -56,6 +79,8 @@ fn playback_play_file(
     album: String,
     source_path: String,
     duration_hint: f64,
+    cover_art_path: Option<String>,
+    cover_art_thumb_path: Option<String>,
 ) -> Result<(), String> {
     let track = CurrentTrack {
         id,
@@ -63,6 +88,8 @@ fn playback_play_file(
         artist,
         album,
         source_path,
+        cover_art_path,
+        cover_art_thumb_path,
     };
     player.play_file(track, duration_hint)
 }
@@ -129,7 +156,7 @@ fn get_track_source_path(db_path: String, track_id: String) -> Result<Option<Str
     Ok(path)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn create_playlist(db_path: String, id: String, name: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&db_path).parent() {
         std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
@@ -173,6 +200,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .manage(audio_player.clone())
@@ -212,6 +240,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             import_files,
             backfill_search_text,
+            backfill_cover_art,
             create_playlist,
             load_tracks,
             load_playlists,

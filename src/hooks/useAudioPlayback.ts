@@ -21,6 +21,8 @@ export type CurrentTrack = {
   album: string;
   sourcePath: string;
   durationSeconds: number;
+  coverArtPath?: string;
+  coverArtThumbPath?: string;
 };
 
 export type AudioPlaybackState = {
@@ -64,6 +66,8 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
             album: rustState.current_track.album,
             sourcePath: rustState.current_track.source_path,
             durationSeconds: rustState.duration,
+            coverArtPath: rustState.current_track.cover_art_path,
+            coverArtThumbPath: rustState.current_track.cover_art_thumb_path,
           }
         : null,
     }));
@@ -142,7 +146,9 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
         track.artist,
         track.album,
         track.sourcePath,
-        track.durationSeconds
+        track.durationSeconds,
+        track.coverArtPath,
+        track.coverArtThumbPath
       );
       setState((prev) => ({
         ...prev,
@@ -156,6 +162,8 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
           album: track.album,
           sourcePath: track.sourcePath,
           durationSeconds: track.durationSeconds,
+          coverArtPath: track.coverArtPath,
+          coverArtThumbPath: track.coverArtThumbPath,
         },
       }));
     } catch (error) {

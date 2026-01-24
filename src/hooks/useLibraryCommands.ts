@@ -196,44 +196,56 @@ export const useLibraryCommands = ({
     return () => window.removeEventListener("keydown", handleUndoRedo);
   }, []);
 
+  const importListenerSetupRef = useRef(false);
+  const importUnlistenRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
-    let isMounted = true;
-    const unlistenPromise = listen<ImportProgress>(
-      "muro://import-progress",
-      (event) => {
-        if (!isMounted) {
-          return;
-        }
-        const payload = event.payload;
-        if (!payload) {
-          return;
-        }
-        setImportProgress({
-          imported: payload.imported,
-          total: payload.total,
-          phase: "importing",
-        });
-        if (payload.total > 0 && payload.imported >= payload.total) {
-          if (clearProgressTimerRef.current !== null && typeof window !== "undefined") {
-            window.clearTimeout(clearProgressTimerRef.current);
+    if (importListenerSetupRef.current) {
+      return;
+    }
+    importListenerSetupRef.current = true;
+
+    const setup = async () => {
+      try {
+        importUnlistenRef.current = await listen<ImportProgress>(
+          "muro://import-progress",
+          (event) => {
+            const payload = event.payload;
+            if (!payload) {
+              return;
+            }
+            setImportProgress({
+              imported: payload.imported,
+              total: payload.total,
+              phase: "importing",
+            });
+            if (payload.total > 0 && payload.imported >= payload.total) {
+              if (clearProgressTimerRef.current !== null && typeof window !== "undefined") {
+                window.clearTimeout(clearProgressTimerRef.current);
+              }
+              if (typeof window !== "undefined") {
+                clearProgressTimerRef.current = window.setTimeout(() => {
+                  setImportProgress(null);
+                  clearProgressTimerRef.current = null;
+                }, 800);
+              } else {
+                setImportProgress(null);
+              }
+            }
           }
-          if (typeof window !== "undefined") {
-            clearProgressTimerRef.current = window.setTimeout(() => {
-              setImportProgress(null);
-              clearProgressTimerRef.current = null;
-            }, 800);
-          } else {
-            setImportProgress(null);
-          }
-        }
+        );
+      } catch (error) {
+        console.error("Failed to setup import progress listener:", error);
       }
-    );
+    };
+
+    void setup();
 
     return () => {
-      isMounted = false;
-      unlistenPromise.then((unlisten) => unlisten()).catch(() => undefined);
+      importUnlistenRef.current?.();
     };
-  }, [setImportProgress]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- setImportProgress is stable, only run once
+  }, []);
 
   return { handleImportPaths, handlePlaylistDrop, handleCreatePlaylist };
 };

@@ -37,6 +37,8 @@ pub struct CurrentTrack {
     pub artist: String,
     pub album: String,
     pub source_path: String,
+    pub cover_art_path: Option<String>,
+    pub cover_art_thumb_path: Option<String>,
 }
 
 impl Default for PlaybackState {

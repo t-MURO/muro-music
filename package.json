@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "build:mac": "tauri build"
+    "build:mac": "tauri build",
+    "build:win": "tauri build --target x86_64-pc-windows-msvc"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.11.2",
