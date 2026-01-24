@@ -14,67 +14,95 @@ export const DetailPanel = ({
   queueTracks,
 }: DetailPanelProps) => {
   return (
-    <aside className="flex h-full flex-col overflow-y-auto border-l border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 pb-32">
+    <aside className="flex h-full flex-col overflow-hidden border-l border-[var(--color-border)] bg-[var(--color-bg-primary)]">
+      {/* Now Playing Section */}
       <div
-        className={`flex items-center ${
-          detailCollapsed ? "justify-center" : "justify-between"
+        className={`p-[var(--spacing-lg)] ${
+          detailCollapsed ? "" : "border-b border-[var(--color-border-light)]"
         }`}
       >
+        <div className="relative flex items-center gap-[var(--spacing-sm)]">
+          {!detailCollapsed && (
+            <>
+              <Play className="h-[14px] w-[14px] text-[var(--color-text-muted)]" />
+              <h3 className="flex-1 text-[var(--font-size-xs)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                {t("panel.nowPlaying")}
+              </h3>
+            </>
+          )}
+          <button
+            className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] shadow-[var(--shadow-sm)] transition hover:border-[var(--color-accent)] hover:text-[var(--color-text-primary)]"
+            onClick={onToggleCollapsed}
+            title={detailCollapsed ? "Expand panel" : "Collapse panel"}
+            type="button"
+          >
+            {detailCollapsed ? (
+              <ChevronLeft className="h-4 w-4 text-[var(--color-text-muted)]" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
+            )}
+          </button>
+        </div>
+
         {!detailCollapsed && (
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-            <Play className="h-3.5 w-3.5" />
-            {t("panel.nowPlaying")}
+          <div className="mt-[var(--spacing-md)] rounded-[var(--radius-lg)] bg-[var(--color-accent)] p-[var(--spacing-md)] text-white">
+            <div className="mb-[var(--spacing-md)]">
+              <div className="aspect-square w-full rounded-[var(--radius-md)] bg-white/10" />
+            </div>
+            <div className="flex flex-col gap-[var(--spacing-xs)]">
+              <p className="text-[var(--font-size-md)] font-semibold">Glass Elevator</p>
+              <p className="text-[var(--font-size-sm)] opacity-90">Nova Drift</p>
+              <p className="text-[var(--font-size-xs)] opacity-70">Signal Bloom &bull; FLAC</p>
+            </div>
           </div>
         )}
-        <button
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--panel-border)] text-xs font-semibold text-[var(--text-muted)] hover:bg-[var(--panel-muted)]"
-          onClick={onToggleCollapsed}
-          title={detailCollapsed ? "Expand panel" : "Collapse panel"}
-          type="button"
-        >
-          {detailCollapsed ? (
-            <ChevronLeft className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </button>
       </div>
 
+      {/* Queue Section */}
       {!detailCollapsed && (
         <>
-          <div className="mt-4 rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-muted)] p-4 shadow-[var(--shadow-sm)]">
-            <div className="text-sm font-semibold">Glass Elevator</div>
-            <div className="text-xs text-[var(--text-muted)]">Nova Drift</div>
-            <div className="mt-2 text-xs text-[var(--text-muted)]">
-              Signal Bloom • FLAC
+          <div className="flex-1 overflow-y-auto border-b border-[var(--color-border-light)] p-[var(--spacing-lg)]">
+            <div className="mb-[var(--spacing-md)] flex items-center gap-[var(--spacing-sm)]">
+              <ListChecks className="h-[14px] w-[14px] text-[var(--color-text-muted)]" />
+              <h3 className="flex-1 text-[var(--font-size-xs)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                {t("panel.queue")}
+              </h3>
             </div>
-          </div>
-          <div className="mt-6 flex-1">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-              <ListChecks className="h-3.5 w-3.5" />
-              {t("panel.queue")}
-            </div>
-            <div className="mt-3 space-y-3 text-sm">
-              {queueTracks.map((track) => (
-                <div
-                  key={`${track.id}-queue`}
-                  className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] px-3 py-2 shadow-[var(--shadow-sm)]"
-                >
-                  <div className="font-medium">{track.title}</div>
-                  <div className="text-xs text-[var(--text-muted)]">
-                    {track.artist}
+
+            {queueTracks.length === 0 ? (
+              <p className="py-[var(--spacing-lg)] text-center text-[var(--font-size-sm)] text-[var(--color-text-muted)]">
+                Queue is empty
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {queueTracks.map((track) => (
+                  <div
+                    key={`${track.id}-queue`}
+                    className="rounded-[var(--radius-md)] border border-[var(--color-border)] p-[var(--spacing-sm)] transition-colors hover:bg-[var(--color-bg-hover)]"
+                  >
+                    <div className="text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)]">
+                      {track.title}
+                    </div>
+                    <div className="text-[var(--font-size-xs)] text-[var(--color-text-secondary)]">
+                      {track.artist}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="mt-auto flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-muted)] px-3 py-3 text-xs shadow-[var(--shadow-sm)]">
-            <span className="flex items-center gap-2 text-[var(--text-muted)]">
-              <Speaker className="h-3.5 w-3.5" />
-              {t("panel.output")}
+          {/* Output Section */}
+          <div className="mt-auto flex items-center justify-between bg-[var(--color-bg-secondary)] p-[var(--spacing-md)] px-[var(--spacing-lg)]">
+            <div className="flex items-center gap-[var(--spacing-sm)]">
+              <Speaker className="h-4 w-4 text-[var(--color-text-muted)]" />
+              <span className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
+                {t("panel.output")}
+              </span>
+            </div>
+            <span className="text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)]">
+              {t("panel.output.device")}
             </span>
-            <span className="font-medium">{t("panel.output.device")}</span>
           </div>
         </>
       )}

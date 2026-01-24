@@ -32,125 +32,130 @@ export const Sidebar = ({
   const isSettings = currentView === "settings";
 
   return (
-    <aside className="flex h-full flex-col overflow-y-auto border-r border-[var(--panel-border)] bg-[var(--panel-bg)] p-5 pb-32">
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-        {t("app.name")}
+    <aside className="flex h-full flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-bg-primary)]">
+      <div className="border-b border-[var(--color-border-light)] p-[var(--spacing-lg)] pb-[var(--spacing-md)]">
+        <h1 className="text-[var(--font-size-lg)] font-semibold text-[var(--color-text-primary)]">
+          {t("app.name")}
+        </h1>
       </div>
-      <div className="mt-6 space-y-2 text-sm">
+      
+      <nav className="flex flex-col gap-[var(--spacing-xs)] p-[var(--spacing-md)]">
         <button
-          className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
+          className={`flex w-full items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] px-[var(--spacing-md)] py-[var(--spacing-sm)] text-left text-[var(--font-size-sm)] font-medium transition-all duration-[var(--transition-fast)] ${
             isLibrary
-              ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-              : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
+              ? "bg-[var(--color-accent)] text-white"
+              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
           }`}
           onClick={() => onViewChange("library")}
           type="button"
         >
-          <span className="flex items-center gap-2">
-            <Folder className="h-4 w-4" />
-            {t("nav.library")}
-          </span>
+          <Folder className="h-[var(--icon-size)] w-[var(--icon-size)]" />
+          <span className="flex-1">{t("nav.library")}</span>
           <span
-            className={`text-xs ${
+            className={`rounded-[var(--radius-full)] px-2 py-0.5 text-[var(--font-size-xs)] ${
               isLibrary
-                ? "font-semibold text-[var(--accent)]"
-                : "text-[var(--text-muted)]"
+                ? "bg-white/20 text-white"
+                : "bg-[var(--color-bg-tertiary)]"
             }`}
           >
             {trackCount}
           </span>
         </button>
+        
         <button
-          className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
+          className={`flex w-full items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] px-[var(--spacing-md)] py-[var(--spacing-sm)] text-left text-[var(--font-size-sm)] font-medium transition-all duration-[var(--transition-fast)] ${
             isInbox
-              ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-              : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
+              ? "bg-[var(--color-accent)] text-white"
+              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
           }`}
           onClick={() => onViewChange("inbox")}
           type="button"
         >
-          <span className="flex items-center gap-2">
-            <Inbox className="h-4 w-4" />
-            {t("nav.inbox")}
-          </span>
+          <Inbox className="h-[var(--icon-size)] w-[var(--icon-size)]" />
+          <span className="flex-1">{t("nav.inbox")}</span>
           <span
-            className={`text-xs ${
+            className={`rounded-[var(--radius-full)] px-2 py-0.5 text-[var(--font-size-xs)] ${
               isInbox
-                ? "font-semibold text-[var(--accent)]"
-                : "text-[var(--text-muted)]"
+                ? "bg-white/20 text-white"
+                : "bg-[var(--color-bg-tertiary)]"
             }`}
           >
             {inboxCount}
           </span>
         </button>
-        <div className="space-y-1">
-          <button
-            className="flex w-full cursor-pointer items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
-            type="button"
-          >
-            <span className="flex items-center gap-2">
-              <ListMusic className="h-4 w-4" />
-              {t("nav.playlists")}
-            </span>
+      </nav>
+
+      <div className="flex-1 overflow-y-auto p-[var(--spacing-md)]">
+        <div className="mb-[var(--spacing-sm)] flex items-center gap-[var(--spacing-sm)]">
+          <ListMusic className="h-4 w-4 text-[var(--color-text-muted)]" />
+          <span className="flex-1 text-[var(--font-size-xs)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            {t("nav.playlists")}
+          </span>
+          <button className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-full)] opacity-50 transition-all hover:bg-[var(--color-bg-hover)] hover:opacity-100">
             <Plus className="h-4 w-4" />
           </button>
-          <div className="space-y-1">
-            {playlists.map((playlist) => {
-              const isDropTarget = draggingPlaylistId === playlist.id;
-              return (
-                <button
-                  key={playlist.id}
-                  className={`flex w-full items-center justify-between rounded-[var(--radius-sm)] border px-3 py-2 text-left text-sm font-medium transition-colors duration-[var(--motion-fast)] ${
-                    isDropTarget
-                      ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                      : "border-transparent text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
-                  }`}
-                  onClick={() => onViewChange("library")}
-                  onDragEnter={(event) => {
-                    event.preventDefault();
-                    onPlaylistDragEnter(playlist.id);
-                  }}
-                  onDragLeave={(event) => {
-                    event.preventDefault();
-                    onPlaylistDragLeave(playlist.id);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    onPlaylistDragOver(playlist.id);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onPlaylistDrop(event, playlist.id);
-                  }}
-                  data-playlist-target={playlist.id}
-                  type="button"
-                >
-                  <span className="truncate">{playlist.name}</span>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {playlist.trackIds.length}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
         </div>
+        
+        {playlists.length === 0 && (
+          <p className="p-[var(--spacing-sm)] text-[var(--font-size-xs)] text-[var(--color-text-muted)]">
+            No playlists yet
+          </p>
+        )}
+        
+        {playlists.map((playlist) => {
+          const isDropTarget = draggingPlaylistId === playlist.id;
+          return (
+            <button
+              key={playlist.id}
+              className={`mb-1 flex w-full items-center justify-between rounded-[var(--radius-md)] px-[var(--spacing-md)] py-[var(--spacing-sm)] text-left text-[var(--font-size-sm)] font-medium transition-all duration-[var(--transition-fast)] ${
+                isDropTarget
+                  ? "bg-[var(--color-accent-light)] text-[var(--color-accent)]"
+                  : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+              }`}
+              onClick={() => onViewChange("library")}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                onPlaylistDragEnter(playlist.id);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                onPlaylistDragLeave(playlist.id);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                onPlaylistDragOver(playlist.id);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onPlaylistDrop(event, playlist.id);
+              }}
+              data-playlist-target={playlist.id}
+              type="button"
+            >
+              <span className="truncate">{playlist.name}</span>
+              <span className="ml-2 rounded-[var(--radius-full)] bg-[var(--color-bg-tertiary)] px-2 py-0.5 text-[var(--font-size-xs)]">
+                {playlist.trackIds.length}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <div className="mt-auto" />
-      <button
-        className={`mt-4 flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-left font-medium transition-colors duration-[var(--motion-fast)] ${
-          isSettings
-            ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-            : "text-[var(--text-primary)] hover:bg-[var(--panel-muted)]"
-        }`}
-        onClick={() => onViewChange("settings")}
-        type="button"
-      >
-        <span className="flex items-center gap-2">
-          <Settings className="h-4 w-4" />
-          {t("nav.settings")}
-        </span>
-      </button>
+
+      <div className="mt-auto border-t border-[var(--color-border-light)] p-[var(--spacing-md)]">
+        <button
+          className={`flex w-full items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] px-[var(--spacing-md)] py-[var(--spacing-sm)] text-left text-[var(--font-size-sm)] transition-all duration-[var(--transition-fast)] ${
+            isSettings
+              ? "bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]"
+              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+          }`}
+          onClick={() => onViewChange("settings")}
+          type="button"
+        >
+          <Settings className="h-[var(--icon-size)] w-[var(--icon-size)]" />
+          <span>{t("nav.settings")}</span>
+        </button>
+      </div>
     </aside>
   );
 };

@@ -1,163 +1,437 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Base CSS Variables */
 :root {
-  color-scheme: light;
-  --font-family: "IBM Plex Sans", system-ui, sans-serif;
-  --app-bg: #f2f5f8;
-  --panel-bg: #ffffff;
-  --panel-muted: #eef2f6;
-  --panel-border: #d4dde8;
-  --text-primary: #101826;
-  --text-muted: #5a6b7f;
-  --accent: #2b6cb0;
-  --accent-soft: #d6e5f4;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 38, 0.08);
-  --shadow-md: 0 12px 30px rgba(16, 24, 38, 0.12);
-  --shadow-lg: 0 22px 50px rgba(16, 24, 38, 0.16);
-  --border-thin: 1px solid var(--panel-border);
-  --border-strong: 1px solid rgba(15, 23, 42, 0.12);
-  --space-xs: 6px;
-  --space-sm: 10px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --motion-fast: 140ms;
-  --motion-slow: 240ms;
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* Grid layout */
+  --sidebar-width: 200px;
+  --queue-width: 320px;
+  --media-controls-height: 120px;
 }
 
+/* Clean Light Theme (Default) */
+[data-theme="light"],
+:root {
+  /* Colors */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8f9fa;
+  --color-bg-tertiary: #e9ecef;
+  --color-bg-hover: #e2e6ea;
+  --color-bg-active: #dee2e6;
+  
+  --color-text-primary: #212529;
+  --color-text-secondary: #6c757d;
+  --color-text-muted: #adb5bd;
+  
+  --color-accent: #4361ee;
+  --color-accent-hover: #3a56d4;
+  --color-accent-light: rgba(67, 97, 238, 0.1);
+  
+  --color-border: #cbd5e0;
+  --color-border-light: #d6dce4;
+  
+  --color-success: #28a745;
+  --color-warning: #ffc107;
+  --color-danger: #dc3545;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  
+  /* Typography sizes */
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 32px;
+  
+  --line-height: 1.5;
+  
+  /* Component-specific */
+  --table-row-height: 48px;
+  --button-height: 40px;
+  --input-height: 44px;
+  --icon-size: 20px;
+  --avatar-size: 48px;
+}
+
+/* Clean Dark Theme */
 [data-theme="dark"] {
-  color-scheme: dark;
-  --app-bg: #0b1118;
-  --panel-bg: #121924;
-  --panel-muted: #192334;
-  --panel-border: #283548;
-  --text-primary: #e4eaf3;
-  --text-muted: #93a4bb;
-  --accent: #6aa7f2;
-  --accent-soft: #1b2f4d;
-  --shadow-sm: 0 1px 2px rgba(3, 6, 12, 0.35);
-  --shadow-md: 0 12px 30px rgba(3, 6, 12, 0.45);
-  --shadow-lg: 0 22px 50px rgba(3, 6, 12, 0.55);
-  --border-strong: 1px solid rgba(226, 232, 240, 0.12);
+  /* Colors */
+  --color-bg-primary: #1a1a2e;
+  --color-bg-secondary: #16162a;
+  --color-bg-tertiary: #252542;
+  --color-bg-hover: #2a2a4a;
+  --color-bg-active: #323258;
+  
+  --color-text-primary: #f8f9fa;
+  --color-text-secondary: #adb5bd;
+  --color-text-muted: #6c757d;
+  
+  --color-accent: #4361ee;
+  --color-accent-hover: #5a75f0;
+  --color-accent-light: rgba(67, 97, 238, 0.2);
+  
+  --color-border: #3a3a5a;
+  --color-border-light: #32324e;
+  
+  --color-success: #28a745;
+  --color-warning: #ffc107;
+  --color-danger: #dc3545;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+  
+  /* Typography sizes */
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 32px;
+  
+  --line-height: 1.5;
+  
+  /* Component-specific */
+  --table-row-height: 48px;
+  --button-height: 40px;
+  --input-height: 44px;
+  --icon-size: 20px;
+  --avatar-size: 48px;
 }
 
-[data-theme="graphite"] {
-  color-scheme: dark;
-  --app-bg: #0f1318;
-  --panel-bg: #171d24;
-  --panel-muted: #202834;
-  --panel-border: #2f3946;
-  --text-primary: #e8edf5;
-  --text-muted: #9aa6b6;
-  --accent: #6cb4ff;
-  --accent-soft: #1b2f4d;
-  --shadow-sm: 0 1px 2px rgba(5, 8, 12, 0.35);
-  --shadow-md: 0 12px 30px rgba(5, 8, 12, 0.45);
-  --shadow-lg: 0 22px 50px rgba(5, 8, 12, 0.55);
-  --border-strong: 1px solid rgba(226, 232, 240, 0.12);
+/* Compact Light Theme */
+[data-theme="compact-light"] {
+  /* Colors - Same as clean light */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8f9fa;
+  --color-bg-tertiary: #e9ecef;
+  --color-bg-hover: #e2e6ea;
+  --color-bg-active: #dee2e6;
+  
+  --color-text-primary: #212529;
+  --color-text-secondary: #6c757d;
+  --color-text-muted: #adb5bd;
+  
+  --color-accent: #4361ee;
+  --color-accent-hover: #3a56d4;
+  --color-accent-light: rgba(67, 97, 238, 0.1);
+  
+  --color-border: #cbd5e0;
+  --color-border-light: #d6dce4;
+  
+  --color-success: #28a745;
+  --color-warning: #ffc107;
+  --color-danger: #dc3545;
+  
+  /* Shadows - Reduced for compact */
+  --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.08);
+  
+  /* Typography sizes - Compact theme (smaller) */
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 14px;
+  --font-size-xl: 18px;
+  --font-size-xxl: 24px;
+  
+  --line-height: 1.3;
+  
+  /* Component-specific - Compact */
+  --table-row-height: 32px;
+  --button-height: 28px;
+  --input-height: 32px;
+  --icon-size: 16px;
+  --avatar-size: 36px;
+  
+  /* Spacing overrides for compact */
+  --spacing-xs: 2px;
+  --spacing-sm: 4px;
+  --spacing-md: 8px;
+  --spacing-lg: 12px;
+  --spacing-xl: 16px;
+  
+  /* Layout overrides */
+  --sidebar-width: 180px;
+  --queue-width: 260px;
+  --media-controls-height: 64px;
+  
+  /* Border radius - smaller for compact */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
 }
 
-[data-theme="sage"] {
-  color-scheme: light;
-  --app-bg: #f3f6f1;
-  --panel-bg: #ffffff;
-  --panel-muted: #eef3ee;
-  --panel-border: #d6e0d5;
-  --text-primary: #1c2623;
-  --text-muted: #5f7369;
-  --accent: #2a7a69;
-  --accent-soft: #d7ebe3;
-  --shadow-sm: 0 1px 2px rgba(15, 37, 29, 0.1);
-  --shadow-md: 0 12px 30px rgba(15, 37, 29, 0.16);
-  --shadow-lg: 0 22px 50px rgba(15, 37, 29, 0.2);
-  --border-strong: 1px solid rgba(28, 38, 35, 0.12);
+/* Compact Dark Theme */
+[data-theme="compact-dark"] {
+  /* Colors - Same as clean dark */
+  --color-bg-primary: #1a1a2e;
+  --color-bg-secondary: #16162a;
+  --color-bg-tertiary: #252542;
+  --color-bg-hover: #2a2a4a;
+  --color-bg-active: #323258;
+  
+  --color-text-primary: #f8f9fa;
+  --color-text-secondary: #adb5bd;
+  --color-text-muted: #6c757d;
+  
+  --color-accent: #4361ee;
+  --color-accent-hover: #5a75f0;
+  --color-accent-light: rgba(67, 97, 238, 0.2);
+  
+  --color-border: #3a3a5a;
+  --color-border-light: #32324e;
+  
+  --color-success: #28a745;
+  --color-warning: #ffc107;
+  --color-danger: #dc3545;
+  
+  /* Shadows - Reduced for compact */
+  --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.3);
+  
+  /* Typography sizes - Compact theme (smaller) */
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 14px;
+  --font-size-xl: 18px;
+  --font-size-xxl: 24px;
+  
+  --line-height: 1.3;
+  
+  /* Component-specific - Compact */
+  --table-row-height: 32px;
+  --button-height: 28px;
+  --input-height: 32px;
+  --icon-size: 16px;
+  --avatar-size: 36px;
+  
+  /* Spacing overrides for compact */
+  --spacing-xs: 2px;
+  --spacing-sm: 4px;
+  --spacing-md: 8px;
+  --spacing-lg: 12px;
+  --spacing-xl: 16px;
+  
+  /* Layout overrides */
+  --sidebar-width: 180px;
+  --queue-width: 260px;
+  --media-controls-height: 64px;
+  
+  /* Border radius - smaller for compact */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
 }
 
-[data-theme="ember"] {
-  color-scheme: light;
-  --app-bg: #f7f1ec;
-  --panel-bg: #ffffff;
-  --panel-muted: #f5ebe2;
-  --panel-border: #e2d1c3;
-  --text-primary: #2b1e15;
-  --text-muted: #7a5f4f;
-  --accent: #b94a2a;
-  --accent-soft: #f0d8cb;
-  --shadow-sm: 0 1px 2px rgba(45, 26, 16, 0.1);
-  --shadow-md: 0 12px 30px rgba(45, 26, 16, 0.16);
-  --shadow-lg: 0 22px 50px rgba(45, 26, 16, 0.2);
-  --border-strong: 1px solid rgba(43, 30, 21, 0.12);
-}
-
-[data-theme="midnight"] {
-  color-scheme: dark;
-  --app-bg: #0b1017;
-  --panel-bg: #121a26;
-  --panel-muted: #1a2433;
-  --panel-border: #293449;
-  --text-primary: #e4e9f3;
-  --text-muted: #92a2bb;
-  --accent: #3ddc97;
-  --accent-soft: #143a2d;
-  --shadow-sm: 0 1px 2px rgba(4, 8, 14, 0.35);
-  --shadow-md: 0 12px 30px rgba(4, 8, 14, 0.45);
-  --shadow-lg: 0 22px 50px rgba(4, 8, 14, 0.55);
-  --border-strong: 1px solid rgba(226, 232, 240, 0.12);
-}
-
-[data-theme="ocean"] {
-  color-scheme: light;
-  --app-bg: #eef3f7;
-  --panel-bg: #ffffff;
-  --panel-muted: #e7eff5;
-  --panel-border: #cddae3;
-  --text-primary: #0e1b25;
-  --text-muted: #516a7b;
-  --accent: #1b78b8;
-  --accent-soft: #d5e7f4;
-  --shadow-sm: 0 1px 2px rgba(14, 27, 37, 0.1);
-  --shadow-md: 0 12px 30px rgba(14, 27, 37, 0.16);
-  --shadow-lg: 0 22px 50px rgba(14, 27, 37, 0.2);
-  --border-strong: 1px solid rgba(14, 27, 37, 0.12);
-}
-
+/* Terminal Theme */
 [data-theme="terminal"] {
-  color-scheme: dark;
-  --font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, "Liberation Mono", "Courier New", monospace;
-  --app-bg: #000000;
-  --panel-bg: #050706;
-  --panel-muted: #0b100d;
-  --panel-border: #1a241d;
-  --text-primary: #c3ffba;
-  --text-muted: #7fd187;
-  --accent: #4cff6a;
-  --accent-soft: #0c2212;
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
+  /* Font override - Monospace */
+  --font-family: 'IBM Plex Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  
+  /* Colors - Terminal green on black */
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #050706;
+  --color-bg-tertiary: #0b100d;
+  --color-bg-hover: #0f1812;
+  --color-bg-active: #1a241d;
+  
+  --color-text-primary: #c3ffba;
+  --color-text-secondary: #7fd187;
+  --color-text-muted: #4a7850;
+  
+  --color-accent: #4cff6a;
+  --color-accent-hover: #66ff7f;
+  --color-accent-light: rgba(76, 255, 106, 0.15);
+  
+  --color-border: #2a3a30;
+  --color-border-light: #1a2820;
+  
+  --color-success: #4cff6a;
+  --color-warning: #ffff00;
+  --color-danger: #ff4444;
+  
+  /* Shadows - None for terminal */
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-lg: none;
-  --border-strong: 1px solid rgba(195, 255, 186, 0.2);
+  
+  /* Typography sizes */
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 32px;
+  
+  --line-height: 1.5;
+  
+  /* Component-specific */
+  --table-row-height: 48px;
+  --button-height: 40px;
+  --input-height: 44px;
+  --icon-size: 20px;
+  --avatar-size: 48px;
+  
+  /* Border radius - No rounded corners for terminal */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-full: 0px;
+}
+
+/* Compact Terminal Theme */
+[data-theme="compact-terminal"] {
+  /* Font override - Monospace */
+  --font-family: 'IBM Plex Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  
+  /* Colors - Same as terminal */
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #050706;
+  --color-bg-tertiary: #0b100d;
+  --color-bg-hover: #0f1812;
+  --color-bg-active: #1a241d;
+  
+  --color-text-primary: #c3ffba;
+  --color-text-secondary: #7fd187;
+  --color-text-muted: #4a7850;
+  
+  --color-accent: #4cff6a;
+  --color-accent-hover: #66ff7f;
+  --color-accent-light: rgba(76, 255, 106, 0.15);
+  
+  --color-border: #2a3a30;
+  --color-border-light: #1a2820;
+  
+  --color-success: #4cff6a;
+  --color-warning: #ffff00;
+  --color-danger: #ff4444;
+  
+  /* Shadows - None for terminal */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  
+  /* Typography sizes - Compact */
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 14px;
+  --font-size-xl: 18px;
+  --font-size-xxl: 24px;
+  
+  --line-height: 1.3;
+  
+  /* Component-specific - Compact */
+  --table-row-height: 32px;
+  --button-height: 28px;
+  --input-height: 32px;
+  --icon-size: 16px;
+  --avatar-size: 36px;
+  
+  /* Spacing overrides for compact */
+  --spacing-xs: 2px;
+  --spacing-sm: 4px;
+  --spacing-md: 8px;
+  --spacing-lg: 12px;
+  --spacing-xl: 16px;
+  
+  /* Layout overrides */
+  --sidebar-width: 180px;
+  --queue-width: 260px;
+  --media-controls-height: 64px;
+  
+  /* Border radius - No rounded corners for terminal */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-full: 0px;
 }
 
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
 body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: var(--font-family), sans-serif;
-  background: var(--app-bg);
-  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-active);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Utility classes */
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.text-accent {
+  color: var(--color-accent);
 }
 
 @keyframes dragOverlayFade {
@@ -194,14 +468,54 @@ body {
   animation: dragOverlayCard 220ms ease-out;
 }
 
-[data-theme="dark"] .drag-overlay-card,
-[data-theme="graphite"] .drag-overlay-card,
-[data-theme="midnight"] .drag-overlay-card,
-[data-theme="terminal"] .drag-overlay-card {
-  background: linear-gradient(135deg, rgba(18, 25, 36, 0.98), #121924);
+[data-theme="dark"] .drag-overlay-card {
+  background: linear-gradient(135deg, rgba(26, 26, 46, 0.98), #1a1a2e);
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* Theme Preview Thumbnails */
+[data-theme-preview="light"] {
+  background-color: #f8f9fa;
+}
+[data-theme-preview="light"] > div {
+  background-color: #ffffff;
+}
+
+[data-theme-preview="dark"] {
+  background-color: #16162a;
+}
+[data-theme-preview="dark"] > div {
+  background-color: #1a1a2e;
+}
+
+[data-theme-preview="terminal"] {
+  background-color: #000000;
+}
+[data-theme-preview="terminal"] > div {
+  background-color: #050706;
+}
+
+[data-theme-preview="compact-light"] {
+  background-color: #e9ecef;
+}
+[data-theme-preview="compact-light"] > div {
+  background-color: #ffffff;
+}
+
+[data-theme-preview="compact-dark"] {
+  background-color: #16162a;
+}
+[data-theme-preview="compact-dark"] > div {
+  background-color: #1a1a2e;
+}
+
+[data-theme-preview="compact-terminal"] {
+  background-color: #000000;
+}
+[data-theme-preview="compact-terminal"] > div {
+  background-color: #050706;
 }

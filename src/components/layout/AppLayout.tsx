@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 
 type AppLayoutProps = {
-  sidebarWidth: number;
-  detailWidth: number;
   onSidebarResizeStart: (event: React.MouseEvent) => void;
   onDetailResizeStart: (event: React.MouseEvent) => void;
   sidebar: ReactNode;
@@ -11,8 +9,6 @@ type AppLayoutProps = {
 };
 
 export const AppLayout = ({
-  sidebarWidth,
-  detailWidth,
   onSidebarResizeStart,
   onDetailResizeStart,
   sidebar,
@@ -20,27 +16,33 @@ export const AppLayout = ({
   detail,
 }: AppLayoutProps) => {
   return (
-    <div
-      className="relative grid flex-1 gap-0 overflow-hidden"
-      style={{
-        gridTemplateColumns: `${sidebarWidth}px minmax(0, 1fr) ${detailWidth}px`,
-      }}
-    >
-      <div
-        className="absolute left-0 top-0 z-20 h-full w-2 cursor-col-resize bg-transparent transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
-        style={{ left: sidebarWidth - 1 }}
-        onMouseDown={onSidebarResizeStart}
-        role="presentation"
-      />
-      <div
-        className="absolute top-0 z-20 h-full w-2 cursor-col-resize bg-transparent transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-border)]"
-        style={{ right: detailWidth - 1 }}
-        onMouseDown={onDetailResizeStart}
-        role="presentation"
-      />
-      {sidebar}
-      {main}
-      {detail}
-    </div>
+    <>
+      {/* Sidebar - grid-column: 1, grid-row: 1 / 3 */}
+      <div className="col-start-1 row-span-2 row-start-1 relative">
+        {sidebar}
+        <div
+          className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--color-border)]"
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={onSidebarResizeStart}
+        />
+      </div>
+
+      {/* Main content - grid-column: 2, grid-row: 1 / 3 */}
+      <div className="col-start-2 row-span-2 row-start-1 flex flex-col overflow-hidden">
+        {main}
+      </div>
+
+      {/* Queue/Detail panel - grid-column: 3, grid-row: 1 / 3 */}
+      <div className="col-start-3 row-span-2 row-start-1 relative">
+        {detail}
+        <div
+          className="absolute left-0 top-0 h-full w-2 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--color-border)]"
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={onDetailResizeStart}
+        />
+      </div>
+    </>
   );
 };

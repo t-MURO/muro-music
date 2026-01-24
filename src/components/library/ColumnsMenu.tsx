@@ -21,26 +21,26 @@ export const ColumnsMenu = ({
 
   return createPortal(
     <div
-      className="fixed z-50 w-52 rounded-[var(--radius-md)] border border-[var(--panel-border)] bg-[var(--panel-bg)] p-3 text-sm shadow-[var(--shadow-md)]"
+      className="fixed z-50 w-60 rounded-[var(--radius-lg)] border border-[var(--panel-border)] bg-[var(--panel-bg)]/95 p-4 text-sm shadow-[var(--shadow-lg)] backdrop-blur-xl"
       onClick={(event) => event.stopPropagation()}
       style={{ left: position.x, top: position.y }}
     >
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+      <div className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
         {t("columns.visible")}
       </div>
-      <div className="mt-3 space-y-2">
+      <div className="space-y-1">
         {columns.map((column) => (
           <label
             key={column.key}
-            className="flex cursor-pointer items-center gap-2 text-sm"
+            className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors hover:bg-[var(--panel-muted)]"
           >
             <input
               checked={column.visible}
-              className="h-4 w-4 accent-[var(--accent)]"
+              className="h-4 w-4 cursor-pointer rounded accent-[var(--accent)]"
               onChange={() => onToggleColumn(column.key)}
               type="checkbox"
             />
-            <span>{t(column.labelKey)}</span>
+            <span className="font-medium">{t(column.labelKey)}</span>
           </label>
         ))}
       </div>

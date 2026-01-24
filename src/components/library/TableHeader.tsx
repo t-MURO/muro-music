@@ -21,24 +21,24 @@ export const TableHeader = ({
 
   return (
     <div
-      className="sticky top-0 z-30 bg-[var(--panel-muted)]"
+      className="sticky top-0 z-30 bg-[var(--color-bg-secondary)]"
       style={{ width: "100%", minWidth: tableWidth }}
       role="rowgroup"
     >
       <div className="relative" style={{ width: "100%", minWidth: tableWidth }}>
         <div
-          className="grid text-left text-xs uppercase tracking-wider text-[var(--text-muted)]"
+          className="grid text-left text-[var(--font-size-xs)] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]"
           style={{ gridTemplateColumns }}
           role="row"
         >
           {columns.map((column) => (
             <div
               key={column.key}
-              className="relative bg-[var(--panel-muted)] px-4 py-3 pr-8"
+              className="relative bg-[var(--color-bg-secondary)] px-4 py-3 pr-8"
               role="columnheader"
             >
               <span className="block truncate">{t(column.labelKey)}</span>
-              <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--panel-border)] opacity-70" />
+              <span className="absolute right-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded bg-[var(--color-border)] opacity-40" />
               <span
                 className="absolute right-0 top-0 h-full w-4 cursor-col-resize"
                 onDoubleClick={(event) => {

@@ -14,13 +14,13 @@ export const RatingCell = memo(
 
     return (
       <div
-        className="h-12 px-4 py-3"
+        className="h-[var(--table-row-height)] px-4 py-3"
         title={`${rating} / 5`}
         onMouseLeave={() => setHoverValue(null)}
         role="cell"
       >
         <div
-          className="flex items-center gap-1 rounded-[var(--radius-sm)] -ml-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+          className="flex items-center gap-1 rounded-[var(--radius-sm)] -ml-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
           aria-label={`Rating for ${title}`}
           role="slider"
           tabIndex={0}
@@ -63,7 +63,7 @@ export const RatingCell = memo(
             <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                fill="var(--text-muted)"
+                fill="var(--color-text-muted)"
               />
             </svg>
           </button>
@@ -96,12 +96,13 @@ export const RatingCell = memo(
                   </defs>
                   <path
                     d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                    fill="var(--text-muted)"
+                    fill="var(--color-text-muted)"
+                    opacity="0.3"
                   />
                   <g clipPath={`url(#${clipId})`}>
                     <path
                       d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                      fill="var(--accent)"
+                      fill="var(--color-accent)"
                     />
                   </g>
                 </svg>

@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef } from "react";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
+import { FileAudio, FolderOpen } from "lucide-react";
 import type { ColumnConfig, Track } from "../../types/library";
 import { RatingCell } from "./RatingCell";
 import { TableHeader } from "./TableHeader";
@@ -132,7 +133,7 @@ export const TrackTable = memo(
     return (
       <div
         ref={tableContainerRef}
-        className="relative min-h-0 flex-1 min-w-0 overflow-x-auto overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--panel-border)] shadow-[var(--shadow-sm)]"
+        className="relative min-h-0 flex-1 min-w-0 overflow-x-auto overflow-y-auto"
         role="grid"
         aria-rowcount={tracks.length}
         aria-colcount={visibleColumns.length}
@@ -147,31 +148,33 @@ export const TrackTable = memo(
           onColumnAutoFit={onColumnAutoFit}
         />
         {tracks.length === 0 ? (
-          <div className="flex min-h-[240px] items-center justify-center px-6 py-10">
-            <div className="max-w-md rounded-[var(--radius-lg)] border border-dashed border-[var(--panel-border)] bg-[var(--panel-muted)] px-6 py-5 text-center shadow-[var(--shadow-sm)]">
-              <div className="text-sm font-semibold text-[var(--text-primary)]">
+          <div className="flex min-h-[240px] items-center justify-center px-[var(--spacing-lg)] py-10">
+            <div className="max-w-md rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-6 py-5 text-center">
+              <div className="text-[var(--font-size-md)] font-semibold text-[var(--color-text-primary)]">
                 {emptyTitle}
               </div>
-              <div className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
+              <div className="mt-2 text-[var(--font-size-sm)] leading-relaxed text-[var(--color-text-secondary)]">
                 {emptyDescription}
               </div>
               {(emptyActionLabel || emptySecondaryActionLabel) && (
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
                   {emptyActionLabel && onEmptyAction && (
                     <button
-                      className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-elevated)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition hover:border-[var(--panel-border-strong)]"
+                      className="flex h-[var(--button-height)] items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] bg-[var(--color-accent)] px-[var(--spacing-md)] text-[var(--font-size-sm)] font-medium text-white transition-all duration-[var(--transition-fast)] hover:bg-[var(--color-accent-hover)]"
                       type="button"
                       onClick={onEmptyAction}
                     >
+                      <FileAudio className="h-4 w-4" />
                       {emptyActionLabel}
                     </button>
                   )}
                   {emptySecondaryActionLabel && onEmptySecondaryAction && (
                     <button
-                      className="rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)] shadow-[var(--shadow-sm)] transition hover:border-[var(--panel-border-strong)] hover:text-[var(--text-primary)]"
+                      className="flex h-[var(--button-height)] items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-[var(--spacing-md)] text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)] transition-all duration-[var(--transition-fast)] hover:bg-[var(--color-bg-hover)]"
                       type="button"
                       onClick={onEmptySecondaryAction}
                     >
+                      <FolderOpen className="h-4 w-4" />
                       {emptySecondaryActionLabel}
                     </button>
                   )}
@@ -193,12 +196,12 @@ export const TrackTable = memo(
             return (
               <div
                 key={virtualRow.key}
-                className={`group grid select-none items-center border-t border-[var(--panel-border)] ${
-                  isSelected ? "bg-[var(--accent-soft)]" : "bg-[var(--panel-bg)]"
-                } hover:bg-[var(--panel-muted)]`}
+                className={`group grid select-none items-center ${
+                  isSelected ? "bg-[var(--color-accent-light)]" : "bg-[var(--color-bg-primary)]"
+                } hover:bg-[var(--color-bg-hover)]`}
                 style={{
                   gridTemplateColumns,
-                  height: 48,
+                  height: "var(--table-row-height)",
                   position: "absolute",
                   top: virtualRow.start,
                   left: 0,

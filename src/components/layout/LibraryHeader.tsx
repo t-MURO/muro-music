@@ -15,30 +15,35 @@ export const LibraryHeader = ({
   onColumnsButtonClick,
 }: LibraryHeaderProps) => {
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--panel-bg)] px-6 py-4">
-      <div>
-        <h1 className="text-lg font-semibold">{title}</h1>
-        <p className="text-xs text-[var(--text-muted)]">{subtitle}</p>
+    <header className="flex items-start justify-between border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] p-[var(--spacing-lg)]">
+      <div className="flex flex-col gap-[var(--spacing-xs)]">
+        <h2 className="text-[var(--font-size-xl)] font-semibold text-[var(--color-text-primary)]">
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
+            {subtitle}
+          </p>
+        )}
       </div>
       {!isSettings && (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--panel-border)] bg-[var(--panel-bg)] px-3 py-2 text-sm shadow-[var(--shadow-sm)]">
-            <Search className="h-4 w-4 text-[var(--text-muted)]" />
+        <div className="flex items-center gap-[var(--spacing-md)]">
+          <div className="relative flex items-center">
+            <Search className="pointer-events-none absolute left-[var(--spacing-md)] h-4 w-4 text-[var(--color-text-muted)]" />
             <input
-              className="w-40 bg-transparent text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
+              className="h-[var(--input-height)] w-60 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] pl-[calc(var(--spacing-md)+24px)] pr-[var(--spacing-md)] text-[var(--font-size-sm)] text-[var(--color-text-primary)] transition-all duration-[var(--transition-fast)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-4 focus:ring-[var(--color-accent-light)]"
               placeholder={t("search.placeholder")}
+              type="text"
             />
           </div>
-          <div className="relative">
-            <button
-              className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--panel-border)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] shadow-[var(--shadow-sm)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--panel-muted)]"
-              onClick={onColumnsButtonClick}
-              type="button"
-            >
-              <Columns2 className="h-4 w-4" />
-              {t("columns.label")}
-            </button>
-          </div>
+          <button
+            className="flex h-[var(--button-height)] items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-[var(--spacing-md)] text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)] transition-all duration-[var(--transition-fast)] hover:bg-[var(--color-bg-hover)]"
+            onClick={onColumnsButtonClick}
+            type="button"
+          >
+            <Columns2 className="h-[var(--icon-size)] w-[var(--icon-size)]" />
+            <span>{t("columns.label")}</span>
+          </button>
         </div>
       )}
     </header>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { AppLayout } from "./components/layout/AppLayout";
 import { DetailPanel } from "./components/layout/DetailPanel";
 import { LibraryHeader } from "./components/layout/LibraryHeader";
@@ -232,23 +232,29 @@ function App() {
   }, [handleImportPaths]);
 
   return (
-    <div
-      className="h-screen overflow-hidden bg-[var(--app-bg)] text-[var(--text-primary)]"
-      onClick={() => {
-        closeMenu();
-        closeColumnsMenu();
-      }}
-    >
+      <div
+        className="h-screen overflow-hidden bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+        onClick={() => {
+          closeMenu();
+          closeColumnsMenu();
+        }}
+      >
       <DragOverlay
         isDragging={isDragging}
         nativeDropStatus={nativeDropStatus}
         dragIndicator={dragIndicator}
         isInternalDrag={isInternalDrag}
       />
-      <div className="flex h-screen flex-col pb-28">
+      <div
+        className="grid h-screen grid-cols-[var(--sidebar-width)_1fr_var(--queue-width)] grid-rows-[1fr_auto_var(--media-controls-height)] overflow-hidden"
+        style={
+          {
+            "--sidebar-width": `${sidebarWidth}px`,
+            "--queue-width": `${detailWidth}px`,
+          } as CSSProperties
+        }
+      >
         <AppLayout
-          sidebarWidth={sidebarWidth}
-          detailWidth={detailWidth}
           onSidebarResizeStart={startSidebarResize}
           onDetailResizeStart={startDetailResize}
           sidebar={
@@ -257,7 +263,7 @@ function App() {
             />
           }
           main={
-            <main className="flex h-full min-w-0 flex-col overflow-hidden pb-0">
+            <>
               <LibraryHeader
                 title={title}
                 subtitle={subtitle}
@@ -275,7 +281,7 @@ function App() {
                 columns={columns}
                 onToggleColumn={toggleColumn}
               />
-              <section className="flex min-h-0 flex-1 flex-col bg-[var(--panel-bg)] px-6 pb-4 pt-4">
+              <section className="flex min-h-0 flex-1 flex-col bg-[var(--color-bg-primary)]">
                 {isSettings ? (
                     <SettingsPanel
                       theme={theme}
@@ -333,7 +339,7 @@ function App() {
                   </>
                 )}
               </section>
-            </main>
+            </>
           }
           detail={
             <DetailPanel
