@@ -13,6 +13,7 @@ type SidebarProps = {
   onPlaylistDragEnter: (id: string) => void;
   onPlaylistDragLeave: (id: string) => void;
   onPlaylistDragOver: (id: string) => void;
+  onCreatePlaylist: () => void;
 };
 
 export const Sidebar = ({
@@ -26,6 +27,7 @@ export const Sidebar = ({
   onPlaylistDragEnter,
   onPlaylistDragLeave,
   onPlaylistDragOver,
+  onCreatePlaylist,
 }: SidebarProps) => {
   const isLibrary = currentView === "library";
   const isInbox = currentView === "inbox";
@@ -91,7 +93,11 @@ export const Sidebar = ({
           <span className="flex-1 text-[var(--font-size-xs)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
             {t("nav.playlists")}
           </span>
-          <button className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-full)] opacity-50 transition-all hover:bg-[var(--color-bg-hover)] hover:opacity-100">
+          <button
+            className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-full)] opacity-50 transition-all hover:bg-[var(--color-bg-hover)] hover:opacity-100"
+            onClick={onCreatePlaylist}
+            type="button"
+          >
             <Plus className="h-4 w-4" />
           </button>
         </div>

@@ -10,6 +10,7 @@ import { InboxBanner } from "./components/library/InboxBanner";
 import { TrackTable } from "./components/library/TrackTable";
 import { ContextMenu } from "./components/ui/ContextMenu";
 import { DragOverlay } from "./components/ui/DragOverlay";
+import { PlaylistCreateModal } from "./components/ui/PlaylistCreateModal";
 import { useLibraryCommands } from "./hooks/useLibraryCommands";
 import { useLibraryView, type LibraryView } from "./hooks/useLibraryView";
 import { initialInboxTracks, initialTracks, themes } from "./data/library";
@@ -56,6 +57,8 @@ function App() {
     toggleAt: toggleColumnsMenu,
   } = useColumnsMenu();
   const [playlists, setPlaylists] = useState<Playlist[]>(() => []);
+  const [isPlaylistModalOpen, setPlaylistModalOpen] = useState(false);
+  const [playlistName, setPlaylistName] = useState("");
   const { sidebarWidth, startSidebarResize } = useSidebarPanel();
   const [dbPath, setDbPath] = useState("");
   const [dbFileName, setDbFileName] = useState("muro.db");
@@ -81,10 +84,13 @@ function App() {
 
   const { handleRatingChange } = useTrackRatings({ setTracks });
 
-  const { handleImportPaths, handlePlaylistDrop } = useLibraryCommands({
-    setPlaylists,
-    setInboxTracks,
-  });
+  const { handleImportPaths, handlePlaylistDrop, handleCreatePlaylist } =
+    useLibraryCommands({
+      dbPath,
+      dbFileName,
+      setPlaylists,
+      setInboxTracks,
+    });
 
   const {
     dragIndicator,
@@ -109,6 +115,10 @@ function App() {
     onPlaylistDragEnter,
     onPlaylistDragLeave,
     onPlaylistDragOver,
+    onCreatePlaylist: () => {
+      setPlaylistName("");
+      setPlaylistModalOpen(true);
+    },
   });
 
   const { isDragging, nativeDropStatus } = useNativeDrag(
@@ -231,9 +241,20 @@ function App() {
     }
   }, [handleImportPaths]);
 
+  const handlePlaylistSubmit = useCallback(async () => {
+    const trimmed = playlistName.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    await handleCreatePlaylist(trimmed);
+    setPlaylistName("");
+    setPlaylistModalOpen(false);
+  }, [handleCreatePlaylist, playlistName]);
+
   return (
       <div
-        className="h-screen overflow-hidden bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+        className="theme-transition h-screen overflow-hidden bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
         onClick={() => {
           closeMenu();
           closeColumnsMenu();
@@ -244,6 +265,13 @@ function App() {
         nativeDropStatus={nativeDropStatus}
         dragIndicator={dragIndicator}
         isInternalDrag={isInternalDrag}
+      />
+      <PlaylistCreateModal
+        isOpen={isPlaylistModalOpen}
+        value={playlistName}
+        onChange={setPlaylistName}
+        onClose={() => setPlaylistModalOpen(false)}
+        onSubmit={handlePlaylistSubmit}
       />
       <div
         className="grid h-screen grid-cols-[var(--sidebar-width)_1fr_var(--queue-width)] grid-rows-[1fr_auto_var(--media-controls-height)] overflow-hidden"

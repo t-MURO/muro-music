@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ListChecks, Play, Speaker } from "lucide-react";
+import { ChevronLeft, ChevronRight, ListChecks, Music2, Play, Speaker } from "lucide-react";
 import { t } from "../../i18n";
 import type { Track } from "../../types/library";
 
@@ -45,14 +45,19 @@ export const DetailPanel = ({
         </div>
 
         {!detailCollapsed && (
-          <div className="mt-[var(--spacing-md)] rounded-[var(--radius-lg)] bg-[var(--color-accent)] p-[var(--spacing-md)] text-white">
-            <div className="mb-[var(--spacing-md)]">
-              <div className="aspect-square w-full rounded-[var(--radius-md)] bg-white/10" />
-            </div>
-            <div className="flex flex-col gap-[var(--spacing-xs)]">
-              <p className="text-[var(--font-size-md)] font-semibold">Glass Elevator</p>
-              <p className="text-[var(--font-size-sm)] opacity-90">Nova Drift</p>
-              <p className="text-[var(--font-size-xs)] opacity-70">Signal Bloom &bull; FLAC</p>
+          <div className="mt-[var(--spacing-md)] rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-[var(--spacing-md)]">
+            <div className="flex items-center gap-[var(--spacing-md)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-muted)]">
+                <Music2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[var(--font-size-md)] font-semibold text-[var(--color-text-primary)]">
+                  {t("player.empty.title")}
+                </p>
+                <p className="text-[var(--font-size-sm)] text-[var(--color-text-secondary)]">
+                  {t("player.empty.subtitle")}
+                </p>
+              </div>
             </div>
           </div>
         )}

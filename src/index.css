@@ -24,6 +24,7 @@
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+  --transition-theme: 150ms ease;
 
   /* Grid layout */
   --sidebar-width: 200px;
@@ -393,13 +394,22 @@ html, body, #root {
   width: 100%;
 }
 
-body {
-  font-family: var(--font-family);
-  font-size: var(--font-size-md);
-  line-height: var(--line-height);
-  background-color: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-  transition: background-color var(--transition-normal), color var(--transition-normal);
+  body {
+    font-family: var(--font-family);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height);
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    transition: background-color var(--transition-theme), color var(--transition-theme);
+  }
+
+@media (prefers-reduced-motion: no-preference) {
+  .theme-transition :where(button) {
+    transition: background-color var(--transition-theme), color var(--transition-theme),
+      border-color var(--transition-theme), box-shadow var(--transition-theme),
+      fill var(--transition-theme), stroke var(--transition-theme),
+      outline-color var(--transition-theme);
+  }
 }
 
 /* Scrollbar styles */
@@ -443,6 +453,15 @@ body {
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes dragOverlayCard {
   from {
     opacity: 0;
@@ -452,6 +471,25 @@ body {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-overlay-animate {
+  animation: fadeIn var(--transition-fast);
+}
+
+.modal-panel-animate {
+  animation: slideUp var(--transition-normal);
 }
 
 .drag-overlay {
@@ -470,6 +508,82 @@ body {
 
 [data-theme="dark"] .drag-overlay-card {
   background: linear-gradient(135deg, rgba(26, 26, 46, 0.98), #1a1a2e);
+}
+
+.player-bar {
+  transition: background-color var(--transition-normal), border-color var(--transition-normal);
+}
+
+.player-bar-button {
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.player-bar-play-button {
+  transition: all var(--transition-fast);
+}
+
+.player-progress-bar {
+  position: relative;
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.player-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: var(--color-accent);
+  border-radius: var(--radius-full);
+  pointer-events: none;
+}
+
+.player-progress-fill::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  background-color: var(--color-accent);
+  border-radius: var(--radius-full);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.player-progress-bar:hover .player-progress-fill::after {
+  opacity: 1;
+}
+
+.player-volume-control {
+  position: relative;
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.player-volume-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: var(--color-accent);
+  border-radius: var(--radius-full);
+  pointer-events: none;
+}
+
+.player-volume-fill::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background-color: var(--color-accent);
+  border-radius: var(--radius-full);
 }
 
 a {

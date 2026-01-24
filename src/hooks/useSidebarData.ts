@@ -13,6 +13,7 @@ type UseSidebarDataArgs = {
   onPlaylistDragEnter: (id: string) => void;
   onPlaylistDragLeave: (id: string) => void;
   onPlaylistDragOver: (id: string) => void;
+  onCreatePlaylist: () => void;
 };
 
 export const useSidebarData = ({
@@ -26,6 +27,7 @@ export const useSidebarData = ({
   onPlaylistDragEnter,
   onPlaylistDragLeave,
   onPlaylistDragOver,
+  onCreatePlaylist,
 }: UseSidebarDataArgs) => {
   return useMemo(
     () => ({
@@ -39,6 +41,7 @@ export const useSidebarData = ({
       onPlaylistDragEnter,
       onPlaylistDragLeave,
       onPlaylistDragOver,
+      onCreatePlaylist,
     }),
     [
       draggingPlaylistId,
@@ -47,6 +50,7 @@ export const useSidebarData = ({
       onPlaylistDragLeave,
       onPlaylistDragOver,
       onPlaylistDrop,
+      onCreatePlaylist,
       onViewChange,
       playlists,
       tracksCount,

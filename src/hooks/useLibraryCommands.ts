@@ -1,18 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
+import { appDataDir, join } from "@tauri-apps/api/path";
 import { useCallback, useEffect, useRef } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
+import { createPlaylist } from "../utils/tauriDb";
 import type { Playlist, Track } from "../types/library";
 
 type UseLibraryCommandsArgs = {
+  dbPath: string;
+  dbFileName: string;
   setPlaylists: React.Dispatch<React.SetStateAction<Playlist[]>>;
   setInboxTracks: React.Dispatch<React.SetStateAction<Track[]>>;
 };
 
 export const useLibraryCommands = ({
+  dbPath,
+  dbFileName,
   setPlaylists,
   setInboxTracks,
 }: UseLibraryCommandsArgs) => {
   const importSequenceRef = useRef(0);
+  const playlistSequenceRef = useRef(0);
 
   const handlePlaylistDrop = useCallback(
     (playlistId: string, payload: string[] = []) => {
@@ -104,6 +111,49 @@ export const useLibraryCommands = ({
     [createImportedTracks, setInboxTracks]
   );
 
+  const handleCreatePlaylist = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      playlistSequenceRef.current += 1;
+      const playlist: Playlist = {
+        id: `playlist-${Date.now()}-${playlistSequenceRef.current}`,
+        name: trimmed,
+        trackIds: [],
+      };
+
+      const command: Command = {
+        label: `Create playlist ${trimmed}`,
+        do: () => {
+          setPlaylists((current) => [...current, playlist]);
+        },
+        undo: () => {
+          setPlaylists((current) =>
+            current.filter((item) => item.id !== playlist.id)
+          );
+        },
+      };
+
+      commandManager.execute(command);
+
+      try {
+        let resolvedDbPath = dbPath.trim();
+        if (!resolvedDbPath) {
+          const baseDir = await appDataDir();
+          resolvedDbPath = await join(baseDir, dbFileName || "muro.db");
+        }
+
+        await createPlaylist(resolvedDbPath, playlist.id, playlist.name);
+      } catch (error) {
+        console.error("Playlist create failed:", error);
+      }
+    },
+    [dbFileName, dbPath, setPlaylists]
+  );
+
   useEffect(() => {
     const handleUndoRedo = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey)) {
@@ -126,5 +176,5 @@ export const useLibraryCommands = ({
     return () => window.removeEventListener("keydown", handleUndoRedo);
   }, []);
 
-  return { handleImportPaths, handlePlaylistDrop };
+  return { handleImportPaths, handlePlaylistDrop, handleCreatePlaylist };
 };

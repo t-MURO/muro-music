@@ -8,6 +8,7 @@ export type Track = {
   duration: string;
   bitrate: string;
   rating: number;
+  coverArt?: string;
 };
 
 export type Playlist = {

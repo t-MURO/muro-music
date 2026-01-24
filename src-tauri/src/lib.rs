@@ -1,8 +1,10 @@
 pub mod backfill;
 pub mod search;
 
+use rusqlite::Connection;
 use serde::Serialize;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager, WindowEvent};
 
 #[tauri::command]
@@ -31,6 +33,33 @@ fn import_files(paths: Vec<String>) -> Result<usize, String> {
 #[tauri::command]
 fn backfill_search_text(db_path: String) -> Result<usize, String> {
     backfill::run_backfill(&db_path)
+}
+
+#[tauri::command]
+fn create_playlist(db_path: String, id: String, name: String) -> Result<(), String> {
+    if let Some(parent) = Path::new(&db_path).parent() {
+        std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    }
+
+    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL)",
+        [],
+    )
+    .map_err(|error| error.to_string())?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_secs() as i64;
+
+    conn.execute(
+        "INSERT INTO playlists (id, name, created_at) VALUES (?1, ?2, ?3)",
+        (&id, &name, timestamp),
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(())
 }
 
 #[derive(Clone, Serialize)]
@@ -80,7 +109,11 @@ pub fn run() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![import_files, backfill_search_text])
+        .invoke_handler(tauri::generate_handler![
+            import_files,
+            backfill_search_text,
+            create_playlist
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
