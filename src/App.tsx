@@ -196,6 +196,15 @@ function App() {
     setQueue([]);
   }, []);
 
+  const reorderQueue = useCallback((fromIndex: number, toIndex: number) => {
+    setQueue(q => {
+      const newQueue = [...q];
+      const [removed] = newQueue.splice(fromIndex, 1);
+      newQueue.splice(toIndex, 0, removed);
+      return newQueue;
+    });
+  }, []);
+
   // Get actual track objects for queue display
   const queueTracks = useMemo(() => {
     return queue
@@ -212,7 +221,65 @@ function App() {
   const queueRef = useRef(queue);
   const setQueueRef = useRef(setQueue);
 
-  // Stable callback that reads from refs
+  /**
+   * Determines the next track to play based on queue, shuffle, and repeat settings.
+   * Returns the next track and updated queue (with first item removed if queue was used).
+   * 
+   * @param respectRepeatOne - If true, repeat "one" mode will return the current track.
+   *                           Set to true for auto-advance (track end), false for manual skip.
+   */
+  const getNextPlayableTrack = useCallback((
+    tracks: Track[],
+    currentQueue: string[],
+    currentTrackId: string | null,
+    repeat: "off" | "all" | "one",
+    shuffle: boolean,
+    respectRepeatOne: boolean
+  ): { nextTrack: Track | null; nextQueue: string[] } => {
+    // If there's a track in the queue, use it
+    if (currentQueue.length > 0) {
+      const nextTrackId = currentQueue[0];
+      const nextTrack = tracks.find(t => t.id === nextTrackId);
+      if (nextTrack) {
+        return { nextTrack, nextQueue: currentQueue.slice(1) };
+      }
+    }
+
+    // No queue - fall back to normal progression
+    if (tracks.length === 0) {
+      return { nextTrack: null, nextQueue: currentQueue };
+    }
+
+    const currentIndex = currentTrackId 
+      ? tracks.findIndex(t => t.id === currentTrackId) 
+      : -1;
+
+    // Repeat one (only for auto-advance, not manual skip)
+    if (respectRepeatOne && repeat === "one" && currentIndex !== -1) {
+      return { nextTrack: tracks[currentIndex], nextQueue: currentQueue };
+    }
+
+    // Shuffle
+    if (shuffle) {
+      const randomIndex = Math.floor(Math.random() * tracks.length);
+      return { nextTrack: tracks[randomIndex], nextQueue: currentQueue };
+    }
+
+    // Next track in list
+    if (currentIndex < tracks.length - 1) {
+      return { nextTrack: tracks[currentIndex + 1], nextQueue: currentQueue };
+    }
+
+    // Repeat all - wrap to beginning
+    if (repeat === "all") {
+      return { nextTrack: tracks[0], nextQueue: currentQueue };
+    }
+
+    // End of list, no repeat
+    return { nextTrack: null, nextQueue: currentQueue };
+  }, []);
+
+  // Stable callback that reads from refs (for track end event)
   const handleTrackEnd = useCallback(() => {
     const tracks = allTracksRef.current;
     const trackId = currentTrackIdRef.current;
@@ -224,32 +291,17 @@ function App() {
 
     if (!play) return;
 
-    // If there's a track in the queue, play it and remove from queue
-    if (currentQueue.length > 0) {
-      const nextTrackId = currentQueue[0];
-      const nextTrack = tracks.find(t => t.id === nextTrackId);
-      if (nextTrack) {
-        updateQueue(q => q.slice(1));
-        play(nextTrack);
-        return;
+    const { nextTrack, nextQueue } = getNextPlayableTrack(
+      tracks, currentQueue, trackId, repeat, shuffle, true
+    );
+
+    if (nextTrack) {
+      if (nextQueue !== currentQueue) {
+        updateQueue(nextQueue);
       }
+      play(nextTrack);
     }
-
-    // No queue, fall back to normal progression
-    if (tracks.length === 0) return;
-
-    const currentIndex = trackId ? tracks.findIndex(t => t.id === trackId) : -1;
-
-    if (repeat === "one" && currentIndex !== -1) {
-      play(tracks[currentIndex]);
-    } else if (shuffle) {
-      play(tracks[Math.floor(Math.random() * tracks.length)]);
-    } else if (currentIndex < tracks.length - 1) {
-      play(tracks[currentIndex + 1]);
-    } else if (repeat === "all") {
-      play(tracks[0]);
-    }
-  }, []);
+  }, [getNextPlayableTrack]);
 
   const {
     isPlaying,
@@ -295,19 +347,17 @@ function App() {
   }, [currentPosition, currentTrack, allTracks, seek, playTrack]);
 
   const handleSkipNext = useCallback(() => {
-    const currentIndex = currentTrack 
-      ? allTracks.findIndex(t => t.id === currentTrack.id) 
-      : -1;
-    
-    if (shuffleEnabled) {
-      const randomIndex = Math.floor(Math.random() * allTracks.length);
-      playTrack(allTracks[randomIndex]);
-    } else if (currentIndex < allTracks.length - 1) {
-      playTrack(allTracks[currentIndex + 1]);
-    } else if (repeatMode === "all" && allTracks.length > 0) {
-      playTrack(allTracks[0]);
+    const { nextTrack, nextQueue } = getNextPlayableTrack(
+      allTracks, queue, currentTrack?.id ?? null, repeatMode, shuffleEnabled, false
+    );
+
+    if (nextTrack) {
+      if (nextQueue !== queue) {
+        setQueue(nextQueue);
+      }
+      playTrack(nextTrack);
     }
-  }, [currentTrack, allTracks, shuffleEnabled, repeatMode, playTrack]);
+  }, [allTracks, queue, currentTrack, repeatMode, shuffleEnabled, playTrack, getNextPlayableTrack]);
 
   const handlePlayTrack = useCallback((trackId: string) => {
     const track = allTracks.find((t) => t.id === trackId);
@@ -908,6 +958,7 @@ function App() {
               queueTracks={queueTracks}
               currentTrack={currentTrack}
               onRemoveFromQueue={removeFromQueue}
+              onReorderQueue={reorderQueue}
               onClearQueue={clearQueue}
             />
           }
