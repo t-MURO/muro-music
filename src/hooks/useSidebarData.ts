@@ -8,6 +8,10 @@ type UseSidebarDataArgs = {
   inboxCount: number;
   playlists: Playlist[];
   draggingPlaylistId: string | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  onGoBack: () => void;
+  onGoForward: () => void;
   onViewChange: (view: LibraryView) => void;
   onPlaylistDrop: (event: React.DragEvent<HTMLButtonElement>, id: string) => void;
   onPlaylistDragEnter: (id: string) => void;
@@ -23,6 +27,10 @@ export const useSidebarData = ({
   inboxCount,
   playlists,
   draggingPlaylistId,
+  canGoBack,
+  canGoForward,
+  onGoBack,
+  onGoForward,
   onViewChange,
   onPlaylistDrop,
   onPlaylistDragEnter,
@@ -38,6 +46,10 @@ export const useSidebarData = ({
       inboxCount,
       playlists,
       draggingPlaylistId,
+      canGoBack,
+      canGoForward,
+      onGoBack,
+      onGoForward,
       onViewChange,
       onPlaylistDrop,
       onPlaylistDragEnter,
@@ -47,8 +59,12 @@ export const useSidebarData = ({
       onPlaylistContextMenu,
     }),
     [
+      canGoBack,
+      canGoForward,
       draggingPlaylistId,
       inboxCount,
+      onGoBack,
+      onGoForward,
       onPlaylistContextMenu,
       onPlaylistDragEnter,
       onPlaylistDragLeave,

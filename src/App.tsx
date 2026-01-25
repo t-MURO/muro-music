@@ -29,6 +29,7 @@ import { useAudioPlayback } from "./hooks/useAudioPlayback";
 import { useSelection } from "./hooks/useSelection";
 import { useSidebarPanel } from "./hooks/useSidebarPanel";
 import { useSidebarData } from "./hooks/useSidebarData";
+import { useHistoryNavigation } from "./hooks/useHistoryNavigation";
 import { useTrackRatings } from "./hooks/useTrackRatings";
 import { localeOptions, t } from "./i18n";
 import { backfillCoverArt, backfillSearchText, clearTracks, importedTrackToTrack, loadPlaylists, loadTracks } from "./utils/tauriDb";
@@ -132,6 +133,7 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const playlistMatch = useMatch("/playlists/:playlistId");
+  const { canGoBack, canGoForward, goBack, goForward } = useHistoryNavigation();
 
   const view = useMemo((): LibraryView => {
     if (location.pathname === "/inbox") return "inbox";
@@ -480,6 +482,10 @@ function App() {
     inboxCount: inboxTracks.length,
     playlists,
     draggingPlaylistId,
+    canGoBack,
+    canGoForward,
+    onGoBack: goBack,
+    onGoForward: goForward,
     onViewChange: navigateToView,
     onPlaylistDrop: onPlaylistDropEvent,
     onPlaylistDragEnter,

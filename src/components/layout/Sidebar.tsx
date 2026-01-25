@@ -1,4 +1,4 @@
-import { Folder, Inbox, ListMusic, Plus, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Folder, Inbox, ListMusic, Plus, Settings } from "lucide-react";
 import { t } from "../../i18n";
 import type { Playlist } from "../../types/library";
 import type { LibraryView } from "../../hooks/useLibraryView";
@@ -9,6 +9,10 @@ type SidebarProps = {
   inboxCount: number;
   playlists: Playlist[];
   draggingPlaylistId: string | null;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  onGoBack: () => void;
+  onGoForward: () => void;
   onViewChange: (view: LibraryView) => void;
   onPlaylistDrop: (event: React.DragEvent<HTMLButtonElement>, id: string) => void;
   onPlaylistDragEnter: (id: string) => void;
@@ -24,6 +28,10 @@ export const Sidebar = ({
   inboxCount,
   playlists,
   draggingPlaylistId,
+  canGoBack,
+  canGoForward,
+  onGoBack,
+  onGoForward,
   onViewChange,
   onPlaylistDrop,
   onPlaylistDragEnter,
@@ -38,7 +46,27 @@ export const Sidebar = ({
 
   return (
     <aside className="flex h-full flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-bg-primary)]">
-      <div className="border-b border-[var(--color-border-light)] p-[var(--spacing-lg)] pb-[var(--spacing-md)]">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-light)] p-[var(--spacing-lg)] pb-[var(--spacing-md)]">
+        <div className="flex gap-[var(--spacing-xs)]">
+          <button
+            type="button"
+            onClick={onGoBack}
+            disabled={!canGoBack}
+            className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] disabled:pointer-events-none disabled:opacity-30"
+            aria-label="Go back"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onGoForward}
+            disabled={!canGoForward}
+            className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] disabled:pointer-events-none disabled:opacity-30"
+            aria-label="Go forward"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
         <h1 className="text-[var(--font-size-lg)] font-semibold text-[var(--color-text-primary)]">
           {t("app.name")}
         </h1>
