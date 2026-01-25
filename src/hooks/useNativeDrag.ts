@@ -1,29 +1,41 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useDragSession } from "../contexts/DragSessionContext";
 
-export const useNativeDrag = (
-  onImport: (paths: string[]) => void,
-  isImportAllowed: () => boolean
-) => {
+/**
+ * Hook for handling native file drag-and-drop from the OS.
+ * 
+ * This hook listens for Tauri's native drag events and shows an overlay
+ * when files are dragged over the window. It automatically ignores
+ * drag events during internal drags (playlist, columns, etc.) by
+ * checking with the DragSession context.
+ * 
+ * @param onImport - Callback when files are dropped
+ * @returns { isDragging, nativeDropStatus }
+ */
+export const useNativeDrag = (onImport: (paths: string[]) => void) => {
+  const { isNativeFileDragAllowed } = useDragSession();
+  
   const [isDragging, setIsDragging] = useState(false);
   const [nativeDropStatus, setNativeDropStatus] = useState<string | null>(null);
+  
   const nativeDropTimerRef = useRef<number | null>(null);
-  const nativeDragSetupRef = useRef(false);
-  const dragCounterRef = useRef(0);
+  const setupCompleteRef = useRef(false);
   const wasShowingOverlayRef = useRef(false);
   const onImportRef = useRef(onImport);
-  const isImportAllowedRef = useRef(isImportAllowed);
+  const isNativeFileDragAllowedRef = useRef(isNativeFileDragAllowed);
 
+  // Keep refs in sync
   useEffect(() => {
     onImportRef.current = onImport;
   }, [onImport]);
 
   useEffect(() => {
-    isImportAllowedRef.current = isImportAllowed;
-  }, [isImportAllowed]);
+    isNativeFileDragAllowedRef.current = isNativeFileDragAllowed;
+  }, [isNativeFileDragAllowed]);
 
-  const clearNativeDropStatus = useCallback(() => {
+  const clearStatus = useCallback(() => {
     if (nativeDropTimerRef.current !== null && typeof window !== "undefined") {
       window.clearTimeout(nativeDropTimerRef.current);
       nativeDropTimerRef.current = null;
@@ -31,10 +43,9 @@ export const useNativeDrag = (
     setNativeDropStatus(null);
   }, []);
 
-  const scheduleNativeDropStatus = useCallback((message: string) => {
-    if (typeof window === "undefined") {
-      return;
-    }
+  const showStatus = useCallback((message: string, duration = 2000) => {
+    if (typeof window === "undefined") return;
+    
     if (nativeDropTimerRef.current !== null) {
       window.clearTimeout(nativeDropTimerRef.current);
     }
@@ -42,48 +53,49 @@ export const useNativeDrag = (
     nativeDropTimerRef.current = window.setTimeout(() => {
       setNativeDropStatus(null);
       nativeDropTimerRef.current = null;
-    }, 2000);
+    }, duration);
   }, []);
 
+  // Clean up drag state when internal drags end
   useEffect(() => {
-    const handleWindowDragEnd = () => {
-      dragCounterRef.current = 0;
+    const handleDragEnd = () => {
       setIsDragging(false);
     };
 
-    window.addEventListener("dragend", handleWindowDragEnd, true);
-    window.addEventListener("dragleave", handleWindowDragEnd, true);
+    window.addEventListener("dragend", handleDragEnd, true);
     return () => {
-      window.removeEventListener("dragend", handleWindowDragEnd, true);
-      window.removeEventListener("dragleave", handleWindowDragEnd, true);
+      window.removeEventListener("dragend", handleDragEnd, true);
     };
   }, []);
 
+  // Set up Tauri native drag listener
   useEffect(() => {
-    if (nativeDragSetupRef.current) {
-      return;
-    }
-    nativeDragSetupRef.current = true;
-    let unlistenNative: UnlistenFn | null = null;
+    if (setupCompleteRef.current) return;
+    setupCompleteRef.current = true;
+
+    let unlisten: UnlistenFn | null = null;
 
     const setup = async () => {
+      // Check if we're in Tauri environment
       try {
         getCurrentWindow();
       } catch {
         return;
       }
+
       try {
-        unlistenNative = await listen<{ kind: string; paths: string[] }>(
+        unlisten = await listen<{ kind: string; paths: string[] }>(
           "muro://native-drag",
           (event) => {
             const payload = event.payload;
-            if (!payload) {
-              return;
-            }
-            const isImportAllowed = isImportAllowedRef.current();
-            
-            if (payload.kind === "over") {
-              if (!isImportAllowed) {
+            if (!payload) return;
+
+            const kind = payload.kind;
+
+            // Handle drag over
+            if (kind === "over") {
+              // Skip if internal drag is active
+              if (!isNativeFileDragAllowedRef.current()) {
                 return;
               }
               wasShowingOverlayRef.current = true;
@@ -91,47 +103,51 @@ export const useNativeDrag = (
               setNativeDropStatus("Drop files to import");
               return;
             }
-            if (payload.kind === "leave") {
+
+            // Handle drag leave
+            if (kind === "leave") {
               wasShowingOverlayRef.current = false;
               setIsDragging(false);
-              dragCounterRef.current = 0;
-              clearNativeDropStatus();
+              clearStatus();
               return;
             }
-            if (payload.kind === "drop") {
+
+            // Handle drop
+            if (kind === "drop") {
               const wasShowingOverlay = wasShowingOverlayRef.current;
               wasShowingOverlayRef.current = false;
               setIsDragging(false);
-              dragCounterRef.current = 0;
-              // Ignore drops if we weren't showing the file import overlay
+
+              // Only process drop if we were showing the overlay
+              // (i.e., it wasn't an internal drag)
               if (!wasShowingOverlay) {
-                clearNativeDropStatus();
+                clearStatus();
                 return;
               }
-              if (payload.paths?.length) {
-                scheduleNativeDropStatus(
-                  `Imported ${payload.paths.length} file${
-                    payload.paths.length === 1 ? "" : "s"
-                  }`
+
+              const paths = payload.paths;
+              if (paths?.length) {
+                showStatus(
+                  `Imported ${paths.length} file${paths.length === 1 ? "" : "s"}`
                 );
-                onImportRef.current(payload.paths);
+                onImportRef.current(paths);
               } else {
-                scheduleNativeDropStatus("Drop received, no files found");
+                showStatus("Drop received, no files found");
               }
             }
           }
         );
       } catch (error) {
-        console.error("Drag diagnostics: listener failed", error);
+        console.error("Failed to set up native drag listener:", error);
       }
     };
 
     void setup();
 
     return () => {
-      unlistenNative?.();
+      unlisten?.();
     };
-  }, [clearNativeDropStatus, scheduleNativeDropStatus]);
+  }, [clearStatus, showStatus]);
 
   return { isDragging, nativeDropStatus };
 };

@@ -312,7 +312,7 @@ function App() {
   const handlePlayTrack = useCallback((trackId: string) => {
     const track = allTracks.find((t) => t.id === trackId);
     if (track) {
-      playTrack(track);
+      void playTrack(track);
     }
   }, [allTracks, playTrack]);
 
@@ -330,7 +330,6 @@ function App() {
   const {
     dragIndicator,
     draggingPlaylistId,
-    isImportDragAllowed,
     isInternalDrag,
     onPlaylistDragEnter,
     onPlaylistDragLeave,
@@ -370,10 +369,7 @@ function App() {
     onPlaylistContextMenu: openPlaylistMenu,
   });
 
-  const { isDragging, nativeDropStatus } = useNativeDrag(
-    handleImportPaths,
-    isImportDragAllowed
-  );
+  const { isDragging, nativeDropStatus } = useNativeDrag(handleImportPaths);
 
   const handleRowContextMenu = useCallback(
     (

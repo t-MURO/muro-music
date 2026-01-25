@@ -1,4 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useDragSession } from "../contexts/DragSessionContext";
+
+/**
+ * Hook for dragging tracks to playlists.
+ * 
+ * Uses mouse events (not HTML5 drag) for full control.
+ * Registers with the DragSession to prevent conflicts with native file drops.
+ * 
+ * Usage:
+ * 1. Attach onRowMouseDown to track rows
+ * 2. When user drags 4+ pixels, drag starts
+ * 3. Drag indicator follows cursor
+ * 4. Drop on playlist targets (data-playlist-target attribute)
+ */
 
 type DragIndicator = {
   x: number;
@@ -15,19 +29,20 @@ export const usePlaylistDrag = ({
   selectedIds,
   onDropToPlaylist,
 }: UsePlaylistDragArgs) => {
-  const [isInternalDrag, setIsInternalDrag] = useState(false);
-  const [draggingPlaylistId, setDraggingPlaylistId] = useState<string | null>(
-    null
-  );
+  const { startInternalDrag, endInternalDrag, isInternalDrag } = useDragSession();
+  
+  const [draggingPlaylistId, setDraggingPlaylistId] = useState<string | null>(null);
   const [dragIndicator, setDragIndicator] = useState<DragIndicator | null>(null);
+  
+  // Refs for values that need to be accessed in event handlers
   const dragPayloadRef = useRef<string[]>([]);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const dragCandidateRef = useRef<string[]>([]);
-  const isInternalDragRef = useRef(false);
-  const suppressOverlayUntilRef = useRef(0);
+  const isDraggingRef = useRef(false);
   const selectedIdsRef = useRef(selectedIds);
   const onDropToPlaylistRef = useRef(onDropToPlaylist);
 
+  // Keep refs in sync
   useEffect(() => {
     selectedIdsRef.current = selectedIds;
   }, [selectedIds]);
@@ -36,26 +51,30 @@ export const usePlaylistDrag = ({
     onDropToPlaylistRef.current = onDropToPlaylist;
   }, [onDropToPlaylist]);
 
-  useEffect(() => {
-    isInternalDragRef.current = isInternalDrag;
-  }, [isInternalDrag]);
-
   const resetDragState = useCallback(() => {
     dragStartRef.current = null;
     dragCandidateRef.current = [];
     dragPayloadRef.current = [];
+    isDraggingRef.current = false;
     setDragIndicator(null);
     setDraggingPlaylistId(null);
-    setIsInternalDrag(false);
-  }, []);
+    endInternalDrag();
+  }, [endInternalDrag]);
 
+  /**
+   * Attach to track rows to start drag on mousedown.
+   */
   const onRowMouseDown = useCallback(
     (event: React.MouseEvent, trackId: string) => {
       event.preventDefault();
       const currentSelectedIds = selectedIdsRef.current;
+      
+      // If clicking on a selected track, drag all selected
+      // Otherwise, drag just this track
       dragCandidateRef.current = currentSelectedIds.has(trackId)
         ? Array.from(currentSelectedIds)
         : [trackId];
+      
       dragStartRef.current = {
         x: event.clientX,
         y: event.clientY,
@@ -64,6 +83,7 @@ export const usePlaylistDrag = ({
     []
   );
 
+  // These are kept for compatibility but not really needed with mouse-based drag
   const onPlaylistDragEnter = useCallback((id: string) => {
     setDraggingPlaylistId(id);
   }, []);
@@ -86,34 +106,21 @@ export const usePlaylistDrag = ({
     [resetDragState]
   );
 
-  const isImportDragAllowed = useCallback(
-    () => !isInternalDragRef.current && Date.now() >= suppressOverlayUntilRef.current,
-    []
-  );
-
-  const setInternalDragActive = useCallback((active: boolean) => {
-    isInternalDragRef.current = active;
-    setIsInternalDrag(active);
-    // Suppress overlay when drag starts AND for a bit after it ends
-    // to handle race conditions with native drop events
-    suppressOverlayUntilRef.current = Date.now() + 300;
-  }, []);
-
+  // Mouse move/up handlers for drag
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
-      if (!dragStartRef.current) {
-        return;
-      }
+      if (!dragStartRef.current) return;
 
       const distance = Math.hypot(
         event.clientX - dragStartRef.current.x,
         event.clientY - dragStartRef.current.y
       );
 
-      if (!isInternalDragRef.current && distance > 4) {
+      // Start drag after 4px movement
+      if (!isDraggingRef.current && distance > 4) {
+        isDraggingRef.current = true;
         dragPayloadRef.current = dragCandidateRef.current;
-        setIsInternalDrag(true);
-        suppressOverlayUntilRef.current = Date.now() + 300;
+        startInternalDrag("playlist");
         setDragIndicator({
           x: event.clientX,
           y: event.clientY,
@@ -121,7 +128,8 @@ export const usePlaylistDrag = ({
         });
       }
 
-      if (isInternalDragRef.current) {
+      // Update drag indicator position
+      if (isDraggingRef.current) {
         setDragIndicator((current) =>
           current
             ? { ...current, x: event.clientX, y: event.clientY }
@@ -131,6 +139,8 @@ export const usePlaylistDrag = ({
                 count: dragPayloadRef.current.length,
               }
         );
+
+        // Find playlist drop target under cursor
         const target = document
           .elementFromPoint(event.clientX, event.clientY)
           ?.closest?.("[data-playlist-target]") as HTMLElement | null;
@@ -141,11 +151,13 @@ export const usePlaylistDrag = ({
     };
 
     const handleMouseUp = (event: MouseEvent) => {
-      if (isInternalDragRef.current) {
+      if (isDraggingRef.current) {
+        // Find playlist drop target under cursor
         const target = document
           .elementFromPoint(event.clientX, event.clientY)
           ?.closest?.("[data-playlist-target]") as HTMLElement | null;
         const playlistId = target?.getAttribute("data-playlist-target") ?? "";
+        
         if (playlistId) {
           onDropToPlaylistRef.current(playlistId, dragPayloadRef.current);
         }
@@ -160,18 +172,16 @@ export const usePlaylistDrag = ({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [resetDragState]);
+  }, [resetDragState, startInternalDrag]);
 
   return {
     dragIndicator,
     draggingPlaylistId,
-    isImportDragAllowed,
     isInternalDrag,
     onPlaylistDragEnter,
     onPlaylistDragLeave,
     onPlaylistDragOver,
     onPlaylistDropEvent,
     onRowMouseDown,
-    setInternalDragActive,
   };
 };
