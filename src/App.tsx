@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate, useMatch } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { QueuePanel } from "./components/layout/QueuePanel";
@@ -93,41 +93,7 @@ const getPathForView = (view: LibraryView): string => {
   return "/";
 };
 
-type RouteFadeProps = {
-  children: ReactNode;
-  locationKey: string;
-};
 
-const RouteFade = ({ children, locationKey }: RouteFadeProps) => {
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [displayedKey, setDisplayedKey] = useState(locationKey);
-  const [displayedChildren, setDisplayedChildren] = useState(children);
-
-  useEffect(() => {
-    if (locationKey !== displayedKey) {
-      setIsTransitioning(true);
-      const timer = setTimeout(() => {
-        setDisplayedKey(locationKey);
-        setDisplayedChildren(children);
-        setIsTransitioning(false);
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [locationKey, displayedKey, children]);
-
-  // Update children when not transitioning and keys match
-  useEffect(() => {
-    if (!isTransitioning && locationKey === displayedKey) {
-      setDisplayedChildren(children);
-    }
-  }, [children, isTransitioning, locationKey, displayedKey]);
-
-  return (
-    <div className="route-fade flex min-h-0 flex-1 flex-col" data-transitioning={isTransitioning}>
-      {displayedChildren}
-    </div>
-  );
-};
 
 function App() {
   const location = useLocation();
@@ -939,7 +905,7 @@ function App() {
                 columns={columns}
                 onToggleColumn={toggleColumn}
               />
-              <RouteFade locationKey={view}>
+              <div className="flex min-h-0 flex-1 flex-col">
                 <LibraryHeader
                   title={viewConfig.title}
                   subtitle={viewConfig.subtitle}
@@ -1028,7 +994,7 @@ function App() {
                     </>
                   )}
                 </section>
-              </RouteFade>
+              </div>
             </>
           }
           detail={
