@@ -1,6 +1,7 @@
 {
   "app.name": "Muro Music",
-  "nav.library": "Bibliothek",
+  "nav.library.section": "Bibliothek",
+  "nav.library": "Alle Songs",
   "nav.inbox": "Posteingang",
   "nav.playlists": "Playlists",
   "nav.settings": "Einstellungen",

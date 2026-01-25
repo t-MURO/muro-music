@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Folder, Inbox, ListMusic, Plus, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Inbox, Library, ListMusic, Music, Plus, Settings } from "lucide-react";
 import { t } from "../../i18n";
 import type { Playlist } from "../../types/library";
 import type { LibraryView } from "../../hooks/useLibraryView";
@@ -76,6 +76,13 @@ export const Sidebar = ({
       </div>
       
       <nav className="flex flex-col gap-[var(--spacing-xs)] p-[var(--spacing-md)]">
+        <div className="mb-[var(--spacing-xs)] flex items-center gap-[var(--spacing-sm)]">
+          <Library className="h-4 w-4 text-[var(--color-text-muted)]" />
+          <span className="text-[var(--font-size-xs)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+            {t("nav.library.section")}
+          </span>
+        </div>
+        
         <button
           className={`flex w-full items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] px-[var(--spacing-md)] py-[var(--spacing-sm)] text-left text-[var(--font-size-sm)] font-medium transition-all duration-[var(--transition-fast)] ${
             isLibrary
@@ -85,7 +92,7 @@ export const Sidebar = ({
           onClick={() => onViewChange("library")}
           type="button"
         >
-          <Folder className="h-[var(--icon-size)] w-[var(--icon-size)]" />
+          <Music className="h-[var(--icon-size)] w-[var(--icon-size)]" />
           <span className="flex-1">{t("nav.library")}</span>
           <span
             className={`rounded-[var(--radius-full)] px-2 py-0.5 text-[var(--font-size-xs)] ${

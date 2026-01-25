@@ -1,4 +1,4 @@
-import type { ColumnConfig, Track, Playlist } from "../types/library";
+import type { ColumnConfig, Track } from "../types/library";
 
 export const themes = [
   { id: "light", label: "Light" },
