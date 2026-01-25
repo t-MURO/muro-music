@@ -995,9 +995,6 @@ function App() {
                       />
                   ) : viewConfig.trackTable && (
                     <>
-                      {viewConfig.trackTable.banner === "inbox" && (
-                        <InboxBanner selectedCount={selectedIds.size} />
-                      )}
                       <TrackTable
                         tracks={sortedTracks}
                         columns={columns}
@@ -1025,6 +1022,9 @@ function App() {
                         sortState={sortState}
                         onRatingChange={handleRatingChange}
                       />
+                      {viewConfig.trackTable.banner === "inbox" && (
+                        <InboxBanner selectedCount={selectedIds.size} />
+                      )}
                     </>
                   )}
                 </section>
