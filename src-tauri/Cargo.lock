@@ -2886,6 +2886,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "muro-music"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "hex",
+ "image",
+ "lazy_static",
+ "lofty",
+ "parking_lot",
+ "rodio",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "souvlaki",
+ "symphonia",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-opener",
+ "tauri-plugin-sql",
+ "unicode-normalization",
+ "uuid",
+]
+
+[[package]]
 name = "ndk"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5358,33 +5385,6 @@ dependencies = [
  "webview2-com",
  "window-vibrancy",
  "windows 0.61.3",
-]
-
-[[package]]
-name = "tauri-app"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "hex",
- "image",
- "lazy_static",
- "lofty",
- "parking_lot",
- "rodio",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "souvlaki",
- "symphonia",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-opener",
- "tauri-plugin-sql",
- "unicode-normalization",
- "uuid",
 ]
 
 [[package]]

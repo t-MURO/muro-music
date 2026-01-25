@@ -7,7 +7,7 @@ fn main() {
         std::process::exit(1);
     };
 
-    match tauri_app_lib::backfill::run_backfill(&db_path) {
+    match muro_music_lib::backfill::run_backfill(&db_path) {
         Ok(updated) => {
             println!("Backfilled search_text for {} tracks", updated);
         }
