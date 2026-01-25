@@ -34,7 +34,7 @@ export const useQueuePanel = () => {
   const toggleQueuePanelCollapsed = useCallback(() => {
     if (!queuePanelCollapsed) {
       widthRef.current = queuePanelWidth;
-      setQueuePanelWidth(56);
+      setQueuePanelWidth(80);
       setQueuePanelCollapsed(true);
     } else {
       setQueuePanelWidth(widthRef.current || 320);
