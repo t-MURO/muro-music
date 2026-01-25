@@ -13,7 +13,10 @@ export const LibraryHeader = ({
   isSettings,
 }: LibraryHeaderProps) => {
   return (
-    <header className="flex items-start justify-between border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] p-[var(--spacing-lg)]">
+    <header
+      className="flex items-start justify-between border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] p-[var(--spacing-lg)] pt-12"
+      data-tauri-drag-region
+    >
       <div className="flex flex-col gap-[var(--spacing-xs)]">
         <h2 className="text-[var(--font-size-xl)] font-semibold text-[var(--color-text-primary)]">
           {title}

@@ -46,7 +46,10 @@ export const Sidebar = ({
 
   return (
     <aside className="flex h-full flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-bg-primary)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-border-light)] p-[var(--spacing-lg)] pb-[var(--spacing-md)]">
+      <div
+        className="flex items-center justify-between border-b border-[var(--color-border-light)] p-[var(--spacing-lg)] pb-[var(--spacing-md)] pt-12"
+        data-tauri-drag-region
+      >
         <div className="flex gap-[var(--spacing-xs)]">
           <button
             type="button"

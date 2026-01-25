@@ -136,7 +136,10 @@ export const QueuePanel = ({
       {/* Now Playing Section */}
       <div className={collapsed ? "" : "border-b border-[var(--color-border-light)]"}>
         {/* Header with collapse button - always visible and fixed position */}
-        <div className="flex items-center gap-[var(--spacing-sm)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
+        <div
+          className="flex items-center gap-[var(--spacing-sm)] px-[var(--spacing-lg)] py-[var(--spacing-md)] pt-12"
+          data-tauri-drag-region
+        >
           {!collapsed && (
             <>
               <Play className="h-[14px] w-[14px] text-[var(--color-text-muted)]" />
