@@ -7,14 +7,8 @@ export const themes = [
   { id: "compact-dark", label: "Compact Dark" },
   { id: "terminal", label: "Terminal" },
   { id: "compact-terminal", label: "Compact Terminal" },
-];
-
-export const initialPlaylists: Playlist[] = [
-  { id: "playlist-1", name: "Favorites", trackIds: [] },
-  { id: "playlist-2", name: "Synthwave Vibes", trackIds: [] },
-  { id: "playlist-3", name: "Coding Sessions", trackIds: [] },
-  { id: "playlist-4", name: "Chill Mix", trackIds: [] },
-  { id: "playlist-5", name: "High Energy", trackIds: [] },
+  { id: "bw-terminal", label: "B&W Terminal" },
+  { id: "compact-bw-terminal", label: "Compact B&W Terminal" },
 ];
 
 export const baseColumns: ColumnConfig[] = [

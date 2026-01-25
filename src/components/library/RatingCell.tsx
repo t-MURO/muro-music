@@ -14,7 +14,7 @@ export const RatingCell = memo(
 
     return (
       <div
-        className="h-[var(--table-row-height)] px-4 py-3"
+        className="flex h-[var(--table-row-height)] items-center px-[var(--spacing-md)]"
         title={`${rating} / 5`}
         onMouseLeave={() => setHoverValue(null)}
         role="cell"

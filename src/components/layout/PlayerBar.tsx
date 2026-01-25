@@ -128,7 +128,7 @@ export const PlayerBar = ({
   }, [isSeeking]);
 
   return (
-    <footer className="player-bar col-span-3 col-start-1 row-start-3 grid h-[var(--media-controls-height)] grid-cols-[1fr_2fr_1fr] items-center gap-[var(--spacing-lg)] border-t border-[var(--color-border)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] pb-[var(--spacing-xl)] pt-[var(--spacing-md)]">
+    <footer className="player-bar col-span-3 col-start-1 row-start-3 grid h-[var(--media-controls-height)] grid-cols-[1fr_2fr_1fr] items-center gap-[var(--spacing-lg)] border-t border-[var(--color-border)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
       {/* Left section - Track info */}
       <div className="flex min-w-0 items-center gap-[var(--spacing-md)]">
         {currentTrack?.coverArtThumbPath ? (
@@ -154,7 +154,7 @@ export const PlayerBar = ({
       </div>
 
       {/* Center section - Controls */}
-      <div className="flex flex-col items-center gap-[var(--spacing-sm)] pb-[var(--spacing-sm)]">
+      <div className="flex flex-col items-center gap-[var(--spacing-sm)]">
         <div className="flex items-center gap-[var(--spacing-md)]">
           <button
             className={`player-bar-button flex h-[var(--button-height)] w-[var(--button-height)] items-center justify-center rounded-[var(--radius-full)] transition-all duration-[var(--transition-fast)] ${
@@ -177,7 +177,7 @@ export const PlayerBar = ({
             <SkipBack className="h-5 w-5" />
           </button>
           <button
-            className="player-bar-play-button flex h-12 w-12 items-center justify-center rounded-[var(--radius-full)] bg-[var(--color-accent)] text-white transition-all duration-[var(--transition-fast)] hover:scale-105 hover:bg-[var(--color-accent-hover)]"
+            className="player-bar-play-button flex h-[var(--play-button-size)] w-[var(--play-button-size)] items-center justify-center rounded-[var(--radius-full)] bg-[var(--color-accent)] text-white transition-all duration-[var(--transition-fast)] hover:scale-105 hover:bg-[var(--color-accent-hover)]"
             onClick={onTogglePlay}
             title={isPlaying ? "Pause" : "Play"}
             type="button"

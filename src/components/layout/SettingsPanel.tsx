@@ -36,6 +36,8 @@ const themeDescriptions: Record<string, { label: string; description: string }> 
   "compact-dark": { label: "Compact Dark", description: "Dense layout for power users, dark mode" },
   "terminal": { label: "Terminal", description: "Monospace terminal theme" },
   "compact-terminal": { label: "Compact Terminal", description: "Dense monospace terminal theme" },
+  "bw-terminal": { label: "B&W Terminal", description: "Monospace black and white terminal" },
+  "compact-bw-terminal": { label: "Compact B&W Terminal", description: "Dense black and white terminal" },
 };
 
 export const SettingsPanel = ({

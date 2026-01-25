@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { Disc3, FileAudio, FolderOpen } from "lucide-react";
 import type { ColumnConfig, Track } from "../../types/library";
@@ -72,6 +72,29 @@ export const TrackTable = memo(
   }: TrackTableProps) => {
     const leadingColumnWidth = 48;
     const tableContainerRef = useRef<HTMLDivElement | null>(null);
+    const [rowHeight, setRowHeight] = useState(48);
+
+    useEffect(() => {
+      const updateRowHeight = () => {
+        const value = getComputedStyle(document.documentElement)
+          .getPropertyValue("--table-row-height")
+          .trim();
+        const parsed = parseInt(value, 10);
+        if (!isNaN(parsed)) {
+          setRowHeight(parsed);
+        }
+      };
+      updateRowHeight();
+      
+      // Listen for theme changes via data-theme attribute
+      const observer = new MutationObserver(updateRowHeight);
+      observer.observe(document.documentElement, { 
+        attributes: true, 
+        attributeFilter: ["data-theme"] 
+      });
+      return () => observer.disconnect();
+    }, []);
+
     const visibleColumns = useMemo(
       () => columns.filter((column) => column.visible),
       [columns]
@@ -93,7 +116,7 @@ export const TrackTable = memo(
     const rowVirtualizer = useVirtualizer({
       count: tracks.length,
       getScrollElement: () => tableContainerRef.current,
-      estimateSize: () => 48,
+      estimateSize: () => rowHeight,
       overscan: 50,
     });
     const virtualRows = rowVirtualizer.getVirtualItems();
@@ -301,7 +324,7 @@ export const TrackTable = memo(
                 role="row"
               >
                 <div
-                  className="sticky left-0 z-30 flex h-12 items-center justify-center bg-[var(--color-bg-primary)] group-hover:bg-[var(--color-bg-hover)] relative"
+                  className="sticky left-0 z-30 flex h-[var(--table-row-height)] items-center justify-center bg-[var(--color-bg-primary)] group-hover:bg-[var(--color-bg-hover)] relative"
                   role="cell"
                 >
                   {isSelected && (
@@ -335,13 +358,11 @@ export const TrackTable = memo(
                   const isTitleColumn = column.key === "title";
                   const textColorClass = isPlayingTrack 
                     ? "text-[var(--color-accent)]" 
-                    : isTitleColumn 
-                      ? "" 
-                      : "text-[var(--color-text-muted)]";
+                    : "";
                   return (
                     <div
                       key={`${track.id}-${column.key}`}
-                      className={`h-12 px-4 py-3 ${isTitleColumn ? "font-medium" : ""} ${textColorClass}`}
+                      className={`flex h-[var(--table-row-height)] items-center px-[var(--spacing-md)] ${isTitleColumn ? "font-medium" : ""} ${textColorClass}`}
                       role="cell"
                     >
                       <span className="block truncate">{value}</span>
