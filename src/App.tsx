@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useLocation, useNavigate, useMatch } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { QueuePanel } from "./components/layout/QueuePanel";
 import { LibraryHeader } from "./components/layout/LibraryHeader";
@@ -84,8 +85,80 @@ const compareSortValues = (left: string | number, right: string | number) => {
   });
 };
 
+const getPathForView = (view: LibraryView): string => {
+  if (view === "inbox") return "/inbox";
+  if (view === "settings") return "/settings";
+  if (view.startsWith("playlist:")) return `/playlists/${view.slice("playlist:".length)}`;
+  return "/";
+};
+
+type RouteFadeProps = {
+  children: ReactNode;
+  locationKey: string;
+};
+
+const RouteFade = ({ children, locationKey }: RouteFadeProps) => {
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [displayedKey, setDisplayedKey] = useState(locationKey);
+  const [displayedChildren, setDisplayedChildren] = useState(children);
+
+  useEffect(() => {
+    if (locationKey !== displayedKey) {
+      setIsTransitioning(true);
+      const timer = setTimeout(() => {
+        setDisplayedKey(locationKey);
+        setDisplayedChildren(children);
+        setIsTransitioning(false);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [locationKey, displayedKey, children]);
+
+  // Update children when not transitioning and keys match
+  useEffect(() => {
+    if (!isTransitioning && locationKey === displayedKey) {
+      setDisplayedChildren(children);
+    }
+  }, [children, isTransitioning, locationKey, displayedKey]);
+
+  return (
+    <div className="route-fade flex min-h-0 flex-1 flex-col" data-transitioning={isTransitioning}>
+      {displayedChildren}
+    </div>
+  );
+};
+
 function App() {
-  const [view, setView] = useState<LibraryView>("library");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const playlistMatch = useMatch("/playlists/:playlistId");
+
+  const view = useMemo((): LibraryView => {
+    if (location.pathname === "/inbox") return "inbox";
+    if (location.pathname === "/settings") return "settings";
+    if (playlistMatch?.params.playlistId) {
+      return `playlist:${playlistMatch.params.playlistId}` as LibraryView;
+    }
+    return "library";
+  }, [location.pathname, playlistMatch]);
+
+  const navigateToView = useCallback((newView: LibraryView) => {
+    navigate(getPathForView(newView));
+  }, [navigate]);
+
+  // Redirect unknown paths to library
+  useEffect(() => {
+    const { pathname } = location;
+    const isKnownPath =
+      pathname === "/" ||
+      pathname === "/inbox" ||
+      pathname === "/settings" ||
+      pathname.startsWith("/playlists/");
+    if (!isKnownPath) {
+      navigate("/", { replace: true });
+    }
+  }, [location, navigate]);
+
   const [tracks, setTracks] = useState(() => initialTracks);
   const [inboxTracks, setInboxTracks] = useState(() => initialInboxTracks);
   const [playlists, setPlaylists] = useState<Playlist[]>(() => []);
@@ -407,7 +480,7 @@ function App() {
     inboxCount: inboxTracks.length,
     playlists,
     draggingPlaylistId,
-    onViewChange: setView,
+    onViewChange: navigateToView,
     onPlaylistDrop: onPlaylistDropEvent,
     onPlaylistDragEnter,
     onPlaylistDragLeave,
@@ -490,7 +563,7 @@ function App() {
     (playlistId: string) => {
       let removedPlaylist: Playlist | null = null;
       let removedIndex = -1;
-      let previousView: LibraryView | null = null;
+      const wasOnDeletedPlaylist = view === `playlist:${playlistId}`;
       const command = {
         label: "Delete playlist",
         do: () => {
@@ -499,10 +572,9 @@ function App() {
             removedPlaylist = removedIndex >= 0 ? current[removedIndex] : null;
             return current.filter((playlist) => playlist.id !== playlistId);
           });
-          setView((current) => {
-            previousView = current;
-            return current === `playlist:${playlistId}` ? "library" : current;
-          });
+          if (wasOnDeletedPlaylist) {
+            navigateToView("library");
+          }
         },
         undo: () => {
           if (!removedPlaylist || removedIndex < 0) {
@@ -514,15 +586,15 @@ function App() {
             next.splice(insertIndex, 0, removedPlaylist as Playlist);
             return next;
           });
-          if (previousView === `playlist:${playlistId}`) {
-            setView(previousView);
+          if (wasOnDeletedPlaylist) {
+            navigateToView(`playlist:${playlistId}` as LibraryView);
           }
         },
       };
 
       commandManager.execute(command);
     },
-    [setPlaylists, setView]
+    [navigateToView, setPlaylists, view]
   );
 
   const handlePlaylistEditSubmit = useCallback(() => {
@@ -826,26 +898,6 @@ function App() {
           }
           main={
             <>
-              <LibraryHeader
-                title={viewConfig.title}
-                subtitle={viewConfig.subtitle}
-                isSettings={viewConfig.type === "settings"}
-              />
-              {viewConfig.trackTable && importProgress && (
-                <div className="border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
-                  <div className="mb-[var(--spacing-xs)] text-[length:var(--font-size-xs)] font-semibold text-[color:var(--color-text-secondary)]">
-                    {importProgress.phase === "scanning" || importProgress.total === 0
-                      ? "Scanning files..."
-                      : `${importProgress.imported} of ${importProgress.total} songs imported`}
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-[var(--radius-full)] bg-[var(--color-bg-tertiary)]">
-                    <div
-                      className="h-full rounded-[var(--radius-full)] bg-[var(--color-accent)] transition-all duration-[var(--transition-normal)]"
-                      style={{ width: `${importPercent}%` }}
-                    />
-                  </div>
-                </div>
-              )}
               <ContextMenu
                 isOpen={Boolean(openMenuId)}
                 position={menuPosition}
@@ -881,74 +933,96 @@ function App() {
                 columns={columns}
                 onToggleColumn={toggleColumn}
               />
-              <section className="flex min-h-0 flex-1 flex-col bg-[var(--color-bg-primary)]">
-                {viewConfig.type === "settings" ? (
-                    <SettingsPanel
-                      theme={theme}
-                      locale={locale}
-                      themes={themes}
-                      localeOptions={localeOptions}
-                      dbPath={dbPath}
-                      dbFileName={dbFileName}
-                      backfillPending={backfillPending}
-                      backfillStatus={backfillStatus}
-                      coverArtBackfillPending={coverArtBackfillPending}
-                      coverArtBackfillStatus={coverArtBackfillStatus}
-                      clearSongsPending={clearSongsPending}
-                      seekMode={seekMode}
-                      onThemeChange={setTheme}
-                      onLocaleChange={setLocale}
-                      onSeekModeChange={setSeekMode}
-                      onDbPathChange={(value) => {
-                        setDbPath(value);
-                        setUseAutoDbPath(false);
-                      }}
-                      onDbFileNameChange={(value) => {
-                        setDbFileName(value);
-                        setUseAutoDbPath(true);
-                      }}
-                      onBackfillSearchText={handleBackfillSearchText}
-                      onBackfillCoverArt={handleBackfillCoverArt}
-                      onClearSongs={handleClearSongs}
-                      onUseDefaultLocation={() => {
-                        setUseAutoDbPath(true);
-                      }}
-                    />
-                ) : viewConfig.trackTable && (
-                  <>
-                    {viewConfig.trackTable.banner === "inbox" && (
-                      <InboxBanner selectedCount={selectedIds.size} />
-                    )}
-                    <TrackTable
-                      tracks={sortedTracks}
-                      columns={columns}
-                      selectedIds={selectedIds}
-                      activeIndex={activeIndex}
-                      emptyTitle={viewConfig.trackTable.emptyState.title}
-                      emptyDescription={viewConfig.trackTable.emptyState.description}
-                      emptyActionLabel={viewConfig.trackTable.emptyState.primaryAction?.label}
-                      onEmptyAction={viewConfig.trackTable.showImportActions ? handleEmptyImport : undefined}
-                      emptySecondaryActionLabel={viewConfig.trackTable.emptyState.secondaryAction?.label}
-                      onEmptySecondaryAction={viewConfig.trackTable.showImportActions ? handleEmptyImportFolder : undefined}
-                      onRowSelect={handleRowSelect}
-                      onRowMouseDown={onRowMouseDown}
-                      onRowContextMenu={handleRowContextMenu}
-                      onRowDoubleClick={handlePlayTrack}
-                      playingTrackId={currentTrack?.id}
-                      isPlaying={isPlaying}
-                      onSelectAll={selectAll}
-                      onClearSelection={clearSelection}
-                      onColumnResize={handleColumnResize}
-                      onColumnAutoFit={autoFitColumn}
-                      onColumnReorder={reorderColumns}
-                      onHeaderContextMenu={openColumnsMenu}
-                      onSortChange={handleSortChange}
-                      sortState={sortState}
-                      onRatingChange={handleRatingChange}
-                    />
-                  </>
+              <RouteFade locationKey={view}>
+                <LibraryHeader
+                  title={viewConfig.title}
+                  subtitle={viewConfig.subtitle}
+                  isSettings={viewConfig.type === "settings"}
+                />
+                {viewConfig.trackTable && importProgress && (
+                  <div className="border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
+                    <div className="mb-[var(--spacing-xs)] text-[length:var(--font-size-xs)] font-semibold text-[color:var(--color-text-secondary)]">
+                      {importProgress.phase === "scanning" || importProgress.total === 0
+                        ? "Scanning files..."
+                        : `${importProgress.imported} of ${importProgress.total} songs imported`}
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-[var(--radius-full)] bg-[var(--color-bg-tertiary)]">
+                      <div
+                        className="h-full rounded-[var(--radius-full)] bg-[var(--color-accent)] transition-all duration-[var(--transition-normal)]"
+                        style={{ width: `${importPercent}%` }}
+                      />
+                    </div>
+                  </div>
                 )}
-              </section>
+                <section className="flex min-h-0 flex-1 flex-col bg-[var(--color-bg-primary)]">
+                  {viewConfig.type === "settings" ? (
+                      <SettingsPanel
+                        theme={theme}
+                        locale={locale}
+                        themes={themes}
+                        localeOptions={localeOptions}
+                        dbPath={dbPath}
+                        dbFileName={dbFileName}
+                        backfillPending={backfillPending}
+                        backfillStatus={backfillStatus}
+                        coverArtBackfillPending={coverArtBackfillPending}
+                        coverArtBackfillStatus={coverArtBackfillStatus}
+                        clearSongsPending={clearSongsPending}
+                        seekMode={seekMode}
+                        onThemeChange={setTheme}
+                        onLocaleChange={setLocale}
+                        onSeekModeChange={setSeekMode}
+                        onDbPathChange={(value) => {
+                          setDbPath(value);
+                          setUseAutoDbPath(false);
+                        }}
+                        onDbFileNameChange={(value) => {
+                          setDbFileName(value);
+                          setUseAutoDbPath(true);
+                        }}
+                        onBackfillSearchText={handleBackfillSearchText}
+                        onBackfillCoverArt={handleBackfillCoverArt}
+                        onClearSongs={handleClearSongs}
+                        onUseDefaultLocation={() => {
+                          setUseAutoDbPath(true);
+                        }}
+                      />
+                  ) : viewConfig.trackTable && (
+                    <>
+                      {viewConfig.trackTable.banner === "inbox" && (
+                        <InboxBanner selectedCount={selectedIds.size} />
+                      )}
+                      <TrackTable
+                        tracks={sortedTracks}
+                        columns={columns}
+                        selectedIds={selectedIds}
+                        activeIndex={activeIndex}
+                        emptyTitle={viewConfig.trackTable.emptyState.title}
+                        emptyDescription={viewConfig.trackTable.emptyState.description}
+                        emptyActionLabel={viewConfig.trackTable.emptyState.primaryAction?.label}
+                        onEmptyAction={viewConfig.trackTable.showImportActions ? handleEmptyImport : undefined}
+                        emptySecondaryActionLabel={viewConfig.trackTable.emptyState.secondaryAction?.label}
+                        onEmptySecondaryAction={viewConfig.trackTable.showImportActions ? handleEmptyImportFolder : undefined}
+                        onRowSelect={handleRowSelect}
+                        onRowMouseDown={onRowMouseDown}
+                        onRowContextMenu={handleRowContextMenu}
+                        onRowDoubleClick={handlePlayTrack}
+                        playingTrackId={currentTrack?.id}
+                        isPlaying={isPlaying}
+                        onSelectAll={selectAll}
+                        onClearSelection={clearSelection}
+                        onColumnResize={handleColumnResize}
+                        onColumnAutoFit={autoFitColumn}
+                        onColumnReorder={reorderColumns}
+                        onHeaderContextMenu={openColumnsMenu}
+                        onSortChange={handleSortChange}
+                        sortState={sortState}
+                        onRatingChange={handleRatingChange}
+                      />
+                    </>
+                  )}
+                </section>
+              </RouteFade>
             </>
           }
           detail={

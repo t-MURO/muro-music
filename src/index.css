@@ -646,3 +646,13 @@ a {
 [data-theme-preview="compact-terminal"] > div {
   background-color: #050706;
 }
+
+/* Route fade transition */
+.route-fade {
+  opacity: 1;
+  transition: opacity 150ms ease;
+}
+
+.route-fade[data-transitioning="true"] {
+  opacity: 0;
+}
