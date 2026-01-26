@@ -22,7 +22,15 @@ pub struct ImportedTrack {
     pub id: String,
     pub title: String,
     pub artist: String,
+    pub artists: Option<String>,
     pub album: String,
+    pub track_number: Option<i32>,
+    pub track_total: Option<i32>,
+    pub key: Option<String>,
+    pub year: Option<i32>,
+    pub date: Option<String>,
+    pub date_added: Option<String>,
+    pub date_modified: Option<String>,
     pub duration: String,
     pub duration_seconds: f64,
     pub bitrate: String,
@@ -168,7 +176,11 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, title, artist, album, rating, duration_seconds, bitrate_kbps, import_status, source_path, cover_art_path, cover_art_thumb_path FROM tracks ORDER BY added_at DESC",
+            "SELECT id, title, artist, album_artist, album, track_number, track_total,
+                    key, year, date, added_at, updated_at, rating, duration_seconds,
+                    bitrate_kbps, import_status, source_path, cover_art_path,
+                    cover_art_thumb_path
+             FROM tracks ORDER BY added_at DESC",
         )
         .map_err(|error| error.to_string())?;
 
@@ -177,14 +189,22 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             let id: String = row.get(0)?;
             let title: Option<String> = row.get(1)?;
             let artist: Option<String> = row.get(2)?;
-            let album: Option<String> = row.get(3)?;
-            let rating: Option<f64> = row.get(4)?;
-            let duration_seconds: Option<f64> = row.get(5)?;
-            let bitrate_kbps: Option<i32> = row.get(6)?;
-            let import_status: Option<String> = row.get(7)?;
-            let source_path: Option<String> = row.get(8)?;
-            let cover_art_path: Option<String> = row.get(9)?;
-            let cover_art_thumb_path: Option<String> = row.get(10)?;
+            let album_artist: Option<String> = row.get(3)?;
+            let album: Option<String> = row.get(4)?;
+            let track_number: Option<i32> = row.get(5)?;
+            let track_total: Option<i32> = row.get(6)?;
+            let key: Option<String> = row.get(7)?;
+            let year: Option<i32> = row.get(8)?;
+            let date: Option<String> = row.get(9)?;
+            let added_at: Option<i64> = row.get(10)?;
+            let updated_at: Option<i64> = row.get(11)?;
+            let rating: Option<f64> = row.get(12)?;
+            let duration_seconds: Option<f64> = row.get(13)?;
+            let bitrate_kbps: Option<i32> = row.get(14)?;
+            let import_status: Option<String> = row.get(15)?;
+            let source_path: Option<String> = row.get(16)?;
+            let cover_art_path: Option<String> = row.get(17)?;
+            let cover_art_thumb_path: Option<String> = row.get(18)?;
 
             let duration = duration_seconds
                 .map(|value| format_duration(value as f32))
@@ -194,12 +214,23 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
                 .map(|value| format!("{} kbps", value))
                 .unwrap_or_else(|| "--".to_string());
 
+            let date_added = added_at.map(format_timestamp);
+            let date_modified = updated_at.map(format_timestamp);
+
             Ok((
                 ImportedTrack {
                     id,
                     title: title.unwrap_or_else(|| "Unknown Title".to_string()),
                     artist: artist.unwrap_or_else(|| "Unknown Artist".to_string()),
+                    artists: album_artist,
                     album: album.unwrap_or_else(|| "Unknown Album".to_string()),
+                    track_number,
+                    track_total,
+                    key,
+                    year,
+                    date,
+                    date_added,
+                    date_modified,
                     duration,
                     duration_seconds: duration_seconds.unwrap_or(0.0),
                     bitrate,
@@ -453,11 +484,21 @@ fn import_single(
     )
     .map_err(|error| error.to_string())?;
 
+    let date_added = Some(format_timestamp(now));
+
     Ok(ImportedTrack {
         id,
         title,
         artist,
+        artists: metadata.album_artist.clone(),
         album,
+        track_number: metadata.track_number,
+        track_total: metadata.track_total,
+        key: metadata.key.clone(),
+        year: metadata.year,
+        date: metadata.date.clone(),
+        date_added: date_added.clone(),
+        date_modified: date_added,
         duration: duration_text,
         duration_seconds: duration_seconds as f64,
         bitrate: bitrate_text,
@@ -697,6 +738,58 @@ fn format_duration(seconds: f32) -> String {
     let minutes = total / 60;
     let seconds = total % 60;
     format!("{}:{:02}", minutes, seconds)
+}
+
+fn format_timestamp(timestamp: i64) -> String {
+    use std::time::Duration;
+    let datetime = UNIX_EPOCH + Duration::from_secs(timestamp as u64);
+    let duration_since_epoch = datetime.duration_since(UNIX_EPOCH).unwrap_or_default();
+    let secs = duration_since_epoch.as_secs();
+
+    // Convert to date components (simplified UTC calculation)
+    let days = secs / 86400;
+    let remaining_secs = secs % 86400;
+    let hours = remaining_secs / 3600;
+    let minutes = (remaining_secs % 3600) / 60;
+    let seconds = remaining_secs % 60;
+
+    // Calculate year, month, day from days since epoch (1970-01-01)
+    let mut year = 1970i32;
+    let mut remaining_days = days as i32;
+
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if remaining_days < days_in_year {
+            break;
+        }
+        remaining_days -= days_in_year;
+        year += 1;
+    }
+
+    let month_days = if is_leap_year(year) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+
+    let mut month = 1;
+    for days in month_days {
+        if remaining_days < days {
+            break;
+        }
+        remaining_days -= days;
+        month += 1;
+    }
+    let day = remaining_days + 1;
+
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        year, month, day, hours, minutes, seconds
+    )
+}
+
+fn is_leap_year(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
 }
 
 fn fallback_title(path: &Path) -> String {
