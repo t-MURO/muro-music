@@ -16,6 +16,13 @@ export const createPlaylist = (dbPath: string, id: string, name: string) => {
   });
 };
 
+export const deletePlaylist = (dbPath: string, playlistId: string) => {
+  return invoke<void>("delete_playlist", {
+    dbPath,
+    playlistId,
+  });
+};
+
 export const addTracksToPlaylist = (dbPath: string, playlistId: string, trackIds: string[]) => {
   return invoke<void>("add_tracks_to_playlist", {
     dbPath,

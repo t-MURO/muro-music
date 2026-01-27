@@ -243,6 +243,15 @@ fn remove_last_tracks_from_playlist(
     Ok(())
 }
 
+#[tauri::command(rename_all = "camelCase")]
+fn delete_playlist(db_path: String, playlist_id: String) -> Result<(), String> {
+    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
+    conn.execute("DELETE FROM playlists WHERE id = ?1", [&playlist_id])
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
 #[derive(Clone, Serialize)]
 struct DragDropPayload {
     kind: &'static str,
@@ -302,6 +311,7 @@ pub fn run() {
             backfill_search_text,
             backfill_cover_art,
             create_playlist,
+            delete_playlist,
             add_tracks_to_playlist,
             remove_last_tracks_from_playlist,
             load_tracks,

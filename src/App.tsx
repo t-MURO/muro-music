@@ -33,7 +33,7 @@ import { useSidebarData } from "./hooks/useSidebarData";
 import { useHistoryNavigation } from "./hooks/useHistoryNavigation";
 import { useTrackRatings } from "./hooks/useTrackRatings";
 import { localeOptions, t } from "./i18n";
-import { backfillCoverArt, backfillSearchText, clearTracks, importedTrackToTrack, loadPlaylists, loadTracks } from "./utils/tauriDb";
+import { addTracksToPlaylist, backfillCoverArt, backfillSearchText, clearTracks, createPlaylist, deletePlaylist, importedTrackToTrack, loadPlaylists, loadTracks } from "./utils/tauriDb";
 import { commandManager } from "./command-manager/commandManager";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { appDataDir, join } from "@tauri-apps/api/path";
@@ -540,41 +540,57 @@ function App() {
   );
 
   const handleDeletePlaylist = useCallback(
-    (playlistId: string) => {
-      let removedPlaylist: Playlist | null = null;
-      let removedIndex = -1;
+    async (playlistId: string) => {
+      const playlist = playlists.find((p) => p.id === playlistId);
+      if (!playlist) {
+        return;
+      }
+
+      const trimmedDbPath = dbPath.trim();
+      const resolvedDbPath = trimmedDbPath
+        ? trimmedDbPath
+        : await join(await appDataDir(), dbFileName || "muro.db");
+      const removedPlaylist = { ...playlist };
+      const removedIndex = playlists.findIndex((p) => p.id === playlistId);
       const wasOnDeletedPlaylist = view === `playlist:${playlistId}`;
+
       const command = {
         label: "Delete playlist",
         do: () => {
-          setPlaylists((current) => {
-            removedIndex = current.findIndex((playlist) => playlist.id === playlistId);
-            removedPlaylist = removedIndex >= 0 ? current[removedIndex] : null;
-            return current.filter((playlist) => playlist.id !== playlistId);
-          });
+          setPlaylists((current) =>
+            current.filter((p) => p.id !== playlistId)
+          );
           if (wasOnDeletedPlaylist) {
             navigateToView("library");
           }
+          deletePlaylist(resolvedDbPath, playlistId).catch((error) =>
+            console.error("Failed to delete playlist:", error)
+          );
         },
         undo: () => {
-          if (!removedPlaylist || removedIndex < 0) {
-            return;
-          }
           setPlaylists((current) => {
             const next = [...current];
             const insertIndex = Math.min(removedIndex, next.length);
-            next.splice(insertIndex, 0, removedPlaylist as Playlist);
+            next.splice(insertIndex, 0, removedPlaylist);
             return next;
           });
           if (wasOnDeletedPlaylist) {
             navigateToView(`playlist:${playlistId}` as LibraryView);
           }
+          // Recreate playlist and restore tracks
+          createPlaylist(resolvedDbPath, removedPlaylist.id, removedPlaylist.name)
+            .then(() => {
+              if (removedPlaylist.trackIds.length > 0) {
+                return addTracksToPlaylist(resolvedDbPath, removedPlaylist.id, removedPlaylist.trackIds);
+              }
+            })
+            .catch((error) => console.error("Failed to restore playlist:", error));
         },
       };
 
       commandManager.execute(command);
     },
-    [navigateToView, setPlaylists, view]
+    [dbFileName, dbPath, navigateToView, playlists, setPlaylists, view]
   );
 
   const handlePlaylistEditSubmit = useCallback(() => {
