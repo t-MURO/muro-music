@@ -1,8 +1,8 @@
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
-import { createPlaylist, importFiles, importedTrackToTrack } from "../utils/tauriDb";
+import { addTracksToPlaylist, createPlaylist, importFiles, importedTrackToTrack, removeLastTracksFromPlaylist } from "../utils/tauriDb";
 import type { Playlist, Track } from "../types/library";
 
 export type ImportProgress = {
@@ -11,9 +11,16 @@ export type ImportProgress = {
   phase: "scanning" | "importing";
 };
 
+export type PendingPlaylistDrop = {
+  playlistId: string;
+  trackIds: string[];
+  duplicateTrackIds: string[];
+};
+
 type UseLibraryCommandsArgs = {
   dbPath: string;
   dbFileName: string;
+  playlists: Playlist[];
   setImportProgress: React.Dispatch<React.SetStateAction<ImportProgress | null>>;
   setPlaylists: React.Dispatch<React.SetStateAction<Playlist[]>>;
   setInboxTracks: React.Dispatch<React.SetStateAction<Track[]>>;
@@ -22,12 +29,18 @@ type UseLibraryCommandsArgs = {
 export const useLibraryCommands = ({
   dbPath,
   dbFileName,
+  playlists,
   setImportProgress,
   setPlaylists,
   setInboxTracks,
 }: UseLibraryCommandsArgs) => {
   const playlistSequenceRef = useRef(0);
   const clearProgressTimerRef = useRef<number | null>(null);
+  const [pendingPlaylistDrop, setPendingPlaylistDrop] = useState<PendingPlaylistDrop | null>(null);
+  const pendingPlaylistDropRef = useRef<PendingPlaylistDrop | null>(null);
+
+  // Keep ref in sync with state
+  pendingPlaylistDropRef.current = pendingPlaylistDrop;
 
   const resolveDbPath = useCallback(async () => {
     const trimmed = dbPath.trim();
@@ -38,47 +51,89 @@ export const useLibraryCommands = ({
     return join(baseDir, dbFileName || "muro.db");
   }, [dbFileName, dbPath]);
 
-  const handlePlaylistDrop = useCallback(
-    (playlistId: string, payload: string[] = []) => {
-      if (payload.length === 0) {
+  const executePlaylistDrop = useCallback(
+    async (playlistId: string, payload: string[]) => {
+      const resolvedDbPath = await resolveDbPath();
+      const trackCount = payload.length;
+
+      // Capture the current state before executing
+      const playlist = playlists.find((p) => p.id === playlistId);
+      if (!playlist) {
         return;
       }
+      const previousIds = [...playlist.trackIds];
+      const nextIds = [...previousIds, ...payload];
 
-      let previousIds: string[] | null = null;
       const command: Command = {
-        label: `Add ${payload.length} tracks to playlist`,
+        label: `Add ${trackCount} tracks to playlist`,
         do: () => {
           setPlaylists((current) =>
-            current.map((playlist) => {
-              if (playlist.id !== playlistId) {
-                return playlist;
-              }
-              previousIds = playlist.trackIds;
-              const nextIds = Array.from(
-                new Set([...playlist.trackIds, ...payload])
-              );
-              return { ...playlist, trackIds: nextIds };
-            })
+            current.map((p) =>
+              p.id === playlistId ? { ...p, trackIds: nextIds } : p
+            )
           );
+          // Persist to database
+          addTracksToPlaylist(resolvedDbPath, playlistId, payload).catch((error) => {
+            console.error("Failed to persist playlist tracks:", error);
+          });
         },
         undo: () => {
-          if (!previousIds) {
-            return;
-          }
           setPlaylists((current) =>
-            current.map((playlist) =>
-              playlist.id === playlistId
-                ? { ...playlist, trackIds: previousIds ?? [] }
-                : playlist
+            current.map((p) =>
+              p.id === playlistId ? { ...p, trackIds: previousIds } : p
             )
+          );
+          removeLastTracksFromPlaylist(resolvedDbPath, playlistId, trackCount).catch(
+            (error) => console.error("Failed to remove playlist tracks:", error)
           );
         },
       };
 
       commandManager.execute(command);
     },
-    [setPlaylists]
+    [setPlaylists, resolveDbPath, playlists]
   );
+
+  const handlePlaylistDrop = useCallback(
+    (playlistId: string, payload: string[] = []) => {
+      if (payload.length === 0) {
+        return;
+      }
+
+      const playlist = playlists.find((p) => p.id === playlistId);
+      if (!playlist) {
+        return;
+      }
+
+      const existingIds = new Set(playlist.trackIds);
+      const duplicateTrackIds = payload.filter((id) => existingIds.has(id));
+
+      if (duplicateTrackIds.length > 0) {
+        setPendingPlaylistDrop({
+          playlistId,
+          trackIds: payload,
+          duplicateTrackIds,
+        });
+        return;
+      }
+
+      executePlaylistDrop(playlistId, payload);
+    },
+    [playlists, executePlaylistDrop]
+  );
+
+  const confirmPendingPlaylistDrop = useCallback(() => {
+    const pending = pendingPlaylistDropRef.current;
+    if (!pending) {
+      return;
+    }
+    executePlaylistDrop(pending.playlistId, pending.trackIds);
+    setPendingPlaylistDrop(null);
+  }, [executePlaylistDrop]);
+
+  const cancelPendingPlaylistDrop = useCallback(() => {
+    setPendingPlaylistDrop(null);
+  }, []);
 
   const handleImportPaths = useCallback(
     async (paths: string[]) => {
@@ -247,5 +302,12 @@ export const useLibraryCommands = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- setImportProgress is stable, only run once
   }, []);
 
-  return { handleImportPaths, handlePlaylistDrop, handleCreatePlaylist };
+  return {
+    handleImportPaths,
+    handlePlaylistDrop,
+    handleCreatePlaylist,
+    pendingPlaylistDrop,
+    confirmPendingPlaylistDrop,
+    cancelPendingPlaylistDrop,
+  };
 };

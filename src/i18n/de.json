@@ -65,5 +65,9 @@
   "playlist.edit.subtitle": "Playlist-Namen andern.",
   "playlist.edit.placeholder": "Playlist-Name",
   "playlist.edit.cancel": "Abbrechen",
-  "playlist.edit.submit": "Speichern"
+  "playlist.edit.submit": "Speichern",
+  "playlist.duplicates.title": "Doppelte Titel",
+  "playlist.duplicates.subtitle": "Die folgenden Titel sind bereits in dieser Playlist:",
+  "playlist.duplicates.cancel": "Abbrechen",
+  "playlist.duplicates.addAnyway": "Trotzdem hinzufugen"
 }

@@ -163,11 +163,7 @@ fn create_playlist(db_path: String, id: String, name: String) -> Result<(), Stri
     }
 
     let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL)",
-        [],
-    )
-    .map_err(|error| error.to_string())?;
+    import::ensure_playlist_schema(&conn)?;
 
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -177,6 +173,70 @@ fn create_playlist(db_path: String, id: String, name: String) -> Result<(), Stri
     conn.execute(
         "INSERT INTO playlists (id, name, created_at) VALUES (?1, ?2, ?3)",
         (&id, &name, timestamp),
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn add_tracks_to_playlist(
+    db_path: String,
+    playlist_id: String,
+    track_ids: Vec<String>,
+) -> Result<(), String> {
+    if track_ids.is_empty() {
+        return Ok(());
+    }
+
+    let mut conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
+    import::ensure_playlist_schema(&conn)?;
+
+    let tx = conn.transaction().map_err(|error| error.to_string())?;
+
+    // Get current max position for this playlist
+    let max_position: i64 = tx
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM playlist_tracks WHERE playlist_id = ?1",
+            [&playlist_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(-1);
+
+    let mut position = max_position + 1;
+    for track_id in track_ids {
+        tx.execute(
+            "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?1, ?2, ?3)",
+            (&playlist_id, &track_id, position),
+        )
+        .map_err(|error| error.to_string())?;
+        position += 1;
+    }
+
+    tx.commit().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn remove_last_tracks_from_playlist(
+    db_path: String,
+    playlist_id: String,
+    count: i64,
+) -> Result<(), String> {
+    if count <= 0 {
+        return Ok(());
+    }
+
+    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
+
+    conn.execute(
+        "DELETE FROM playlist_tracks WHERE rowid IN (
+            SELECT rowid FROM playlist_tracks 
+            WHERE playlist_id = ?1 
+            ORDER BY position DESC 
+            LIMIT ?2
+        )",
+        rusqlite::params![&playlist_id, count],
     )
     .map_err(|error| error.to_string())?;
 
@@ -242,6 +302,8 @@ pub fn run() {
             backfill_search_text,
             backfill_cover_art,
             create_playlist,
+            add_tracks_to_playlist,
+            remove_last_tracks_from_playlist,
             load_tracks,
             load_playlists,
             clear_tracks,

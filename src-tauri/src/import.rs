@@ -260,6 +260,36 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
     Ok(LibrarySnapshot { library, inbox })
 }
 
+pub fn ensure_playlist_schema(conn: &Connection) -> Result<(), String> {
+    // Enable foreign key constraints
+    conn.execute("PRAGMA foreign_keys = ON", [])
+        .map_err(|error| error.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL)",
+        [],
+    )
+    .map_err(|error| error.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS playlist_tracks (
+            playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+            track_id TEXT NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL
+        )",
+        [],
+    )
+    .map_err(|error| error.to_string())?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS playlist_tracks_playlist_idx ON playlist_tracks (playlist_id, position)",
+        [],
+    )
+    .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
 pub fn load_playlists(db_path: &str) -> Result<PlaylistSnapshot, String> {
     if !Path::new(db_path).exists() {
         return Ok(PlaylistSnapshot {
@@ -268,11 +298,7 @@ pub fn load_playlists(db_path: &str) -> Result<PlaylistSnapshot, String> {
     }
 
     let conn = Connection::open(db_path).map_err(|error| error.to_string())?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS playlists (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL)",
-        [],
-    )
-    .map_err(|error| error.to_string())?;
+    ensure_playlist_schema(&conn)?;
 
     let mut stmt = conn
         .prepare("SELECT id, name FROM playlists ORDER BY created_at DESC")
@@ -290,9 +316,26 @@ pub fn load_playlists(db_path: &str) -> Result<PlaylistSnapshot, String> {
         })
         .map_err(|error| error.to_string())?;
 
-    let mut playlists = Vec::new();
+    let mut playlists: Vec<PlaylistRow> = Vec::new();
     for row in rows {
         playlists.push(row.map_err(|error| error.to_string())?);
+    }
+
+    // Load track IDs for each playlist
+    for playlist in &mut playlists {
+        let mut track_stmt = conn
+            .prepare(
+                "SELECT track_id FROM playlist_tracks WHERE playlist_id = ?1 ORDER BY position",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let track_ids: Vec<String> = track_stmt
+            .query_map([&playlist.id], |row| row.get(0))
+            .map_err(|error| error.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        playlist.track_ids = track_ids;
     }
 
     Ok(PlaylistSnapshot { playlists })

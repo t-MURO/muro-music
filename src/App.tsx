@@ -12,6 +12,7 @@ import { TrackTable } from "./components/library/TrackTable";
 import { ContextMenu } from "./components/ui/ContextMenu";
 import { DragOverlay } from "./components/ui/DragOverlay";
 import { PlaylistContextMenu } from "./components/ui/PlaylistContextMenu";
+import { DuplicateTracksModal } from "./components/ui/DuplicateTracksModal";
 import { PlaylistCreateModal } from "./components/ui/PlaylistCreateModal";
 import { PlaylistEditModal } from "./components/ui/PlaylistEditModal";
 import { useLibraryCommands } from "./hooks/useLibraryCommands";
@@ -409,10 +410,17 @@ function App() {
 
   const { handleRatingChange } = useTrackRatings({ setTracks });
 
-  const { handleImportPaths, handlePlaylistDrop, handleCreatePlaylist } =
-    useLibraryCommands({
+  const {
+    handleImportPaths,
+    handlePlaylistDrop,
+    handleCreatePlaylist,
+    pendingPlaylistDrop,
+    confirmPendingPlaylistDrop,
+    cancelPendingPlaylistDrop,
+  } = useLibraryCommands({
       dbPath,
       dbFileName,
+      playlists,
       setImportProgress,
       setPlaylists,
       setInboxTracks,
@@ -850,6 +858,18 @@ function App() {
           setPlaylistEditName("");
         }}
         onSubmit={handlePlaylistEditSubmit}
+      />
+      <DuplicateTracksModal
+        isOpen={pendingPlaylistDrop !== null}
+        duplicateTracks={
+          pendingPlaylistDrop
+            ? pendingPlaylistDrop.duplicateTrackIds
+                .map((id) => allTracks.find((t) => t.id === id))
+                .filter((t): t is Track => t !== undefined)
+            : []
+        }
+        onClose={cancelPendingPlaylistDrop}
+        onConfirm={confirmPendingPlaylistDrop}
       />
       <div
         className="grid h-screen grid-cols-[var(--sidebar-width)_1fr_var(--queue-width)] grid-rows-[1fr_auto_var(--media-controls-height)] overflow-hidden"
