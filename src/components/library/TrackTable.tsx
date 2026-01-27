@@ -1,9 +1,10 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { Disc3, FileAudio, FolderOpen } from "lucide-react";
+import { Disc3 } from "lucide-react";
 import type { ColumnConfig, Track } from "../../types/library";
 import { RatingCell } from "./RatingCell";
 import { TableHeader } from "./TableHeader";
+import { TableEmptyState } from "./TableEmptyState";
 
 type TrackTableProps = {
   tracks: Track[];
@@ -241,40 +242,14 @@ export const TrackTable = memo(
           sortState={sortState}
         />
         {tracks.length === 0 ? (
-          <div className="flex min-h-[240px] items-center justify-center px-[var(--spacing-lg)] py-10">
-            <div className="max-w-md rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border)] bg-[var(--color-bg-secondary)] px-6 py-5 text-center">
-              <div className="text-[var(--font-size-md)] font-semibold text-[var(--color-text-primary)]">
-                {emptyTitle}
-              </div>
-              <div className="mt-2 text-[var(--font-size-sm)] leading-relaxed text-[var(--color-text-secondary)]">
-                {emptyDescription}
-              </div>
-              {(emptyActionLabel || emptySecondaryActionLabel) && (
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                  {emptyActionLabel && onEmptyAction && (
-                    <button
-                      className="flex h-[var(--button-height)] items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] bg-[var(--color-accent)] px-[var(--spacing-md)] text-[var(--font-size-sm)] font-medium text-white transition-all duration-[var(--transition-fast)] hover:bg-[var(--color-accent-hover)]"
-                      type="button"
-                      onClick={onEmptyAction}
-                    >
-                      <FileAudio className="h-4 w-4" />
-                      {emptyActionLabel}
-                    </button>
-                  )}
-                  {emptySecondaryActionLabel && onEmptySecondaryAction && (
-                    <button
-                      className="flex h-[var(--button-height)] items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-[var(--spacing-md)] text-[var(--font-size-sm)] font-medium text-[var(--color-text-primary)] transition-all duration-[var(--transition-fast)] hover:bg-[var(--color-bg-hover)]"
-                      type="button"
-                      onClick={onEmptySecondaryAction}
-                    >
-                      <FolderOpen className="h-4 w-4" />
-                      {emptySecondaryActionLabel}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          <TableEmptyState
+            title={emptyTitle}
+            description={emptyDescription}
+            primaryActionLabel={emptyActionLabel}
+            onPrimaryAction={onEmptyAction}
+            secondaryActionLabel={emptySecondaryActionLabel}
+            onSecondaryAction={onEmptySecondaryAction}
+          />
         ) : (
         <div
           className="relative"

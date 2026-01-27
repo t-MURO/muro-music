@@ -11,7 +11,7 @@ import {
   playbackSetVolume,
   playbackToggle,
   type PlaybackState,
-} from "../utils/tauriDb";
+} from "../utils/playbackApi";
 
 export type CurrentTrack = {
   id: string;

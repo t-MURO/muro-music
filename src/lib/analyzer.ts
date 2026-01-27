@@ -1,6 +1,5 @@
 // Import Essentia core and WASM module (ES build has WASM inlined)
 import Essentia from "essentia.js/dist/essentia.js-core.es.js";
-// @ts-expect-error - EssentiaWASM is exported from ES build
 import { EssentiaWASM } from "essentia.js/dist/essentia-wasm.es.js";
 import { toCamelot } from "./camelot";
 import { convertFileSrc } from "@tauri-apps/api/core";

@@ -2,7 +2,8 @@ import { appDataDir, join } from "@tauri-apps/api/path";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
-import { addTracksToPlaylist, createPlaylist, importFiles, importedTrackToTrack, removeLastTracksFromPlaylist } from "../utils/tauriDb";
+import { addTracksToPlaylist, createPlaylist, removeLastTracksFromPlaylist } from "../utils/database";
+import { importFiles, importedTrackToTrack } from "../utils/importApi";
 import type { Playlist, Track } from "../types/library";
 
 export type ImportProgress = {
@@ -11,13 +12,13 @@ export type ImportProgress = {
   phase: "scanning" | "importing";
 };
 
-export type PendingPlaylistDrop = {
+export type PlaylistDropOperation = {
   playlistId: string;
   trackIds: string[];
   duplicateTrackIds: string[];
 };
 
-type UseLibraryCommandsArgs = {
+type UseFileImportArgs = {
   dbPath: string;
   dbFileName: string;
   playlists: Playlist[];
@@ -27,7 +28,7 @@ type UseLibraryCommandsArgs = {
   onImportComplete?: () => void;
 };
 
-export const useLibraryCommands = ({
+export const useFileImport = ({
   dbPath,
   dbFileName,
   playlists,
@@ -35,11 +36,11 @@ export const useLibraryCommands = ({
   setPlaylists,
   setInboxTracks,
   onImportComplete,
-}: UseLibraryCommandsArgs) => {
+}: UseFileImportArgs) => {
   const playlistSequenceRef = useRef(0);
   const clearProgressTimerRef = useRef<number | null>(null);
-  const [pendingPlaylistDrop, setPendingPlaylistDrop] = useState<PendingPlaylistDrop | null>(null);
-  const pendingPlaylistDropRef = useRef<PendingPlaylistDrop | null>(null);
+  const [pendingPlaylistDrop, setPlaylistDropOperation] = useState<PlaylistDropOperation | null>(null);
+  const pendingPlaylistDropRef = useRef<PlaylistDropOperation | null>(null);
 
   // Keep ref in sync with state
   pendingPlaylistDropRef.current = pendingPlaylistDrop;
@@ -111,7 +112,7 @@ export const useLibraryCommands = ({
       const duplicateTrackIds = payload.filter((id) => existingIds.has(id));
 
       if (duplicateTrackIds.length > 0) {
-        setPendingPlaylistDrop({
+        setPlaylistDropOperation({
           playlistId,
           trackIds: payload,
           duplicateTrackIds,
@@ -124,17 +125,17 @@ export const useLibraryCommands = ({
     [playlists, executePlaylistDrop]
   );
 
-  const confirmPendingPlaylistDrop = useCallback(() => {
+  const confirmPlaylistDropOperation = useCallback(() => {
     const pending = pendingPlaylistDropRef.current;
     if (!pending) {
       return;
     }
     executePlaylistDrop(pending.playlistId, pending.trackIds);
-    setPendingPlaylistDrop(null);
+    setPlaylistDropOperation(null);
   }, [executePlaylistDrop]);
 
-  const cancelPendingPlaylistDrop = useCallback(() => {
-    setPendingPlaylistDrop(null);
+  const cancelPlaylistDropOperation = useCallback(() => {
+    setPlaylistDropOperation(null);
   }, []);
 
   const handleImportPaths = useCallback(
@@ -310,7 +311,7 @@ export const useLibraryCommands = ({
     handlePlaylistDrop,
     handleCreatePlaylist,
     pendingPlaylistDrop,
-    confirmPendingPlaylistDrop,
-    cancelPendingPlaylistDrop,
+    confirmPlaylistDropOperation,
+    cancelPlaylistDropOperation,
   };
 };
