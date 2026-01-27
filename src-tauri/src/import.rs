@@ -27,6 +27,7 @@ pub struct ImportedTrack {
     pub track_number: Option<i32>,
     pub track_total: Option<i32>,
     pub key: Option<String>,
+    pub bpm: Option<f64>,
     pub year: Option<i32>,
     pub date: Option<String>,
     pub date_added: Option<String>,
@@ -83,6 +84,7 @@ struct NormalizedMetadata {
     disc_number: Option<i32>,
     disc_total: Option<i32>,
     key: Option<String>,
+    bpm: Option<f64>,
     rating: Option<f32>,
     isrc: Vec<String>,
     encoder: Option<String>,
@@ -178,7 +180,7 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, title, artist, album_artist, album, track_number, track_total,
-                    key, year, date, added_at, updated_at, rating, duration_seconds,
+                    key, bpm, year, date, added_at, updated_at, rating, duration_seconds,
                     bitrate_kbps, import_status, source_path, cover_art_path,
                     cover_art_thumb_path
              FROM tracks ORDER BY added_at DESC",
@@ -195,17 +197,18 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             let track_number: Option<i32> = row.get(5)?;
             let track_total: Option<i32> = row.get(6)?;
             let key: Option<String> = row.get(7)?;
-            let year: Option<i32> = row.get(8)?;
-            let date: Option<String> = row.get(9)?;
-            let added_at: Option<i64> = row.get(10)?;
-            let updated_at: Option<i64> = row.get(11)?;
-            let rating: Option<f64> = row.get(12)?;
-            let duration_seconds: Option<f64> = row.get(13)?;
-            let bitrate_kbps: Option<i32> = row.get(14)?;
-            let import_status: Option<String> = row.get(15)?;
-            let source_path: Option<String> = row.get(16)?;
-            let cover_art_path: Option<String> = row.get(17)?;
-            let cover_art_thumb_path: Option<String> = row.get(18)?;
+            let bpm: Option<f64> = row.get(8)?;
+            let year: Option<i32> = row.get(9)?;
+            let date: Option<String> = row.get(10)?;
+            let added_at: Option<i64> = row.get(11)?;
+            let updated_at: Option<i64> = row.get(12)?;
+            let rating: Option<f64> = row.get(13)?;
+            let duration_seconds: Option<f64> = row.get(14)?;
+            let bitrate_kbps: Option<i32> = row.get(15)?;
+            let import_status: Option<String> = row.get(16)?;
+            let source_path: Option<String> = row.get(17)?;
+            let cover_art_path: Option<String> = row.get(18)?;
+            let cover_art_thumb_path: Option<String> = row.get(19)?;
 
             let duration = duration_seconds
                 .map(|value| format_duration(value as f32))
@@ -228,6 +231,7 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
                     track_number,
                     track_total,
                     key,
+                    bpm,
                     year,
                     date,
                     date_added,
@@ -467,7 +471,7 @@ fn import_single(
         "INSERT OR IGNORE INTO tracks (
             id, title, artist, album, album_artist, genre_json, comment_json, label, filename,
             year, date, original_date, original_year, track_number, track_total, disc_number,
-            disc_total, key, rating, isrc_json, encoder, encoder_tag, encoder_tool, raw_tags_json,
+            disc_total, key, bpm, rating, isrc_json, encoder, encoder_tag, encoder_tool, raw_tags_json,
             musicbrainz_albumid, musicbrainz_artistid, musicbrainz_albumartistid,
             musicbrainz_releasegroupid, musicbrainz_trackid, musicbrainz_releasetrackid,
             musicbrainz_albumstatus, musicbrainz_albumtype, source_path, search_text,
@@ -476,10 +480,10 @@ fn import_single(
         ) VALUES (
             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,
             ?10, ?11, ?12, ?13, ?14, ?15, ?16,
-            ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24,
-            ?25, ?26, ?27, ?28, ?29, ?30,
-            ?31, ?32, ?33, ?34,
-            ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42
+            ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25,
+            ?26, ?27, ?28, ?29, ?30, ?31,
+            ?32, ?33, ?34, ?35,
+            ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43
         )",
         params![
             id,
@@ -500,6 +504,7 @@ fn import_single(
             metadata.disc_number,
             metadata.disc_total,
             metadata.key,
+            metadata.bpm,
             rating,
             isrc_json,
             metadata.encoder,
@@ -544,6 +549,7 @@ fn import_single(
         track_number: metadata.track_number,
         track_total: metadata.track_total,
         key: metadata.key.clone(),
+        bpm: metadata.bpm,
         year: metadata.year,
         date: metadata.date.clone(),
         date_added: date_added.clone(),
@@ -590,6 +596,18 @@ fn normalize_metadata(tagged: &TaggedFile, path: &Path) -> Result<NormalizedMeta
         meta.key = tag
             .get_string(&ItemKey::InitialKey)
             .map(|value| value.trim().to_string());
+        // BPM can be in TBPM (ID3), BPM (generic), or tempo field
+        meta.bpm = tag
+            .get_string(&ItemKey::Bpm)
+            .and_then(|value| value.trim().parse::<f64>().ok())
+            .or_else(|| {
+                tag.get_string(&ItemKey::Unknown("TBPM".to_string()))
+                    .and_then(|value| value.trim().parse::<f64>().ok())
+            })
+            .or_else(|| {
+                tag.get_string(&ItemKey::Unknown("BPM".to_string()))
+                    .and_then(|value| value.trim().parse::<f64>().ok())
+            });
         meta.encoder_tag = tag
             .get_string(&ItemKey::EncoderSoftware)
             .map(str::to_string)
@@ -885,6 +903,7 @@ fn ensure_schema(conn: &Connection) -> Result<(), String> {
             disc_number INTEGER,
             disc_total INTEGER,
             key TEXT,
+            bpm REAL,
             rating REAL,
             isrc_json TEXT,
             encoder TEXT,
@@ -914,12 +933,13 @@ fn ensure_schema(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|error| error.to_string())?;
 
-    // Add cover art columns if they don't exist (for existing databases)
+    // Add columns if they don't exist (for existing databases)
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN cover_art_path TEXT", []);
     let _ = conn.execute(
         "ALTER TABLE tracks ADD COLUMN cover_art_thumb_path TEXT",
         [],
     );
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN bpm REAL", []);
 
     Ok(())
 }

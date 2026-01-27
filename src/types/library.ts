@@ -9,6 +9,7 @@ export type Track = {
   trackNumber?: number;
   trackTotal?: number;
   key?: string;
+  bpm?: number;
   year?: number;
   date?: string;
   dateAdded?: string;
@@ -36,6 +37,7 @@ export type ColumnKey =
   | "trackNumber"
   | "trackTotal"
   | "key"
+  | "bpm"
   | "year"
   | "date"
   | "dateAdded"

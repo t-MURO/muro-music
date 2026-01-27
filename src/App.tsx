@@ -12,6 +12,7 @@ import { TrackTable } from "./components/library/TrackTable";
 import { ContextMenu } from "./components/ui/ContextMenu";
 import { DragOverlay } from "./components/ui/DragOverlay";
 import { PlaylistContextMenu } from "./components/ui/PlaylistContextMenu";
+import { AnalysisModal } from "./components/ui/AnalysisModal";
 import { DuplicateTracksModal } from "./components/ui/DuplicateTracksModal";
 import { PlaylistCreateModal } from "./components/ui/PlaylistCreateModal";
 import { PlaylistEditModal } from "./components/ui/PlaylistEditModal";
@@ -51,6 +52,8 @@ const getSortableValue = (track: Track, key: ColumnConfig["key"]) => {
       return track.trackTotal ?? null;
     case "year":
       return track.year ?? null;
+    case "bpm":
+      return track.bpm ?? null;
     case "artists":
       return track.artists ?? track.artist;
     case "key":
@@ -198,6 +201,7 @@ function App() {
   const [playlistName, setPlaylistName] = useState("");
   const [isPlaylistEditOpen, setPlaylistEditOpen] = useState(false);
   const [playlistEditName, setPlaylistEditName] = useState("");
+  const [analysisTrackIds, setAnalysisTrackIds] = useState<string[]>([]);
   const [playlistEditId, setPlaylistEditId] = useState<string | null>(null);
   const { sidebarWidth, startSidebarResize } = useSidebarPanel();
   const [dbPath, setDbPath] = useState("");
@@ -485,6 +489,33 @@ function App() {
       openForRow(event, trackId, index, isSelected);
     },
     [openForRow]
+  );
+
+  const handleShowBpmKey = useCallback(() => {
+    setAnalysisTrackIds(menuSelection);
+    closeMenu();
+  }, [menuSelection, closeMenu]);
+
+  const handleAnalysisComplete = useCallback(
+    (results: Map<string, { bpm: number; camelot: string }>) => {
+      // Update tracks with new BPM and key values
+      const updateTrackList = (trackList: Track[]) =>
+        trackList.map((track) => {
+          const result = results.get(track.id);
+          if (result) {
+            return {
+              ...track,
+              bpm: result.bpm > 0 ? result.bpm : track.bpm,
+              key: result.camelot !== "?" ? result.camelot : track.key,
+            };
+          }
+          return track;
+        });
+
+      setTracks(updateTrackList);
+      setInboxTracks(updateTrackList);
+    },
+    []
   );
 
   const handleSortChange = useCallback((key: ColumnConfig["key"]) => {
@@ -956,6 +987,15 @@ function App() {
         onClose={cancelPendingPlaylistDrop}
         onConfirm={confirmPendingPlaylistDrop}
       />
+      <AnalysisModal
+        isOpen={analysisTrackIds.length > 0}
+        tracks={analysisTrackIds
+          .map((id) => allTracks.find((t) => t.id === id))
+          .filter((t): t is Track => t !== undefined)}
+        dbPath={dbPath}
+        onClose={() => setAnalysisTrackIds([])}
+        onAnalysisComplete={handleAnalysisComplete}
+      />
       <div
         className="grid h-screen grid-cols-[var(--sidebar-width)_1fr_var(--queue-width)] grid-rows-[1fr_auto_var(--media-controls-height)] overflow-hidden"
         style={
@@ -996,6 +1036,7 @@ function App() {
                   addToQueue(menuSelection);
                   closeMenu();
                 }}
+                onShowBpmKey={handleShowBpmKey}
               />
               <PlaylistContextMenu
                 isOpen={isPlaylistMenuOpen}

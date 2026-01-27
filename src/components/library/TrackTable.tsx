@@ -197,6 +197,10 @@ export const TrackTable = memo(
             : String(track.trackTotal);
         case "key":
           return track.key ?? "";
+        case "bpm":
+          return track.bpm === undefined || track.bpm === null
+            ? ""
+            : track.bpm.toFixed(1);
         case "year":
           return track.year === undefined || track.year === null
             ? ""

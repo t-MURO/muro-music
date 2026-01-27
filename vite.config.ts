@@ -29,4 +29,9 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+
+  // Ensure WASM files are handled correctly
+  optimizeDeps: {
+    exclude: ["essentia.js"],
+  },
 }));

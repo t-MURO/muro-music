@@ -157,6 +157,28 @@ fn get_track_source_path(db_path: String, track_id: String) -> Result<Option<Str
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn update_track_analysis(
+    db_path: String,
+    track_id: String,
+    bpm: Option<f64>,
+    key: Option<String>,
+) -> Result<(), String> {
+    if !Path::new(&db_path).exists() {
+        return Err("Database not found".to_string());
+    }
+
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE tracks SET bpm = ?1, key = ?2 WHERE id = ?3",
+        rusqlite::params![bpm, key, track_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn create_playlist(db_path: String, id: String, name: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&db_path).parent() {
         std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
@@ -414,7 +436,8 @@ pub fn run() {
             playback_set_seek_mode,
             playback_get_state,
             playback_is_finished,
-            get_track_source_path
+            get_track_source_path,
+            update_track_analysis
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

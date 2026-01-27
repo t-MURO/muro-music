@@ -1,4 +1,5 @@
 import {
+  AudioWaveform,
   ListChecks,
   ListPlus,
   Pencil,
@@ -17,6 +18,7 @@ type ContextMenuProps = {
   onPlayNext?: () => void;
   onAddToQueue?: () => void;
   onAddToPlaylist?: () => void;
+  onShowBpmKey?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
 };
@@ -29,6 +31,7 @@ export const ContextMenu = ({
   onPlayNext,
   onAddToQueue,
   onAddToPlaylist,
+  onShowBpmKey,
   onEdit,
   onDelete,
 }: ContextMenuProps) => {
@@ -54,6 +57,10 @@ export const ContextMenu = ({
         {t("menu.addPlaylist")}
       </PopoverItem>
       <PopoverDivider />
+      <PopoverItem onClick={onShowBpmKey}>
+        <AudioWaveform className="h-4 w-4 opacity-60" />
+        {t("menu.showBpmKey")}
+      </PopoverItem>
       <PopoverItem onClick={onEdit}>
         <Pencil className="h-4 w-4 opacity-60" />
         {t("menu.edit")}

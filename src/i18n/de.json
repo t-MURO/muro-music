@@ -69,5 +69,17 @@
   "playlist.duplicates.title": "Doppelte Titel",
   "playlist.duplicates.subtitle": "Die folgenden Titel sind bereits in dieser Playlist:",
   "playlist.duplicates.cancel": "Abbrechen",
-  "playlist.duplicates.addAnyway": "Trotzdem hinzufugen"
+  "playlist.duplicates.addAnyway": "Trotzdem hinzufugen",
+  "menu.showBpmKey": "BPM und Tonart anzeigen",
+  "analysis.title": "BPM- und Tonart-Analyse",
+  "analysis.subtitle": "Audio wird analysiert, um BPM und Tonart zu erkennen.",
+  "analysis.analyzing": "Analysiere Track",
+  "analysis.complete": "Analyse abgeschlossen.",
+  "analysis.bpmRange": "BPM-Bereich",
+  "analysis.key": "Tonart",
+  "analysis.close": "Schliessen",
+  "analysis.cancel": "Abbrechen",
+  "analysis.save": "In Bibliothek speichern",
+  "analysis.saving": "Speichern...",
+  "columns.bpm": "BPM"
 }

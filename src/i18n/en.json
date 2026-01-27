@@ -69,5 +69,17 @@
   "playlist.duplicates.title": "Duplicate tracks",
   "playlist.duplicates.subtitle": "The following tracks are already in this playlist:",
   "playlist.duplicates.cancel": "Cancel",
-  "playlist.duplicates.addAnyway": "Add anyway"
+  "playlist.duplicates.addAnyway": "Add anyway",
+  "menu.showBpmKey": "Show BPM and Key",
+  "analysis.title": "BPM and Key Analysis",
+  "analysis.subtitle": "Analyzing audio to detect BPM and musical key.",
+  "analysis.analyzing": "Analyzing track",
+  "analysis.complete": "Analysis complete.",
+  "analysis.bpmRange": "BPM Range",
+  "analysis.key": "Key",
+  "analysis.close": "Close",
+  "analysis.cancel": "Cancel",
+  "analysis.save": "Save to Library",
+  "analysis.saving": "Saving...",
+  "columns.bpm": "BPM"
 }

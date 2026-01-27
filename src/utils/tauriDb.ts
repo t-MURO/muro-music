@@ -48,6 +48,7 @@ export type ImportedTrack = {
   track_number?: number;
   track_total?: number;
   key?: string;
+  bpm?: number;
   year?: number;
   date?: string;
   date_added?: string;
@@ -71,6 +72,7 @@ export const importedTrackToTrack = (imported: ImportedTrack) => ({
   trackNumber: imported.track_number,
   trackTotal: imported.track_total,
   key: imported.key,
+  bpm: imported.bpm,
   year: imported.year,
   date: imported.date,
   dateAdded: imported.date_added,
