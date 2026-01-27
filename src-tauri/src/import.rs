@@ -147,7 +147,8 @@ where
 
     for path in file_paths {
         match import_single(&tx, &path, now, cache_dir) {
-            Ok(track) => imported.push(track),
+            Ok(Some(track)) => imported.push(track),
+            Ok(None) => {} // Duplicate, silently skipped
             Err(error) => {
                 eprintln!("Import failed for {}: {}", path.display(), error);
             }
@@ -347,7 +348,7 @@ fn import_single(
     path: &Path,
     now: i64,
     cache_dir: &Path,
-) -> Result<ImportedTrack, String> {
+) -> Result<Option<ImportedTrack>, String> {
     let tagged = Probe::open(path)
         .map_err(|error| error.to_string())?
         .read()
@@ -420,7 +421,7 @@ fn import_single(
         serde_json::to_string(&metadata.raw_tags).unwrap_or_else(|_| "{}".to_string());
 
     conn.execute(
-        "INSERT INTO tracks (
+        "INSERT OR IGNORE INTO tracks (
             id, title, artist, album, album_artist, genre_json, comment_json, label, filename,
             year, date, original_date, original_year, track_number, track_total, disc_number,
             disc_total, key, rating, isrc_json, encoder, encoder_tag, encoder_tool, raw_tags_json,
@@ -484,9 +485,14 @@ fn import_single(
     )
     .map_err(|error| error.to_string())?;
 
+    // If no rows were inserted (duplicate source_path), return None
+    if conn.changes() == 0 {
+        return Ok(None);
+    }
+
     let date_added = Some(format_timestamp(now));
 
-    Ok(ImportedTrack {
+    Ok(Some(ImportedTrack {
         id,
         title,
         artist,
@@ -506,7 +512,7 @@ fn import_single(
         source_path: path.to_string_lossy().to_string(),
         cover_art_path,
         cover_art_thumb_path,
-    })
+    }))
 }
 
 fn normalize_metadata(tagged: &TaggedFile, path: &Path) -> Result<NormalizedMetadata, String> {
@@ -842,7 +848,7 @@ fn ensure_schema(conn: &Connection) -> Result<(), String> {
             musicbrainz_releasetrackid TEXT,
             musicbrainz_albumstatus TEXT,
             musicbrainz_albumtype TEXT,
-            source_path TEXT,
+            source_path TEXT UNIQUE,
             search_text TEXT,
             import_status TEXT,
             duration_seconds REAL,

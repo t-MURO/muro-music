@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "Muro Music",
-        "width": 800,
-        "height": 600,
+        "width": 1600,
+        "height": 1200,
         "dragDropEnabled": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true
