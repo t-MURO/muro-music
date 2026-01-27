@@ -604,14 +604,22 @@ fn normalize_metadata(tagged: &TaggedFile, path: &Path) -> Result<NormalizedMeta
         meta.isrc = collect_values(tag, ItemKey::Isrc, split_passthrough);
 
         let track_value = tag.get_string(&ItemKey::TrackNumber).unwrap_or("");
-        let (track_number, track_total) = parse_number_pair(track_value);
+        let (track_number, track_total_from_pair) = parse_number_pair(track_value);
         meta.track_number = track_number;
-        meta.track_total = track_total;
+        // FLAC/Vorbis uses separate TRACKTOTAL field
+        meta.track_total = tag
+            .get_string(&ItemKey::TrackTotal)
+            .and_then(|v| v.trim().parse::<i32>().ok())
+            .or(track_total_from_pair);
 
         let disc_value = tag.get_string(&ItemKey::DiscNumber).unwrap_or("");
-        let (disc_number, disc_total) = parse_number_pair(disc_value);
+        let (disc_number, disc_total_from_pair) = parse_number_pair(disc_value);
         meta.disc_number = disc_number;
-        meta.disc_total = disc_total;
+        // FLAC/Vorbis uses separate DISCTOTAL field
+        meta.disc_total = tag
+            .get_string(&ItemKey::DiscTotal)
+            .and_then(|v| v.trim().parse::<i32>().ok())
+            .or(disc_total_from_pair);
 
         let popm_rating = parse_popm_rating(tag);
         let rating_tag = tag
