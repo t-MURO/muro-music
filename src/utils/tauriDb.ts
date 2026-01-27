@@ -189,3 +189,15 @@ export const loadPlaylists = (dbPath: string) => {
 export const clearTracks = (dbPath: string) => {
   return invoke<void>("clear_tracks", { dbPath });
 };
+
+export const acceptTracks = (dbPath: string, trackIds: string[]) => {
+  return invoke<void>("accept_tracks", { dbPath, trackIds });
+};
+
+export const unacceptTracks = (dbPath: string, trackIds: string[]) => {
+  return invoke<void>("unaccept_tracks", { dbPath, trackIds });
+};
+
+export const rejectTracks = (dbPath: string, trackIds: string[]) => {
+  return invoke<void>("reject_tracks", { dbPath, trackIds });
+};

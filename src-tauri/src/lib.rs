@@ -252,6 +252,90 @@ fn delete_playlist(db_path: String, playlist_id: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command(rename_all = "camelCase")]
+fn accept_tracks(db_path: String, track_ids: Vec<String>) -> Result<(), String> {
+    if track_ids.is_empty() {
+        return Ok(());
+    }
+
+    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
+
+    let placeholders: Vec<String> = track_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect();
+    let sql = format!(
+        "UPDATE tracks SET import_status = 'accepted' WHERE id IN ({})",
+        placeholders.join(", ")
+    );
+
+    let params: Vec<&dyn rusqlite::ToSql> = track_ids
+        .iter()
+        .map(|id| id as &dyn rusqlite::ToSql)
+        .collect();
+    conn.execute(&sql, params.as_slice())
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn unaccept_tracks(db_path: String, track_ids: Vec<String>) -> Result<(), String> {
+    if track_ids.is_empty() {
+        return Ok(());
+    }
+
+    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
+
+    let placeholders: Vec<String> = track_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect();
+    let sql = format!(
+        "UPDATE tracks SET import_status = 'staged' WHERE id IN ({})",
+        placeholders.join(", ")
+    );
+
+    let params: Vec<&dyn rusqlite::ToSql> = track_ids
+        .iter()
+        .map(|id| id as &dyn rusqlite::ToSql)
+        .collect();
+    conn.execute(&sql, params.as_slice())
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn reject_tracks(db_path: String, track_ids: Vec<String>) -> Result<(), String> {
+    if track_ids.is_empty() {
+        return Ok(());
+    }
+
+    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
+
+    let placeholders: Vec<String> = track_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect();
+    let sql = format!(
+        "DELETE FROM tracks WHERE id IN ({})",
+        placeholders.join(", ")
+    );
+
+    let params: Vec<&dyn rusqlite::ToSql> = track_ids
+        .iter()
+        .map(|id| id as &dyn rusqlite::ToSql)
+        .collect();
+    conn.execute(&sql, params.as_slice())
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
 #[derive(Clone, Serialize)]
 struct DragDropPayload {
     kind: &'static str,
@@ -317,6 +401,9 @@ pub fn run() {
             load_tracks,
             load_playlists,
             clear_tracks,
+            accept_tracks,
+            unaccept_tracks,
+            reject_tracks,
             playback_play_file,
             playback_toggle,
             playback_play,

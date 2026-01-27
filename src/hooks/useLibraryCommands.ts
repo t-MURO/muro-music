@@ -24,6 +24,7 @@ type UseLibraryCommandsArgs = {
   setImportProgress: React.Dispatch<React.SetStateAction<ImportProgress | null>>;
   setPlaylists: React.Dispatch<React.SetStateAction<Playlist[]>>;
   setInboxTracks: React.Dispatch<React.SetStateAction<Track[]>>;
+  onImportComplete?: () => void;
 };
 
 export const useLibraryCommands = ({
@@ -33,6 +34,7 @@ export const useLibraryCommands = ({
   setImportProgress,
   setPlaylists,
   setInboxTracks,
+  onImportComplete,
 }: UseLibraryCommandsArgs) => {
   const playlistSequenceRef = useRef(0);
   const clearProgressTimerRef = useRef<number | null>(null);
@@ -175,6 +177,7 @@ export const useLibraryCommands = ({
           },
         };
         commandManager.execute(command);
+        onImportComplete?.();
         if (typeof window !== "undefined") {
           clearProgressTimerRef.current = window.setTimeout(() => {
             setImportProgress(null);

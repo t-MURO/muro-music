@@ -33,7 +33,7 @@ import { useSidebarData } from "./hooks/useSidebarData";
 import { useHistoryNavigation } from "./hooks/useHistoryNavigation";
 import { useTrackRatings } from "./hooks/useTrackRatings";
 import { localeOptions, t } from "./i18n";
-import { addTracksToPlaylist, backfillCoverArt, backfillSearchText, clearTracks, createPlaylist, deletePlaylist, importedTrackToTrack, loadPlaylists, loadTracks } from "./utils/tauriDb";
+import { acceptTracks, addTracksToPlaylist, backfillCoverArt, backfillSearchText, clearTracks, createPlaylist, deletePlaylist, importedTrackToTrack, loadPlaylists, loadTracks, rejectTracks, unacceptTracks } from "./utils/tauriDb";
 import { commandManager } from "./command-manager/commandManager";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { appDataDir, join } from "@tauri-apps/api/path";
@@ -424,6 +424,7 @@ function App() {
       setImportProgress,
       setPlaylists,
       setInboxTracks,
+      onImportComplete: () => navigateToView("inbox"),
     });
 
   const {
@@ -622,6 +623,74 @@ function App() {
     closePlaylistMenu();
     handleDeletePlaylist(playlistMenuId);
   }, [closePlaylistMenu, handleDeletePlaylist, playlistMenuId]);
+
+  const handleAcceptTracks = useCallback(async () => {
+    const selectedTrackIds = Array.from(selectedIds);
+    if (selectedTrackIds.length === 0) {
+      return;
+    }
+
+    const tracksToAccept = inboxTracks.filter((t) => selectedIds.has(t.id));
+    
+    const trimmedDbPath = dbPath.trim();
+    const resolvedDbPath = trimmedDbPath
+      ? trimmedDbPath
+      : await join(await appDataDir(), dbFileName || "muro.db");
+
+    clearSelection();
+
+    const command = {
+      label: `Accept ${selectedTrackIds.length} tracks`,
+      do: () => {
+        setInboxTracks((current) => current.filter((t) => !selectedTrackIds.includes(t.id)));
+        setTracks((current) => [...tracksToAccept, ...current]);
+        acceptTracks(resolvedDbPath, selectedTrackIds).catch((error) =>
+          console.error("Failed to accept tracks:", error)
+        );
+      },
+      undo: () => {
+        setTracks((current) => current.filter((t) => !selectedTrackIds.includes(t.id)));
+        setInboxTracks((current) => [...tracksToAccept, ...current]);
+        unacceptTracks(resolvedDbPath, selectedTrackIds).catch((error) =>
+          console.error("Failed to unaccept tracks:", error)
+        );
+      },
+    };
+
+    commandManager.execute(command);
+  }, [clearSelection, dbFileName, dbPath, inboxTracks, selectedIds]);
+
+  const handleRejectTracks = useCallback(async () => {
+    const selectedTrackIds = Array.from(selectedIds);
+    if (selectedTrackIds.length === 0) {
+      return;
+    }
+
+    const tracksToReject = inboxTracks.filter((t) => selectedIds.has(t.id));
+
+    const trimmedDbPath = dbPath.trim();
+    const resolvedDbPath = trimmedDbPath
+      ? trimmedDbPath
+      : await join(await appDataDir(), dbFileName || "muro.db");
+
+    clearSelection();
+
+    const command = {
+      label: `Reject ${selectedTrackIds.length} tracks`,
+      do: () => {
+        setInboxTracks((current) => current.filter((t) => !selectedTrackIds.includes(t.id)));
+        rejectTracks(resolvedDbPath, selectedTrackIds).catch((error) =>
+          console.error("Failed to reject tracks:", error)
+        );
+      },
+      undo: () => {
+        // Note: DB deletion is permanent, this only restores frontend state
+        setInboxTracks((current) => [...tracksToReject, ...current]);
+      },
+    };
+
+    commandManager.execute(command);
+  }, [clearSelection, dbFileName, dbPath, inboxTracks, selectedIds]);
 
   useEffect(() => {
     if (!isInternalDrag) {
@@ -1025,7 +1094,11 @@ function App() {
                         onRatingChange={handleRatingChange}
                       />
                       {viewConfig.trackTable.banner === "inbox" && (
-                        <InboxBanner selectedCount={selectedIds.size} />
+                        <InboxBanner
+                          selectedCount={selectedIds.size}
+                          onAccept={handleAcceptTracks}
+                          onReject={handleRejectTracks}
+                        />
                       )}
                     </>
                   )}
