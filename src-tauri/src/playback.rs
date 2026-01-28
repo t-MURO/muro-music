@@ -781,10 +781,3 @@ fn handle_media_event(tx: &Sender<PlaybackCommand>, app: &AppHandle, event: Medi
     }
 }
 
-// Update media controls metadata (to be called from lib.rs commands)
-pub fn update_media_metadata(title: &str, artist: &str, album: &str) {
-    // Media controls are leaked/global, so we can't easily update them here
-    // This would require storing a reference to the controls
-    // For now, we skip this - metadata is set once when attaching
-    let _ = (title, artist, album);
-}

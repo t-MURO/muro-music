@@ -2890,9 +2890,9 @@ name = "muro-music"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
  "hex",
  "image",
- "lazy_static",
  "lofty",
  "parking_lot",
  "rodio",

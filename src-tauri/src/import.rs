@@ -1,5 +1,6 @@
 use crate::cover_art;
 use crate::search;
+use chrono::{DateTime, Utc};
 use lofty::file::FileType;
 use lofty::file::TaggedFile;
 use lofty::id3::v2::Popularimeter;
@@ -16,6 +17,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 const AUDIO_EXTENSIONS: [&str; 8] = ["mp3", "flac", "wav", "m4a", "aac", "ogg", "aiff", "alac"];
+const STATUS_STAGED: &str = "staged";
+const STATUS_ACCEPTED: &str = "accepted";
+const DEFAULT_DURATION: &str = "--:--";
+const DEFAULT_BITRATE: &str = "--";
+const UNKNOWN_TITLE: &str = "Unknown Title";
+const UNKNOWN_ARTIST: &str = "Unknown Artist";
+const UNKNOWN_ALBUM: &str = "Unknown Album";
 
 #[derive(Debug, Serialize, Clone)]
 pub struct ImportedTrack {
@@ -212,11 +220,11 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
 
             let duration = duration_seconds
                 .map(|value| format_duration(value as f32))
-                .unwrap_or_else(|| "--:--".to_string());
+                .unwrap_or_else(|| DEFAULT_DURATION.to_string());
             let bitrate = bitrate_kbps
                 .filter(|value| *value > 0)
                 .map(|value| format!("{} kbps", value))
-                .unwrap_or_else(|| "--".to_string());
+                .unwrap_or_else(|| DEFAULT_BITRATE.to_string());
 
             let date_added = added_at.map(format_timestamp);
             let date_modified = updated_at.map(format_timestamp);
@@ -224,10 +232,10 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             Ok((
                 ImportedTrack {
                     id,
-                    title: title.unwrap_or_else(|| "Unknown Title".to_string()),
-                    artist: artist.unwrap_or_else(|| "Unknown Artist".to_string()),
+                    title: title.unwrap_or_else(|| UNKNOWN_TITLE.to_string()),
+                    artist: artist.unwrap_or_else(|| UNKNOWN_ARTIST.to_string()),
                     artists: album_artist,
-                    album: album.unwrap_or_else(|| "Unknown Album".to_string()),
+                    album: album.unwrap_or_else(|| UNKNOWN_ALBUM.to_string()),
                     track_number,
                     track_total,
                     key,
@@ -244,7 +252,7 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
                     cover_art_path,
                     cover_art_thumb_path,
                 },
-                import_status.unwrap_or_else(|| "accepted".to_string()),
+                import_status.unwrap_or_else(|| STATUS_ACCEPTED.to_string()),
             ))
         })
         .map_err(|error| error.to_string())?;
@@ -254,7 +262,7 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
 
     for row in rows {
         let (track, status) = row.map_err(|error| error.to_string())?;
-        if status == "staged" {
+        if status == STATUS_STAGED {
             inbox.push(track);
         } else {
             library.push(track);
@@ -304,43 +312,53 @@ pub fn load_playlists(db_path: &str) -> Result<PlaylistSnapshot, String> {
     let conn = Connection::open(db_path).map_err(|error| error.to_string())?;
     ensure_playlist_schema(&conn)?;
 
+    // Load all playlists with their track IDs in a single query using LEFT JOIN
+    // This avoids the N+1 query problem
     let mut stmt = conn
-        .prepare("SELECT id, name FROM playlists ORDER BY created_at DESC")
+        .prepare(
+            "SELECT p.id, p.name, p.created_at, pt.track_id
+             FROM playlists p
+             LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
+             ORDER BY p.created_at DESC, pt.position ASC",
+        )
         .map_err(|error| error.to_string())?;
 
     let rows = stmt
         .query_map([], |row| {
             let id: String = row.get(0)?;
             let name: String = row.get(1)?;
-            Ok(PlaylistRow {
-                id,
-                name,
-                track_ids: Vec::new(),
-            })
+            let track_id: Option<String> = row.get(3)?;
+            Ok((id, name, track_id))
         })
         .map_err(|error| error.to_string())?;
 
-    let mut playlists: Vec<PlaylistRow> = Vec::new();
+    // Group results by playlist
+    let mut playlist_map: std::collections::HashMap<String, PlaylistRow> =
+        std::collections::HashMap::new();
+    let mut playlist_order: Vec<String> = Vec::new();
+
     for row in rows {
-        playlists.push(row.map_err(|error| error.to_string())?);
+        let (id, name, track_id) = row.map_err(|error| error.to_string())?;
+
+        let playlist = playlist_map.entry(id.clone()).or_insert_with(|| {
+            playlist_order.push(id.clone());
+            PlaylistRow {
+                id,
+                name,
+                track_ids: Vec::new(),
+            }
+        });
+
+        if let Some(tid) = track_id {
+            playlist.track_ids.push(tid);
+        }
     }
 
-    // Load track IDs for each playlist
-    for playlist in &mut playlists {
-        let mut track_stmt = conn
-            .prepare(
-                "SELECT track_id FROM playlist_tracks WHERE playlist_id = ?1 ORDER BY position",
-            )
-            .map_err(|error| error.to_string())?;
-
-        let track_ids: Vec<String> = track_stmt
-            .query_map([&playlist.id], |row| row.get(0))
-            .map_err(|error| error.to_string())?
-            .filter_map(|r| r.ok())
-            .collect();
-
-        playlist.track_ids = track_ids;
-    }
+    // Maintain original order (by created_at DESC)
+    let playlists = playlist_order
+        .into_iter()
+        .filter_map(|id| playlist_map.remove(&id))
+        .collect();
 
     Ok(PlaylistSnapshot { playlists })
 }
@@ -410,11 +428,11 @@ fn import_single(
     let artist = metadata
         .artist
         .clone()
-        .unwrap_or_else(|| "Unknown Artist".to_string());
+        .unwrap_or_else(|| UNKNOWN_ARTIST.to_string());
     let album = metadata
         .album
         .clone()
-        .unwrap_or_else(|| "Unknown Album".to_string());
+        .unwrap_or_else(|| UNKNOWN_ALBUM.to_string());
     let rating = metadata.rating.unwrap_or(0.0);
 
     // Extract and cache cover art
@@ -428,7 +446,7 @@ fn import_single(
     let bitrate_text = if bitrate > 0 {
         format!("{} kbps", bitrate)
     } else {
-        "--".to_string()
+        DEFAULT_BITRATE.to_string()
     };
 
     let id = Uuid::new_v4().to_string();
@@ -521,7 +539,7 @@ fn import_single(
             metadata.musicbrainz_albumtype,
             path.to_string_lossy().to_string(),
             search_text,
-            "staged",
+            STATUS_STAGED,
             duration_seconds,
             bitrate,
             now,
@@ -807,71 +825,25 @@ fn parse_popm_rating(tag: &Tag) -> Option<f32> {
 
 fn format_duration(seconds: f32) -> String {
     if seconds <= 0.0 {
-        return "--:--".to_string();
+        return DEFAULT_DURATION.to_string();
     }
     let total = seconds.round() as i64;
     let minutes = total / 60;
-    let seconds = total % 60;
-    format!("{}:{:02}", minutes, seconds)
+    let secs = total % 60;
+    format!("{}:{:02}", minutes, secs)
 }
 
 fn format_timestamp(timestamp: i64) -> String {
-    use std::time::Duration;
-    let datetime = UNIX_EPOCH + Duration::from_secs(timestamp as u64);
-    let duration_since_epoch = datetime.duration_since(UNIX_EPOCH).unwrap_or_default();
-    let secs = duration_since_epoch.as_secs();
-
-    // Convert to date components (simplified UTC calculation)
-    let days = secs / 86400;
-    let remaining_secs = secs % 86400;
-    let hours = remaining_secs / 3600;
-    let minutes = (remaining_secs % 3600) / 60;
-    let seconds = remaining_secs % 60;
-
-    // Calculate year, month, day from days since epoch (1970-01-01)
-    let mut year = 1970i32;
-    let mut remaining_days = days as i32;
-
-    loop {
-        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
-        if remaining_days < days_in_year {
-            break;
-        }
-        remaining_days -= days_in_year;
-        year += 1;
-    }
-
-    let month_days = if is_leap_year(year) {
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    } else {
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    };
-
-    let mut month = 1;
-    for days in month_days {
-        if remaining_days < days {
-            break;
-        }
-        remaining_days -= days;
-        month += 1;
-    }
-    let day = remaining_days + 1;
-
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year, month, day, hours, minutes, seconds
-    )
-}
-
-fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    DateTime::<Utc>::from_timestamp(timestamp, 0)
+        .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+        .unwrap_or_default()
 }
 
 fn fallback_title(path: &Path) -> String {
     path.file_stem()
         .and_then(|value| value.to_str())
         .map(search::strip_leading_track_number)
-        .unwrap_or("Unknown Title")
+        .unwrap_or(UNKNOWN_TITLE)
         .to_string()
 }
 

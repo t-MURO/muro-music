@@ -38,4 +38,4 @@ rodio = { version = "0.19", features = ["symphonia-all"] }
 symphonia = { version = "0.5.4", features = ["all"] }
 souvlaki = "0.7"
 parking_lot = "0.12"
-lazy_static = "1.4"
+chrono = { version = "0.4", default-features = false, features = ["std"] }

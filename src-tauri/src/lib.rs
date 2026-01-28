@@ -12,6 +12,11 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Emitter, Manager, State, WindowEvent};
 
+// Constants for import status values
+const STATUS_STAGED: &str = "staged";
+const STATUS_ACCEPTED: &str = "accepted";
+const COVERS_DIR: &str = "covers";
+
 #[tauri::command(rename_all = "camelCase")]
 fn import_files(
     app: tauri::AppHandle,
@@ -27,7 +32,7 @@ fn import_files(
         .path()
         .app_cache_dir()
         .map_err(|e| e.to_string())?
-        .join("covers");
+        .join(COVERS_DIR);
 
     import::import_files_with_progress(paths, &db_path, &cache_dir, |progress| {
         let _ = app.emit("muro://import-progress", progress);
@@ -50,7 +55,7 @@ fn clear_tracks(app: tauri::AppHandle, db_path: String) -> Result<(), String> {
         .path()
         .app_cache_dir()
         .map_err(|e| e.to_string())?
-        .join("covers");
+        .join(COVERS_DIR);
     import::clear_tracks(&db_path, &cache_dir)
 }
 
@@ -65,7 +70,7 @@ fn backfill_cover_art(app: tauri::AppHandle, db_path: String) -> Result<usize, S
         .path()
         .app_cache_dir()
         .map_err(|e| e.to_string())?
-        .join("covers");
+        .join(COVERS_DIR);
     backfill::run_cover_art_backfill(&db_path, &cache_dir)
 }
 
@@ -274,23 +279,24 @@ fn delete_playlist(db_path: String, playlist_id: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command(rename_all = "camelCase")]
-fn accept_tracks(db_path: String, track_ids: Vec<String>) -> Result<(), String> {
+/// Execute a bulk operation on tracks by ID
+fn execute_bulk_track_operation(
+    db_path: &str,
+    track_ids: &[String],
+    sql_template: &str,
+) -> Result<(), String> {
     if track_ids.is_empty() {
         return Ok(());
     }
 
-    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
+    let conn = Connection::open(db_path).map_err(|error| error.to_string())?;
 
     let placeholders: Vec<String> = track_ids
         .iter()
         .enumerate()
         .map(|(i, _)| format!("?{}", i + 1))
         .collect();
-    let sql = format!(
-        "UPDATE tracks SET import_status = 'accepted' WHERE id IN ({})",
-        placeholders.join(", ")
-    );
+    let sql = sql_template.replace("{}", &placeholders.join(", "));
 
     let params: Vec<&dyn rusqlite::ToSql> = track_ids
         .iter()
@@ -300,62 +306,29 @@ fn accept_tracks(db_path: String, track_ids: Vec<String>) -> Result<(), String> 
         .map_err(|error| error.to_string())?;
 
     Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn accept_tracks(db_path: String, track_ids: Vec<String>) -> Result<(), String> {
+    execute_bulk_track_operation(
+        &db_path,
+        &track_ids,
+        &format!("UPDATE tracks SET import_status = '{}' WHERE id IN ({{}})", STATUS_ACCEPTED),
+    )
 }
 
 #[tauri::command(rename_all = "camelCase")]
 fn unaccept_tracks(db_path: String, track_ids: Vec<String>) -> Result<(), String> {
-    if track_ids.is_empty() {
-        return Ok(());
-    }
-
-    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
-
-    let placeholders: Vec<String> = track_ids
-        .iter()
-        .enumerate()
-        .map(|(i, _)| format!("?{}", i + 1))
-        .collect();
-    let sql = format!(
-        "UPDATE tracks SET import_status = 'staged' WHERE id IN ({})",
-        placeholders.join(", ")
-    );
-
-    let params: Vec<&dyn rusqlite::ToSql> = track_ids
-        .iter()
-        .map(|id| id as &dyn rusqlite::ToSql)
-        .collect();
-    conn.execute(&sql, params.as_slice())
-        .map_err(|error| error.to_string())?;
-
-    Ok(())
+    execute_bulk_track_operation(
+        &db_path,
+        &track_ids,
+        &format!("UPDATE tracks SET import_status = '{}' WHERE id IN ({{}})", STATUS_STAGED),
+    )
 }
 
 #[tauri::command(rename_all = "camelCase")]
 fn reject_tracks(db_path: String, track_ids: Vec<String>) -> Result<(), String> {
-    if track_ids.is_empty() {
-        return Ok(());
-    }
-
-    let conn = Connection::open(&db_path).map_err(|error| error.to_string())?;
-
-    let placeholders: Vec<String> = track_ids
-        .iter()
-        .enumerate()
-        .map(|(i, _)| format!("?{}", i + 1))
-        .collect();
-    let sql = format!(
-        "DELETE FROM tracks WHERE id IN ({})",
-        placeholders.join(", ")
-    );
-
-    let params: Vec<&dyn rusqlite::ToSql> = track_ids
-        .iter()
-        .map(|id| id as &dyn rusqlite::ToSql)
-        .collect();
-    conn.execute(&sql, params.as_slice())
-        .map_err(|error| error.to_string())?;
-
-    Ok(())
+    execute_bulk_track_operation(&db_path, &track_ids, "DELETE FROM tracks WHERE id IN ({})")
 }
 
 #[derive(Clone, Serialize)]
