@@ -1,7 +1,7 @@
 use parking_lot::Mutex;
 use rodio::{source::SeekError, OutputStream, OutputStreamHandle, Sink, Source};
 use serde::Serialize;
-use souvlaki::{MediaControlEvent, MediaControls, PlatformConfig};
+use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, PlatformConfig};
 use std::collections::VecDeque;
 use std::fs::File;
 use std::path::Path;
@@ -20,6 +20,9 @@ use symphonia::core::probe::Hint;
 use symphonia::core::units::Time;
 use symphonia::default::{get_codecs, get_probe};
 use tauri::{AppHandle, Emitter};
+
+/// Global media controls - stored globally since souvlaki requires it to stay alive
+static MEDIA_CONTROLS: Mutex<Option<MediaControls>> = Mutex::new(None);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PlaybackState {
@@ -435,8 +438,9 @@ impl AudioPlayer {
                     return;
                 }
 
-                // Store controls to keep them alive - leak it since we need it for app lifetime
-                Box::leak(Box::new(controls));
+                // Store controls in global static so we can update metadata
+                let mut global_controls = MEDIA_CONTROLS.lock();
+                *global_controls = Some(controls);
             }
             Err(e) => {
                 eprintln!("Failed to create media controls: {:?}", e);
@@ -536,6 +540,7 @@ fn run_audio_thread(
                         audio_state.position_base = audio_state.state.duration;
                         audio_state.playback_started_at = None;
                         audio_state.state.current_position = audio_state.state.duration;
+                        update_media_controls_playback(false);
                         update_shared_state(&shared_state, &audio_state.state);
                         let _ = app_handle.emit("muro://playback-state", audio_state.state.clone());
                         let _ = app_handle.emit("muro://track-ended", ());
@@ -622,7 +627,11 @@ fn process_command(
             audio_state.state.is_playing = true;
             audio_state.state.duration = duration_secs;
             audio_state.state.current_position = 0.0;
-            audio_state.state.current_track = Some(track);
+            audio_state.state.current_track = Some(track.clone());
+
+            // Update media controls
+            update_media_controls_metadata(&track, duration_secs);
+            update_media_controls_playback(true);
 
             update_shared_state(shared_state, &audio_state.state);
             let _ = app_handle.emit("muro://playback-state", audio_state.state.clone());
@@ -645,6 +654,7 @@ fn process_command(
                     audio_state.playback_started_at = None;
                 }
                 audio_state.state.current_position = current_pos;
+                update_media_controls_playback(audio_state.state.is_playing);
                 update_shared_state(shared_state, &audio_state.state);
                 let _ = app_handle.emit("muro://playback-state", audio_state.state.clone());
             }
@@ -655,6 +665,7 @@ fn process_command(
                 sink.play();
                 audio_state.state.is_playing = true;
                 audio_state.playback_started_at = Some(Instant::now());
+                update_media_controls_playback(true);
                 update_shared_state(shared_state, &audio_state.state);
                 let _ = app_handle.emit("muro://playback-state", audio_state.state.clone());
             }
@@ -670,6 +681,7 @@ fn process_command(
                 audio_state.position_base = current_pos;
                 audio_state.playback_started_at = None;
                 audio_state.state.current_position = current_pos;
+                update_media_controls_playback(false);
                 update_shared_state(shared_state, &audio_state.state);
                 let _ = app_handle.emit("muro://playback-state", audio_state.state.clone());
             }
@@ -686,6 +698,7 @@ fn process_command(
             audio_state.position_base = 0.0;
             audio_state.playback_started_at = None;
 
+            clear_media_controls();
             update_shared_state(shared_state, &audio_state.state);
             let _ = app_handle.emit("muro://playback-state", audio_state.state.clone());
         }
@@ -778,6 +791,54 @@ fn handle_media_event(tx: &Sender<PlaybackCommand>, app: &AppHandle, event: Medi
             let _ = app.emit("muro://media-control", "stop");
         }
         _ => {}
+    }
+}
+
+/// Update media controls metadata when a track starts playing
+fn update_media_controls_metadata(track: &CurrentTrack, duration_secs: f64) {
+    let mut controls = MEDIA_CONTROLS.lock();
+    if let Some(ref mut controls) = *controls {
+        let duration = if duration_secs > 0.0 {
+            Some(Duration::from_secs_f64(duration_secs))
+        } else {
+            None
+        };
+
+        let metadata = MediaMetadata {
+            title: Some(&track.title),
+            artist: Some(&track.artist),
+            album: Some(&track.album),
+            duration,
+            ..Default::default()
+        };
+
+        if let Err(e) = controls.set_metadata(metadata) {
+            eprintln!("Failed to set media metadata: {:?}", e);
+        }
+    }
+}
+
+/// Update media controls playback state
+fn update_media_controls_playback(is_playing: bool) {
+    let mut controls = MEDIA_CONTROLS.lock();
+    if let Some(ref mut controls) = *controls {
+        let playback = if is_playing {
+            MediaPlayback::Playing { progress: None }
+        } else {
+            MediaPlayback::Paused { progress: None }
+        };
+
+        if let Err(e) = controls.set_playback(playback) {
+            eprintln!("Failed to set media playback state: {:?}", e);
+        }
+    }
+}
+
+/// Clear media controls when playback stops
+fn clear_media_controls() {
+    let mut controls = MEDIA_CONTROLS.lock();
+    if let Some(ref mut controls) = *controls {
+        let _ = controls.set_playback(MediaPlayback::Stopped);
     }
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useLocation, useNavigate, useMatch } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { QueuePanel } from "./components/layout/QueuePanel";
@@ -224,6 +224,23 @@ function App() {
     }
   }, [allTracks, setQueue]);
 
+  // Media control refs for skip handlers (needed before useAudioPlayback)
+  const skipPreviousRef = useRef<() => void>(() => {});
+  const skipNextRef = useRef<() => void>(() => {});
+
+  // Media control handler
+  const handleMediaControl = useCallback((action: string) => {
+    switch (action) {
+      case "next":
+        skipNextRef.current();
+        break;
+      case "previous":
+        skipPreviousRef.current();
+        break;
+      // play, pause, toggle are handled by Rust directly
+    }
+  }, []);
+
   // Audio playback
   const {
     currentPosition,
@@ -232,7 +249,7 @@ function App() {
     togglePlay,
     seek,
     setVolume,
-  } = useAudioPlayback({ onTrackEnd: handleTrackEnd, seekMode });
+  } = useAudioPlayback({ onTrackEnd: handleTrackEnd, onMediaControl: handleMediaControl, seekMode });
 
   // Skip handlers
   const handleSkipPrevious = useCallback(() => {
@@ -285,6 +302,15 @@ function App() {
       playTrack(allTracks[0]);
     }
   }, [allTracks, currentTrack, shuffleEnabled, repeatMode, playTrack, setQueue]);
+
+  // Update refs for media control handler
+  useEffect(() => {
+    skipPreviousRef.current = handleSkipPrevious;
+  }, [handleSkipPrevious]);
+
+  useEffect(() => {
+    skipNextRef.current = handleSkipNext;
+  }, [handleSkipNext]);
 
   const handlePlayTrack = useCallback(
     (trackId: string) => {
