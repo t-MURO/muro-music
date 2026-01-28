@@ -15,6 +15,9 @@ type UIState = {
   // Sorting
   sortState: SortState;
 
+  // Search
+  searchQuery: string;
+
   // Modals
   analysisTrackIds: string[];
   pendingPlaylistDrop: PlaylistDropOperation | null;
@@ -47,6 +50,9 @@ type UIActions = {
   setSortState: (state: SortState) => void;
   toggleSort: (key: ColumnConfig["key"]) => void;
 
+  // Search
+  setSearchQuery: (query: string) => void;
+
   // Analysis modal
   openAnalysisModal: (trackIds: string[]) => void;
   closeAnalysisModal: () => void;
@@ -75,6 +81,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   selectedIds: new Set<string>(),
   activeIndex: null,
   sortState: null,
+  searchQuery: "",
   analysisTrackIds: [],
   pendingPlaylistDrop: null,
   isPlaylistModalOpen: false,
@@ -136,6 +143,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
       }
       return { sortState: null };
     }),
+
+  // Search
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
 
   // Analysis Modal
   openAnalysisModal: (trackIds) => set({ analysisTrackIds: trackIds }),

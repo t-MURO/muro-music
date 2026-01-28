@@ -13,6 +13,8 @@
   "header.settings.subtitle": "Layout, Themen und Einstellungen anpassen.",
   "search.label": "Suche",
   "search.placeholder": "Titel, Artist, Album",
+  "search.clear": "Suche loschen",
+  "search.noResults": "Keine Titel gefunden",
   "columns.label": "Spalten",
   "columns.visible": "Sichtbare Spalten",
   "inbox.review": "Prufen",

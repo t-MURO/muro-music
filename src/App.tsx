@@ -36,7 +36,7 @@ import { usePlaylistOperations } from "./hooks/usePlaylistOperations";
 import { useInboxOperations } from "./hooks/useInboxOperations";
 import { useTrackAnalysis } from "./hooks/useTrackAnalysis";
 import { useLibraryInit } from "./hooks/useLibraryInit";
-import { localeOptions } from "./i18n";
+import { localeOptions, t } from "./i18n";
 import {
   useLibraryStore,
   usePlaybackStore,
@@ -47,6 +47,7 @@ import {
 } from "./stores";
 import { getPathForView } from "./utils/viewRouting";
 import { compareSortValues, getSortableValue } from "./utils/trackSorting";
+import { filterTracksBySearch } from "./utils/search";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { ColumnConfig, Track } from "./types/library";
 
@@ -86,12 +87,14 @@ function App() {
 
   const selectedIds = useUIStore((s) => s.selectedIds);
   const sortState = useUIStore((s) => s.sortState);
+  const searchQuery = useUIStore((s) => s.searchQuery);
   const importProgress = useUIStore((s) => s.importProgress);
   const pendingPlaylistDrop = useUIStore((s) => s.pendingPlaylistDrop);
   const isPlaylistModalOpen = useUIStore((s) => s.isPlaylistModalOpen);
   const playlistModalName = useUIStore((s) => s.playlistModalName);
   const selectTrack = useUIStore((s) => s.selectTrack);
   const toggleSort = useUIStore((s) => s.toggleSort);
+  const setSearchQuery = useUIStore((s) => s.setSearchQuery);
   const openPlaylistModal = useUIStore((s) => s.openPlaylistModal);
   const closePlaylistModal = useUIStore((s) => s.closePlaylistModal);
   const setPlaylistModalName = useUIStore((s) => s.setPlaylistModalName);
@@ -134,14 +137,19 @@ function App() {
     inboxTracks,
   });
 
-  // Sorting
+  // Filtering and sorting
   const displayedTracks = viewConfig.trackTable?.tracks ?? [];
+
+  // Apply search filter
+  const filteredTracks = useMemo(() => {
+    return filterTracksBySearch(displayedTracks, searchQuery);
+  }, [displayedTracks, searchQuery]);
 
   const sortedTracks = useMemo(() => {
     if (!sortState) {
-      return displayedTracks;
+      return filteredTracks;
     }
-    const next = [...displayedTracks];
+    const next = [...filteredTracks];
     next.sort((left, right) => {
       const leftValue = getSortableValue(left, sortState.key);
       const rightValue = getSortableValue(right, sortState.key);
@@ -160,7 +168,7 @@ function App() {
       return sortState.direction === "asc" ? result : -result;
     });
     return next;
-  }, [displayedTracks, sortState]);
+  }, [filteredTracks, sortState]);
 
   const handleSortChange = useCallback(
     (key: ColumnConfig["key"]) => {
@@ -652,6 +660,8 @@ function App() {
                   title={viewConfig.title}
                   subtitle={viewConfig.subtitle}
                   isSettings={viewConfig.type === "settings"}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
                 />
                 {viewConfig.trackTable && importProgress && (
                   <div className="border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] px-[var(--spacing-lg)] py-[var(--spacing-md)]">
@@ -700,27 +710,41 @@ function App() {
                         <TrackTable
                           tracks={sortedTracks}
                           columns={columns}
-                          emptyTitle={viewConfig.trackTable.emptyState.title}
+                          emptyTitle={
+                            searchQuery && sortedTracks.length === 0
+                              ? t("search.noResults")
+                              : viewConfig.trackTable.emptyState.title
+                          }
                           emptyDescription={
-                            viewConfig.trackTable.emptyState.description
+                            searchQuery && sortedTracks.length === 0
+                              ? ""
+                              : viewConfig.trackTable.emptyState.description
                           }
                           emptyActionLabel={
-                            viewConfig.trackTable.emptyState.primaryAction
-                              ?.label
+                            searchQuery && sortedTracks.length === 0
+                              ? undefined
+                              : viewConfig.trackTable.emptyState.primaryAction
+                                  ?.label
                           }
                           onEmptyAction={
-                            viewConfig.trackTable.showImportActions
-                              ? handleEmptyImport
-                              : undefined
+                            searchQuery && sortedTracks.length === 0
+                              ? undefined
+                              : viewConfig.trackTable.showImportActions
+                                ? handleEmptyImport
+                                : undefined
                           }
                           emptySecondaryActionLabel={
-                            viewConfig.trackTable.emptyState.secondaryAction
-                              ?.label
+                            searchQuery && sortedTracks.length === 0
+                              ? undefined
+                              : viewConfig.trackTable.emptyState.secondaryAction
+                                  ?.label
                           }
                           onEmptySecondaryAction={
-                            viewConfig.trackTable.showImportActions
-                              ? handleEmptyImportFolder
-                              : undefined
+                            searchQuery && sortedTracks.length === 0
+                              ? undefined
+                              : viewConfig.trackTable.showImportActions
+                                ? handleEmptyImportFolder
+                                : undefined
                           }
                           onRowSelect={handleRowSelect}
                           onRowMouseDown={onRowMouseDown}

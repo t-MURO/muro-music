@@ -13,6 +13,8 @@
   "header.settings.subtitle": "Personalize the app layout, themes, and preferences.",
   "search.label": "Search",
   "search.placeholder": "Title, artist, album",
+  "search.clear": "Clear search",
+  "search.noResults": "No tracks match your search",
   "columns.label": "Columns",
   "columns.visible": "Visible Columns",
   "inbox.review": "Review",
