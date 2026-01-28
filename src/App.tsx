@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  type CSSProperties,
-} from "react";
+import { useCallback, useEffect, useMemo, type CSSProperties } from "react";
 import { useLocation, useNavigate, useMatch } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { QueuePanel } from "./components/layout/QueuePanel";
@@ -21,6 +16,7 @@ import { AnalysisModal } from "./components/ui/AnalysisModal";
 import { DuplicateTracksModal } from "./components/ui/DuplicateTracksModal";
 import { PlaylistCreateModal } from "./components/ui/PlaylistCreateModal";
 import { PlaylistEditModal } from "./components/ui/PlaylistEditModal";
+import { ToastContainer } from "./components/ui/ToastContainer";
 import { useFileImport } from "./hooks/useFileImport";
 import { useViewConfig, type LibraryView } from "./hooks/useLibraryView";
 import { themes } from "./data/library";
@@ -39,28 +35,20 @@ import { useTrackRatings } from "./hooks/useTrackRatings";
 import { usePlaylistOperations } from "./hooks/usePlaylistOperations";
 import { useInboxOperations } from "./hooks/useInboxOperations";
 import { useTrackAnalysis } from "./hooks/useTrackAnalysis";
-import { localeOptions, t } from "./i18n";
+import { useLibraryInit } from "./hooks/useLibraryInit";
+import { localeOptions } from "./i18n";
 import {
   useLibraryStore,
   usePlaybackStore,
   useSettingsStore,
   useUIStore,
   selectAllTracks,
+  notify,
 } from "./stores";
-import {
-  backfillCoverArt,
-  backfillSearchText,
-  clearTracks,
-  loadPlaylists,
-  loadTracks,
-} from "./utils/database";
-import { importedTrackToTrack } from "./utils/importApi";
 import { getPathForView } from "./utils/viewRouting";
 import { compareSortValues, getSortableValue } from "./utils/trackSorting";
-import { confirm, open } from "@tauri-apps/plugin-dialog";
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
 import type { ColumnConfig, Track } from "./types/library";
-import { useState } from "react";
 
 function App() {
   const location = useLocation();
@@ -72,9 +60,6 @@ function App() {
   const tracks = useLibraryStore((s) => s.tracks);
   const inboxTracks = useLibraryStore((s) => s.inboxTracks);
   const playlists = useLibraryStore((s) => s.playlists);
-  const setTracks = useLibraryStore((s) => s.setTracks);
-  const setInboxTracks = useLibraryStore((s) => s.setInboxTracks);
-  const setPlaylists = useLibraryStore((s) => s.setPlaylists);
   const allTracks = useLibraryStore(selectAllTracks);
 
   const theme = useSettingsStore((s) => s.theme);
@@ -82,7 +67,6 @@ function App() {
   const seekMode = useSettingsStore((s) => s.seekMode);
   const dbPath = useSettingsStore((s) => s.dbPath);
   const dbFileName = useSettingsStore((s) => s.dbFileName);
-  const useAutoDbPath = useSettingsStore((s) => s.useAutoDbPath);
   const setTheme = useSettingsStore((s) => s.setTheme);
   const setLocale = useSettingsStore((s) => s.setLocale);
   const setSeekMode = useSettingsStore((s) => s.setSeekMode);
@@ -386,14 +370,17 @@ function App() {
     toggleQueuePanelCollapsed,
   } = useQueuePanel();
 
-  // Backfill state (local since it's settings-specific)
-  const [backfillPending, setBackfillPending] = useState(false);
-  const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
-  const [coverArtBackfillPending, setCoverArtBackfillPending] = useState(false);
-  const [coverArtBackfillStatus, setCoverArtBackfillStatus] = useState<
-    string | null
-  >(null);
-  const [clearSongsPending, setClearSongsPending] = useState(false);
+  // Library initialization and backfill
+  const {
+    backfillPending,
+    backfillStatus,
+    coverArtBackfillPending,
+    coverArtBackfillStatus,
+    clearSongsPending,
+    handleBackfillSearchText,
+    handleBackfillCoverArt,
+    handleClearSongs,
+  } = useLibraryInit();
 
   // Sidebar props
   const sidebarProps = useSidebarData({
@@ -463,121 +450,6 @@ function App() {
     };
   }, [isInternalDrag]);
 
-  // Auto-resolve DB path
-  useEffect(() => {
-    let isMounted = true;
-
-    const resolveDefaultDbPath = async () => {
-      if (!useAutoDbPath) {
-        return;
-      }
-
-      try {
-        const baseDir = await appDataDir();
-        const defaultPath = await join(baseDir, dbFileName || "muro.db");
-        if (isMounted) {
-          useSettingsStore.setState({ dbPath: defaultPath });
-        }
-      } catch (error) {
-        console.warn("Failed to resolve default db path", error);
-      }
-    };
-
-    resolveDefaultDbPath();
-    return () => {
-      isMounted = false;
-    };
-  }, [dbFileName, useAutoDbPath]);
-
-  const resolveDbPath = useCallback(async () => {
-    const trimmed = dbPath.trim();
-    if (trimmed) {
-      return trimmed;
-    }
-    const baseDir = await appDataDir();
-    return join(baseDir, dbFileName || "muro.db");
-  }, [dbFileName, dbPath]);
-
-  // Load library on mount
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadLibrary = async () => {
-      try {
-        const resolvedPath = await resolveDbPath();
-        const [snapshot, playlistSnapshot] = await Promise.all([
-          loadTracks(resolvedPath),
-          loadPlaylists(resolvedPath),
-        ]);
-        if (!isMounted) {
-          return;
-        }
-        setTracks(snapshot.library.map(importedTrackToTrack));
-        setInboxTracks(snapshot.inbox.map(importedTrackToTrack));
-        setPlaylists(
-          playlistSnapshot.playlists.map((playlist) => ({
-            id: playlist.id,
-            name: playlist.name,
-            trackIds: playlist.track_ids,
-          }))
-        );
-      } catch (error) {
-        console.error("Load tracks failed:", error);
-      }
-    };
-
-    loadLibrary();
-    return () => {
-      isMounted = false;
-    };
-  }, [resolveDbPath, setTracks, setInboxTracks, setPlaylists]);
-
-  // Backfill handlers
-  const handleBackfillSearchText = useCallback(async () => {
-    if (!dbPath.trim()) {
-      setBackfillStatus("Enter a database path to run the backfill.");
-      return;
-    }
-
-    try {
-      setBackfillPending(true);
-      setBackfillStatus("Running backfill...");
-      const updated = await backfillSearchText(dbPath.trim());
-      setBackfillStatus(`Updated ${updated} tracks.`);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Backfill failed.";
-      setBackfillStatus(message);
-    } finally {
-      setBackfillPending(false);
-    }
-  }, [dbPath]);
-
-  const handleBackfillCoverArt = useCallback(async () => {
-    if (!dbPath.trim()) {
-      setCoverArtBackfillStatus("Enter a database path to run the backfill.");
-      return;
-    }
-
-    try {
-      setCoverArtBackfillPending(true);
-      setCoverArtBackfillStatus("Extracting cover art...");
-      const updated = await backfillCoverArt(dbPath.trim());
-      setCoverArtBackfillStatus(`Extracted cover art for ${updated} tracks.`);
-      // Reload tracks to get the new cover art paths
-      const resolvedPath = await resolveDbPath();
-      const snapshot = await loadTracks(resolvedPath);
-      setTracks(snapshot.library.map(importedTrackToTrack));
-      setInboxTracks(snapshot.inbox.map(importedTrackToTrack));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Cover art extraction failed.";
-      setCoverArtBackfillStatus(message);
-    } finally {
-      setCoverArtBackfillPending(false);
-    }
-  }, [dbPath, resolveDbPath, setTracks, setInboxTracks]);
-
   // Import handlers
   const handleEmptyImport = useCallback(async () => {
     try {
@@ -607,7 +479,7 @@ function App() {
       const paths = Array.isArray(result) ? result : [result];
       handleImportPaths(paths);
     } catch (error) {
-      console.error("File picker failed:", error);
+      notify.error("File picker failed");
     }
   }, [handleImportPaths]);
 
@@ -621,7 +493,7 @@ function App() {
       const paths = Array.isArray(result) ? result : [result];
       handleImportPaths(paths);
     } catch (error) {
-      console.error("Folder picker failed:", error);
+      notify.error("Folder picker failed");
     }
   }, [handleImportPaths]);
 
@@ -635,36 +507,6 @@ function App() {
     await handleCreatePlaylist(trimmed);
     closePlaylistModal();
   }, [handleCreatePlaylist, playlistModalName, closePlaylistModal]);
-
-  // Clear songs handler
-  const handleClearSongs = useCallback(async () => {
-    if (clearSongsPending) {
-      return;
-    }
-
-    const shouldClear = await confirm(
-      t("settings.dev.clearSongs.confirm.body"),
-      {
-        title: t("settings.dev.clearSongs.confirm.title"),
-        kind: "warning",
-      }
-    );
-    if (!shouldClear) {
-      return;
-    }
-
-    setClearSongsPending(true);
-    try {
-      const resolvedPath = await resolveDbPath();
-      await clearTracks(resolvedPath);
-      setTracks([]);
-      setInboxTracks([]);
-    } catch (error) {
-      console.error("Clear songs failed:", error);
-    } finally {
-      setClearSongsPending(false);
-    }
-  }, [clearSongsPending, resolveDbPath, setTracks, setInboxTracks]);
 
   const importPercent = importProgress
     ? Math.min(
@@ -684,6 +526,7 @@ function App() {
         closePlaylistMenu();
       }}
     >
+      <ToastContainer />
       <DragOverlay
         isDragging={isDragging}
         nativeDropStatus={nativeDropStatus}

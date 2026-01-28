@@ -1,11 +1,11 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { Disc3 } from "lucide-react";
 import type { ColumnConfig, Track } from "../../types/library";
-import { RatingCell } from "./RatingCell";
 import { TableHeader } from "./TableHeader";
 import { TableEmptyState } from "./TableEmptyState";
+import { TableRow } from "./TableRow";
 import { usePlaybackStore, useUIStore } from "../../stores";
+import { LEADING_COLUMN_WIDTH, PAGE_STEP } from "../../constants/ui";
 
 type TrackTableProps = {
   tracks: Track[];
@@ -67,7 +67,6 @@ export const TrackTable = memo(
     const isCurrentlyPlaying = usePlaybackStore((s) => s.isPlaying);
     const currentTrack = usePlaybackStore((s) => s.currentTrack);
     const playingTrackId = currentTrack?.id;
-    const leadingColumnWidth = 48;
     const tableContainerRef = useRef<HTMLDivElement | null>(null);
     const [rowHeight, setRowHeight] = useState(48);
 
@@ -99,15 +98,15 @@ export const TrackTable = memo(
     const tableWidth = useMemo(() => {
       return (
         visibleColumns.reduce((total, column) => total + column.width, 0) +
-        leadingColumnWidth
+        LEADING_COLUMN_WIDTH
       );
-    }, [leadingColumnWidth, visibleColumns]);
+    }, [visibleColumns]);
     const gridTemplateColumns = useMemo(
       () =>
-        [`${leadingColumnWidth}px`, ...visibleColumns.map((column) => `${column.width}px`)].join(
+        [`${LEADING_COLUMN_WIDTH}px`, ...visibleColumns.map((column) => `${column.width}px`)].join(
           " "
         ),
-      [leadingColumnWidth, visibleColumns]
+      [visibleColumns]
     );
 
     const rowVirtualizer = useVirtualizer({
@@ -152,7 +151,6 @@ export const TrackTable = memo(
       }
 
       const current = activeIndex ?? 0;
-      const pageStep = 10;
       let nextIndex = current;
 
       if (event.key === "ArrowDown") {
@@ -160,9 +158,9 @@ export const TrackTable = memo(
       } else if (event.key === "ArrowUp") {
         nextIndex = clampIndex(current - 1);
       } else if (event.key === "PageDown") {
-        nextIndex = clampIndex(current + pageStep);
+        nextIndex = clampIndex(current + PAGE_STEP);
       } else if (event.key === "PageUp") {
-        nextIndex = clampIndex(current - pageStep);
+        nextIndex = clampIndex(current - PAGE_STEP);
       } else if (event.key === "Home") {
         nextIndex = 0;
       } else if (event.key === "End") {
@@ -180,40 +178,41 @@ export const TrackTable = memo(
       rowVirtualizer.scrollToIndex(nextIndex, { align: "auto" });
     };
 
-    const getColumnDisplayValue = (track: Track, key: ColumnConfig["key"]) => {
-      switch (key) {
-        case "artists":
-          return track.artists ?? track.artist;
-        case "trackNumber":
-          return track.trackNumber === undefined || track.trackNumber === null
-            ? ""
-            : String(track.trackNumber);
-        case "trackTotal":
-          return track.trackTotal === undefined || track.trackTotal === null
-            ? ""
-            : String(track.trackTotal);
-        case "key":
-          return track.key ?? "";
-        case "bpm":
-          return track.bpm === undefined || track.bpm === null
-            ? ""
-            : track.bpm.toFixed(1);
-        case "year":
-          return track.year === undefined || track.year === null
-            ? ""
-            : String(track.year);
-        case "date":
-          return track.date ?? "";
-        case "dateAdded":
-          return track.dateAdded ?? "";
-        case "dateModified":
-          return track.dateModified ?? "";
-        default: {
-          const value = track[key as keyof Track];
-          return value === undefined || value === null ? "" : String(value);
-        }
-      }
-    };
+    // Stable callbacks for TableRow to prevent re-renders
+    const handleRowSelectStable = useCallback(
+      (index: number, id: string, options?: { isMetaKey?: boolean; isShiftKey?: boolean }) => {
+        onRowSelect(index, id, options);
+      },
+      [onRowSelect]
+    );
+
+    const handleRowMouseDownStable = useCallback(
+      (event: React.MouseEvent, id: string) => {
+        onRowMouseDown(event, id);
+      },
+      [onRowMouseDown]
+    );
+
+    const handleRowContextMenuStable = useCallback(
+      (event: React.MouseEvent, id: string, index: number, isSelected: boolean) => {
+        onRowContextMenu(event, id, index, isSelected);
+      },
+      [onRowContextMenu]
+    );
+
+    const handleRowDoubleClickStable = useCallback(
+      (trackId: string) => {
+        onRowDoubleClick?.(trackId);
+      },
+      [onRowDoubleClick]
+    );
+
+    const handleRatingChangeStable = useCallback(
+      (id: string, rating: number) => {
+        onRatingChange(id, rating);
+      },
+      [onRatingChange]
+    );
 
     return (
       <div
@@ -228,7 +227,7 @@ export const TrackTable = memo(
         <TableHeader
           columns={visibleColumns}
           tableWidth={tableWidth}
-          leadingColumnWidth={leadingColumnWidth}
+          leadingColumnWidth={LEADING_COLUMN_WIDTH}
           gridTemplateColumns={gridTemplateColumns}
           onColumnResize={onColumnResize}
           onColumnAutoFit={onColumnAutoFit}
@@ -256,95 +255,24 @@ export const TrackTable = memo(
             if (!track) {
               return null;
             }
-            const isSelected = selectedIds.has(track.id);
-            const isPlayingTrack = track.id === playingTrackId;
-            const rowBaseClass = isSelected
-              ? "bg-[var(--color-accent-light)]"
-              : "bg-[var(--color-bg-primary)]";
             return (
-              <div
+              <TableRow
                 key={virtualRow.key}
-                className={`group grid select-none items-center ${
-                  rowBaseClass
-                } hover:bg-[var(--color-bg-hover)]`}
-                style={{
-                  gridTemplateColumns,
-                  height: "var(--table-row-height)",
-                  position: "absolute",
-                  top: virtualRow.start,
-                  left: 0,
-                  width: "100%",
-                  minWidth: tableWidth,
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onRowSelect(virtualRow.index, track.id, {
-                    isMetaKey: event.metaKey || event.ctrlKey,
-                    isShiftKey: event.shiftKey,
-                  });
-                }}
-                onDoubleClick={() => {
-                  onRowDoubleClick?.(track.id);
-                }}
-                onMouseDown={(event) => {
-                  const target = event.target as HTMLElement | null;
-                  if (target?.closest("button, input, select, textarea")) {
-                    return;
-                  }
-                  onRowMouseDown(event, track.id);
-                }}
-                onContextMenu={(event) =>
-                  onRowContextMenu(event, track.id, virtualRow.index, isSelected)
-                }
-                role="row"
-              >
-                <div
-                  className="sticky left-0 z-30 flex h-[var(--table-row-height)] items-center justify-center bg-[var(--color-bg-primary)] group-hover:bg-[var(--color-bg-hover)] relative"
-                  role="cell"
-                >
-                  {isSelected && (
-                    <span
-                      className="pointer-events-none absolute inset-0 bg-[var(--color-accent-light)]"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {isPlayingTrack && (
-                    <Disc3
-                      className={`relative z-10 h-4 w-4 shrink-0 text-[var(--color-accent)] ${
-                        isCurrentlyPlaying ? "animate-spin-slow" : ""
-                      }`}
-                    />
-                  )}
-                </div>
-                {visibleColumns.map((column) => {
-                  const value = getColumnDisplayValue(track, column.key);
-                  if (column.key === "rating") {
-                    const currentRating = Number(track.rating) || 0;
-                    return (
-                      <RatingCell
-                        key={`${track.id}-${column.key}`}
-                        trackId={track.id}
-                        title={track.title}
-                        rating={currentRating}
-                        onRate={onRatingChange}
-                      />
-                    );
-                  }
-                  const isTitleColumn = column.key === "title";
-                  const textColorClass = isPlayingTrack 
-                    ? "text-[var(--color-accent)]" 
-                    : "";
-                  return (
-                    <div
-                      key={`${track.id}-${column.key}`}
-                      className={`flex h-[var(--table-row-height)] items-center px-[var(--spacing-md)] ${isTitleColumn ? "font-medium" : ""} ${textColorClass}`}
-                      role="cell"
-                    >
-                      <span className="block truncate">{value}</span>
-                    </div>
-                  );
-                })}
-              </div>
+                track={track}
+                index={virtualRow.index}
+                isSelected={selectedIds.has(track.id)}
+                isPlayingTrack={track.id === playingTrackId}
+                isCurrentlyPlaying={isCurrentlyPlaying}
+                visibleColumns={visibleColumns}
+                gridTemplateColumns={gridTemplateColumns}
+                tableWidth={tableWidth}
+                virtualStart={virtualRow.start}
+                onRowSelect={handleRowSelectStable}
+                onRowMouseDown={handleRowMouseDownStable}
+                onRowContextMenu={handleRowContextMenuStable}
+                onRowDoubleClick={handleRowDoubleClickStable}
+                onRatingChange={handleRatingChangeStable}
+              />
             );
           })}
         </div>

@@ -5,6 +5,7 @@ type LibraryState = {
   tracks: Track[];
   inboxTracks: Track[];
   playlists: Playlist[];
+  allTracks: Track[];
 };
 
 type LibraryActions = {
@@ -33,35 +34,51 @@ export const useLibraryStore = create<LibraryStore>((set) => ({
   tracks: [],
   inboxTracks: [],
   playlists: [],
+  allTracks: [],
 
   // Track Actions
   setTracks: (tracks) =>
-    set((state) => ({
-      tracks: typeof tracks === "function" ? tracks(state.tracks) : tracks,
-    })),
+    set((state) => {
+      const newTracks = typeof tracks === "function" ? tracks(state.tracks) : tracks;
+      return {
+        tracks: newTracks,
+        allTracks: [...newTracks, ...state.inboxTracks],
+      };
+    }),
 
   updateTrack: (id, updates) =>
-    set((state) => ({
-      tracks: state.tracks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-      inboxTracks: state.inboxTracks.map((t) =>
+    set((state) => {
+      const newTracks = state.tracks.map((t) => (t.id === id ? { ...t, ...updates } : t));
+      const newInboxTracks = state.inboxTracks.map((t) =>
         t.id === id ? { ...t, ...updates } : t
-      ),
-    })),
+      );
+      return {
+        tracks: newTracks,
+        inboxTracks: newInboxTracks,
+        allTracks: [...newTracks, ...newInboxTracks],
+      };
+    }),
 
   // Inbox Actions
   setInboxTracks: (tracks) =>
-    set((state) => ({
-      inboxTracks:
-        typeof tracks === "function" ? tracks(state.inboxTracks) : tracks,
-    })),
+    set((state) => {
+      const newInboxTracks = typeof tracks === "function" ? tracks(state.inboxTracks) : tracks;
+      return {
+        inboxTracks: newInboxTracks,
+        allTracks: [...state.tracks, ...newInboxTracks],
+      };
+    }),
 
   moveToLibrary: (trackIds) => {
     const idSet = new Set(trackIds);
     set((state) => {
       const tracksToMove = state.inboxTracks.filter((t) => idSet.has(t.id));
+      const newTracks = [...tracksToMove, ...state.tracks];
+      const newInboxTracks = state.inboxTracks.filter((t) => !idSet.has(t.id));
       return {
-        inboxTracks: state.inboxTracks.filter((t) => !idSet.has(t.id)),
-        tracks: [...tracksToMove, ...state.tracks],
+        inboxTracks: newInboxTracks,
+        tracks: newTracks,
+        allTracks: [...newTracks, ...newInboxTracks],
       };
     });
   },
@@ -70,9 +87,12 @@ export const useLibraryStore = create<LibraryStore>((set) => ({
     const idSet = new Set(trackIds);
     set((state) => {
       const tracksToMove = state.tracks.filter((t) => idSet.has(t.id));
+      const newTracks = state.tracks.filter((t) => !idSet.has(t.id));
+      const newInboxTracks = [...tracksToMove, ...state.inboxTracks];
       return {
-        tracks: state.tracks.filter((t) => !idSet.has(t.id)),
-        inboxTracks: [...tracksToMove, ...state.inboxTracks],
+        tracks: newTracks,
+        inboxTracks: newInboxTracks,
+        allTracks: [...newTracks, ...newInboxTracks],
       };
     });
   },
@@ -119,10 +139,7 @@ export const useLibraryStore = create<LibraryStore>((set) => ({
 }));
 
 // Selectors
-export const selectAllTracks = (state: LibraryStore) => [
-  ...state.tracks,
-  ...state.inboxTracks,
-];
+export const selectAllTracks = (state: LibraryStore) => state.allTracks;
 
 export const selectPlaylistTracks = (state: LibraryStore, playlistId: string) => {
   const playlist = state.playlists.find((p) => p.id === playlistId);
@@ -131,4 +148,15 @@ export const selectPlaylistTracks = (state: LibraryStore, playlistId: string) =>
   return playlist.trackIds
     .map((id) => allTracks.find((t) => t.id === id))
     .filter((t): t is Track => t !== undefined);
+};
+
+export const selectTrackById = (state: LibraryStore): Map<string, Track> => {
+  const map = new Map<string, Track>();
+  for (const track of state.tracks) {
+    map.set(track.id, track);
+  }
+  for (const track of state.inboxTracks) {
+    map.set(track.id, track);
+  }
+  return map;
 };

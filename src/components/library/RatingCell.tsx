@@ -69,7 +69,6 @@ export const RatingCell = memo(
           </button>
           {[1, 2, 3, 4, 5].map((star) => {
             const fill = Math.max(0, Math.min(1, displayRating - (star - 1)));
-            const clipId = `rating-${trackId}-${star}`;
             return (
               <button
                 key={star}
@@ -89,22 +88,16 @@ export const RatingCell = memo(
                 type="button"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-                  <defs>
-                    <clipPath id={clipId}>
-                      <rect x="0" y="0" width={fill * 24} height="24" />
-                    </clipPath>
-                  </defs>
                   <path
                     d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
                     fill="var(--color-text-muted)"
                     opacity="0.3"
                   />
-                  <g clipPath={`url(#${clipId})`}>
-                    <path
-                      d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                      fill="var(--color-accent)"
-                    />
-                  </g>
+                  <path
+                    d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+                    fill="var(--color-accent)"
+                    style={{ clipPath: `inset(0 ${(1 - fill) * 100}% 0 0)` }}
+                  />
                 </svg>
               </button>
             );

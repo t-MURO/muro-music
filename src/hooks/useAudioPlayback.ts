@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { Track } from "../types/library";
-import { usePlaybackStore, trackToCurrentTrack } from "../stores";
+import { usePlaybackStore, trackToCurrentTrack, notify } from "../stores";
 import {
   playbackGetState,
   playbackPause,
@@ -127,7 +127,7 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
         const initialState = await playbackGetState();
         updateFromRustState(initialState);
       } catch (error) {
-        console.error("Failed to get initial playback state:", error);
+        notify.error("Failed to get initial playback state");
       }
     };
 
@@ -146,7 +146,9 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
     if (!seekMode) {
       return;
     }
-    playbackSetSeekMode(seekMode).catch(console.error);
+    playbackSetSeekMode(seekMode).catch(() => {
+      notify.error("Failed to set seek mode");
+    });
   }, [seekMode]);
 
   const playTrack = useCallback(
@@ -167,7 +169,7 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
         setDuration(track.durationSeconds);
         setCurrentTrack(trackToCurrentTrack(track));
       } catch (error) {
-        console.error("Failed to play track:", error);
+        notify.error("Failed to play track");
       }
     },
     [setIsPlaying, setCurrentPosition, setDuration, setCurrentTrack]
@@ -178,7 +180,7 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
       const isNowPlaying = await playbackToggle();
       setIsPlaying(isNowPlaying);
     } catch (error) {
-      console.error("Failed to toggle playback:", error);
+      notify.error("Failed to toggle playback");
     }
   }, [setIsPlaying]);
 
@@ -187,7 +189,7 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
       await playbackPlay();
       setIsPlaying(true);
     } catch (error) {
-      console.error("Failed to play:", error);
+      notify.error("Failed to play");
     }
   }, [setIsPlaying]);
 
@@ -196,7 +198,7 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
       await playbackPause();
       setIsPlaying(false);
     } catch (error) {
-      console.error("Failed to pause:", error);
+      notify.error("Failed to pause");
     }
   }, [setIsPlaying]);
 
@@ -206,7 +208,7 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
         await playbackSeek(positionSecs);
         setCurrentPosition(positionSecs);
       } catch (error) {
-        console.error("Failed to seek:", error);
+        notify.error("Failed to seek");
       }
     },
     [setCurrentPosition]
@@ -219,7 +221,7 @@ export const useAudioPlayback = (options: UseAudioPlaybackOptions = {}) => {
         await playbackSetVolume(clamped);
         setVolume(clamped);
       } catch (error) {
-        console.error("Failed to set volume:", error);
+        notify.error("Failed to set volume");
       }
     },
     [setVolume]

@@ -1,18 +1,17 @@
 import { useCallback } from "react";
-import { appDataDir, join } from "@tauri-apps/api/path";
 import { commandManager } from "../command-manager/commandManager";
-import { useLibraryStore, useSettingsStore, useUIStore } from "../stores";
+import { useLibraryStore, useUIStore, notify } from "../stores";
+import { useDbPath } from "./useDbPath";
 import { acceptTracks, rejectTracks, unacceptTracks } from "../utils/database";
 
 export const useInboxOperations = () => {
   // Get state and actions from stores
-  const dbPath = useSettingsStore((s) => s.dbPath);
-  const dbFileName = useSettingsStore((s) => s.dbFileName);
   const inboxTracks = useLibraryStore((s) => s.inboxTracks);
   const setTracks = useLibraryStore((s) => s.setTracks);
   const setInboxTracks = useLibraryStore((s) => s.setInboxTracks);
   const selectedIds = useUIStore((s) => s.selectedIds);
   const clearSelection = useUIStore((s) => s.clearSelection);
+  const resolveDbPath = useDbPath();
 
   const handleAcceptTracks = useCallback(async () => {
     const selectedTrackIds = Array.from(selectedIds);
@@ -21,11 +20,7 @@ export const useInboxOperations = () => {
     }
 
     const tracksToAccept = inboxTracks.filter((t) => selectedIds.has(t.id));
-
-    const trimmedDbPath = dbPath.trim();
-    const resolvedDbPath = trimmedDbPath
-      ? trimmedDbPath
-      : await join(await appDataDir(), dbFileName || "muro.db");
+    const resolvedDbPath = await resolveDbPath();
 
     clearSelection();
 
@@ -36,26 +31,25 @@ export const useInboxOperations = () => {
           current.filter((t) => !selectedTrackIds.includes(t.id))
         );
         setTracks((current) => [...tracksToAccept, ...current]);
-        acceptTracks(resolvedDbPath, selectedTrackIds).catch((error) =>
-          console.error("Failed to accept tracks:", error)
-        );
+        acceptTracks(resolvedDbPath, selectedTrackIds).catch(() => {
+          notify.error("Failed to accept tracks");
+        });
       },
       undo: () => {
         setTracks((current) =>
           current.filter((t) => !selectedTrackIds.includes(t.id))
         );
         setInboxTracks((current) => [...tracksToAccept, ...current]);
-        unacceptTracks(resolvedDbPath, selectedTrackIds).catch((error) =>
-          console.error("Failed to unaccept tracks:", error)
-        );
+        unacceptTracks(resolvedDbPath, selectedTrackIds).catch(() => {
+          notify.error("Failed to undo accept");
+        });
       },
     };
 
     commandManager.execute(command);
   }, [
     clearSelection,
-    dbFileName,
-    dbPath,
+    resolveDbPath,
     inboxTracks,
     selectedIds,
     setInboxTracks,
@@ -69,11 +63,7 @@ export const useInboxOperations = () => {
     }
 
     const tracksToReject = inboxTracks.filter((t) => selectedIds.has(t.id));
-
-    const trimmedDbPath = dbPath.trim();
-    const resolvedDbPath = trimmedDbPath
-      ? trimmedDbPath
-      : await join(await appDataDir(), dbFileName || "muro.db");
+    const resolvedDbPath = await resolveDbPath();
 
     clearSelection();
 
@@ -83,9 +73,9 @@ export const useInboxOperations = () => {
         setInboxTracks((current) =>
           current.filter((t) => !selectedTrackIds.includes(t.id))
         );
-        rejectTracks(resolvedDbPath, selectedTrackIds).catch((error) =>
-          console.error("Failed to reject tracks:", error)
-        );
+        rejectTracks(resolvedDbPath, selectedTrackIds).catch(() => {
+          notify.error("Failed to reject tracks");
+        });
       },
       undo: () => {
         // Note: DB deletion is permanent, this only restores frontend state
@@ -94,7 +84,7 @@ export const useInboxOperations = () => {
     };
 
     commandManager.execute(command);
-  }, [clearSelection, dbFileName, dbPath, inboxTracks, selectedIds, setInboxTracks]);
+  }, [clearSelection, resolveDbPath, inboxTracks, selectedIds, setInboxTracks]);
 
   return {
     handleAcceptTracks,

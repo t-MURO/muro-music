@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import { appDataDir, join } from "@tauri-apps/api/path";
 import { commandManager } from "../command-manager/commandManager";
-import { useLibraryStore, useSettingsStore, useUIStore } from "../stores";
+import { useLibraryStore, useUIStore, notify } from "../stores";
+import { useDbPath } from "./useDbPath";
 import {
   addTracksToPlaylist,
   createPlaylist,
@@ -19,14 +19,13 @@ export const usePlaylistOperations = ({
   navigateToView,
 }: UsePlaylistOperationsArgs) => {
   // Get state and actions from stores
-  const dbPath = useSettingsStore((s) => s.dbPath);
-  const dbFileName = useSettingsStore((s) => s.dbFileName);
   const playlists = useLibraryStore((s) => s.playlists);
   const setPlaylists = useLibraryStore((s) => s.setPlaylists);
   const playlistEditState = useUIStore((s) => s.playlistEditState);
   const openPlaylistEdit = useUIStore((s) => s.openPlaylistEdit);
   const closePlaylistEdit = useUIStore((s) => s.closePlaylistEdit);
   const setPlaylistEditName = useUIStore((s) => s.setPlaylistEditName);
+  const resolveDbPath = useDbPath();
 
   const handleOpenPlaylistEdit = useCallback(
     (playlist: { id: string; name: string }) => {
@@ -81,10 +80,7 @@ export const usePlaylistOperations = ({
         return;
       }
 
-      const trimmedDbPath = dbPath.trim();
-      const resolvedDbPath = trimmedDbPath
-        ? trimmedDbPath
-        : await join(await appDataDir(), dbFileName || "muro.db");
+      const resolvedDbPath = await resolveDbPath();
       const removedPlaylist = { ...playlist };
       const removedIndex = playlists.findIndex((p) => p.id === playlistId);
       const wasOnDeletedPlaylist = currentView === `playlist:${playlistId}`;
@@ -98,9 +94,9 @@ export const usePlaylistOperations = ({
           if (wasOnDeletedPlaylist) {
             navigateToView("library");
           }
-          deletePlaylist(resolvedDbPath, playlistId).catch((error) =>
-            console.error("Failed to delete playlist:", error)
-          );
+          deletePlaylist(resolvedDbPath, playlistId).catch(() => {
+            notify.error("Failed to delete playlist");
+          });
         },
         undo: () => {
           setPlaylists((current) => {
@@ -127,15 +123,15 @@ export const usePlaylistOperations = ({
                 );
               }
             })
-            .catch((error) =>
-              console.error("Failed to restore playlist:", error)
-            );
+            .catch(() => {
+              notify.error("Failed to restore playlist");
+            });
         },
       };
 
       commandManager.execute(command);
     },
-    [dbFileName, dbPath, navigateToView, playlists, setPlaylists, currentView]
+    [resolveDbPath, navigateToView, playlists, setPlaylists, currentView]
   );
 
   const handlePlaylistEditSubmit = useCallback(() => {

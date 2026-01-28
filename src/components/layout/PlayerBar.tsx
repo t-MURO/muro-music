@@ -15,6 +15,12 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
 import { usePlaybackStore } from "../../stores";
 
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
 type PlayerBarProps = {
   onTogglePlay: () => void;
   onSeekChange: (value: number) => void;
@@ -49,12 +55,6 @@ export const PlayerBar = ({
   const progress =
     duration > 0 ? Math.min(100, Math.max(0, (displayPosition / duration) * 100)) : 0;
   const volumePercent = volume * 100;
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const getSeekValue = useCallback(
     (clientX: number) => {

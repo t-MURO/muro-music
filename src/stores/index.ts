@@ -3,6 +3,7 @@ export {
   useLibraryStore,
   selectAllTracks,
   selectPlaylistTracks,
+  selectTrackById,
   type LibraryStore,
 } from "./libraryStore";
 export {
@@ -19,3 +20,9 @@ export {
   selectIsPlaylistEditOpen,
   type UIStore,
 } from "./uiStore";
+export {
+  useNotificationStore,
+  notify,
+  type Notification,
+  type NotificationStore,
+} from "./notificationStore";

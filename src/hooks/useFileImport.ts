@@ -1,8 +1,8 @@
-import { appDataDir, join } from "@tauri-apps/api/path";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
-import { useLibraryStore, useSettingsStore, useUIStore } from "../stores";
+import { useLibraryStore, useUIStore, notify } from "../stores";
+import { useDbPath } from "./useDbPath";
 import { addTracksToPlaylist, createPlaylist, removeLastTracksFromPlaylist } from "../utils/database";
 import { importFiles, importedTrackToTrack } from "../utils/importApi";
 import type { Playlist } from "../types/library";
@@ -28,8 +28,6 @@ export const useFileImport = ({ onImportComplete }: UseFileImportArgs = {}) => {
   const clearProgressTimerRef = useRef<number | null>(null);
 
   // Get state and actions from stores
-  const dbPath = useSettingsStore((s) => s.dbPath);
-  const dbFileName = useSettingsStore((s) => s.dbFileName);
   const playlists = useLibraryStore((s) => s.playlists);
   const setPlaylists = useLibraryStore((s) => s.setPlaylists);
   const setInboxTracks = useLibraryStore((s) => s.setInboxTracks);
@@ -41,14 +39,7 @@ export const useFileImport = ({ onImportComplete }: UseFileImportArgs = {}) => {
   const pendingPlaylistDropRef = useRef<PlaylistDropOperation | null>(null);
   pendingPlaylistDropRef.current = pendingPlaylistDrop;
 
-  const resolveDbPath = useCallback(async () => {
-    const trimmed = dbPath.trim();
-    if (trimmed) {
-      return trimmed;
-    }
-    const baseDir = await appDataDir();
-    return join(baseDir, dbFileName || "muro.db");
-  }, [dbFileName, dbPath]);
+  const resolveDbPath = useDbPath();
 
   const executePlaylistDrop = useCallback(
     async (playlistId: string, payload: string[]) => {
@@ -72,8 +63,8 @@ export const useFileImport = ({ onImportComplete }: UseFileImportArgs = {}) => {
             )
           );
           // Persist to database
-          addTracksToPlaylist(resolvedDbPath, playlistId, payload).catch((error) => {
-            console.error("Failed to persist playlist tracks:", error);
+          addTracksToPlaylist(resolvedDbPath, playlistId, payload).catch(() => {
+            notify.error("Failed to add tracks to playlist");
           });
         },
         undo: () => {
@@ -82,9 +73,9 @@ export const useFileImport = ({ onImportComplete }: UseFileImportArgs = {}) => {
               p.id === playlistId ? { ...p, trackIds: previousIds } : p
             )
           );
-          removeLastTracksFromPlaylist(resolvedDbPath, playlistId, trackCount).catch(
-            (error) => console.error("Failed to remove playlist tracks:", error)
-          );
+          removeLastTracksFromPlaylist(resolvedDbPath, playlistId, trackCount).catch(() => {
+            notify.error("Failed to undo playlist changes");
+          });
         },
       };
 
@@ -184,7 +175,7 @@ export const useFileImport = ({ onImportComplete }: UseFileImportArgs = {}) => {
           setImportProgress(null);
         }
       } catch (error) {
-        console.error("Import failed:", error);
+        notify.error("Import failed");
         setImportProgress(null);
       }
     },
@@ -223,7 +214,7 @@ export const useFileImport = ({ onImportComplete }: UseFileImportArgs = {}) => {
         const resolvedDbPath = await resolveDbPath();
         await createPlaylist(resolvedDbPath, playlist.id, playlist.name);
       } catch (error) {
-        console.error("Playlist create failed:", error);
+        notify.error("Failed to create playlist");
       }
     },
     [resolveDbPath, setPlaylists]
@@ -292,7 +283,7 @@ export const useFileImport = ({ onImportComplete }: UseFileImportArgs = {}) => {
           }
         );
       } catch (error) {
-        console.error("Failed to setup import progress listener:", error);
+        notify.error("Failed to setup import progress listener");
       }
     };
 
