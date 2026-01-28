@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
   type CSSProperties,
 } from "react";
 import { useLocation, useNavigate, useMatch } from "react-router-dom";
@@ -24,8 +23,7 @@ import { PlaylistCreateModal } from "./components/ui/PlaylistCreateModal";
 import { PlaylistEditModal } from "./components/ui/PlaylistEditModal";
 import { useFileImport } from "./hooks/useFileImport";
 import { useViewConfig, type LibraryView } from "./hooks/useLibraryView";
-import { initialInboxTracks, initialTracks, themes } from "./data/library";
-import { useAppPreferences } from "./hooks/useAppPreferences";
+import { themes } from "./data/library";
 import { useColumns } from "./hooks/useColumns";
 import { useColumnsMenu } from "./hooks/useColumnsMenu";
 import { useContextMenu } from "./hooks/useContextMenu";
@@ -34,17 +32,21 @@ import { useNativeDrag } from "./hooks/useNativeDrag";
 import { usePlaylistMenu } from "./hooks/usePlaylistMenu";
 import { usePlaylistDrag } from "./hooks/usePlaylistDrag";
 import { useAudioPlayback } from "./hooks/useAudioPlayback";
-import { useSelection } from "./hooks/useSelection";
 import { useSidebarPanel } from "./hooks/useSidebarPanel";
 import { useSidebarData } from "./hooks/useSidebarData";
 import { useHistoryNavigation } from "./hooks/useHistoryNavigation";
 import { useTrackRatings } from "./hooks/useTrackRatings";
-import { useQueueOperations } from "./hooks/useQueueOperations";
-import { usePlaybackControls } from "./hooks/usePlaybackControls";
 import { usePlaylistOperations } from "./hooks/usePlaylistOperations";
 import { useInboxOperations } from "./hooks/useInboxOperations";
 import { useTrackAnalysis } from "./hooks/useTrackAnalysis";
 import { localeOptions, t } from "./i18n";
+import {
+  useLibraryStore,
+  usePlaybackStore,
+  useSettingsStore,
+  useUIStore,
+  selectAllTracks,
+} from "./stores";
 import {
   backfillCoverArt,
   backfillSearchText,
@@ -57,13 +59,59 @@ import { getPathForView } from "./utils/viewRouting";
 import { compareSortValues, getSortableValue } from "./utils/trackSorting";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { appDataDir, join } from "@tauri-apps/api/path";
-import type { ColumnConfig, Playlist, Track } from "./types/library";
+import type { ColumnConfig, Track } from "./types/library";
+import { useState } from "react";
 
 function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const playlistMatch = useMatch("/playlists/:playlistId");
   const { canGoBack, canGoForward, goBack, goForward } = useHistoryNavigation();
+
+  // Get state from stores
+  const tracks = useLibraryStore((s) => s.tracks);
+  const inboxTracks = useLibraryStore((s) => s.inboxTracks);
+  const playlists = useLibraryStore((s) => s.playlists);
+  const setTracks = useLibraryStore((s) => s.setTracks);
+  const setInboxTracks = useLibraryStore((s) => s.setInboxTracks);
+  const setPlaylists = useLibraryStore((s) => s.setPlaylists);
+  const allTracks = useLibraryStore(selectAllTracks);
+
+  const theme = useSettingsStore((s) => s.theme);
+  const locale = useSettingsStore((s) => s.locale);
+  const seekMode = useSettingsStore((s) => s.seekMode);
+  const dbPath = useSettingsStore((s) => s.dbPath);
+  const dbFileName = useSettingsStore((s) => s.dbFileName);
+  const useAutoDbPath = useSettingsStore((s) => s.useAutoDbPath);
+  const setTheme = useSettingsStore((s) => s.setTheme);
+  const setLocale = useSettingsStore((s) => s.setLocale);
+  const setSeekMode = useSettingsStore((s) => s.setSeekMode);
+  const setDbPath = useSettingsStore((s) => s.setDbPath);
+  const setDbFileName = useSettingsStore((s) => s.setDbFileName);
+  const setUseAutoDbPath = useSettingsStore((s) => s.setUseAutoDbPath);
+
+  const shuffleEnabled = usePlaybackStore((s) => s.shuffleEnabled);
+  const repeatMode = usePlaybackStore((s) => s.repeatMode);
+  const queue = usePlaybackStore((s) => s.queue);
+  const addToQueue = usePlaybackStore((s) => s.addToQueue);
+  const playNext = usePlaybackStore((s) => s.playNext);
+  const removeFromQueue = usePlaybackStore((s) => s.removeFromQueue);
+  const clearQueue = usePlaybackStore((s) => s.clearQueue);
+  const reorderQueue = usePlaybackStore((s) => s.reorderQueue);
+  const setQueue = usePlaybackStore((s) => s.setQueue);
+
+  const selectedIds = useUIStore((s) => s.selectedIds);
+  const sortState = useUIStore((s) => s.sortState);
+  const importProgress = useUIStore((s) => s.importProgress);
+  const pendingPlaylistDrop = useUIStore((s) => s.pendingPlaylistDrop);
+  const isPlaylistModalOpen = useUIStore((s) => s.isPlaylistModalOpen);
+  const playlistModalName = useUIStore((s) => s.playlistModalName);
+  const selectTrack = useUIStore((s) => s.selectTrack);
+  const toggleSort = useUIStore((s) => s.toggleSort);
+  const openPlaylistModal = useUIStore((s) => s.openPlaylistModal);
+  const closePlaylistModal = useUIStore((s) => s.closePlaylistModal);
+  const setPlaylistModalName = useUIStore((s) => s.setPlaylistModalName);
+  const openAnalysisModal = useUIStore((s) => s.openAnalysisModal);
 
   const view = useMemo((): LibraryView => {
     if (location.pathname === "/inbox") return "inbox";
@@ -94,20 +142,6 @@ function App() {
     }
   }, [location, navigate]);
 
-  // Core state
-  const [tracks, setTracks] = useState(() => initialTracks);
-  const [inboxTracks, setInboxTracks] = useState(() => initialInboxTracks);
-  const [playlists, setPlaylists] = useState<Playlist[]>(() => []);
-  const allTracks = useMemo(
-    () => [...tracks, ...inboxTracks],
-    [tracks, inboxTracks]
-  );
-
-  // Database state
-  const [dbPath, setDbPath] = useState("");
-  const [dbFileName, setDbFileName] = useState("muro.db");
-  const [useAutoDbPath, setUseAutoDbPath] = useState(true);
-
   // View configuration
   const viewConfig = useViewConfig({
     view,
@@ -116,16 +150,8 @@ function App() {
     inboxTracks,
   });
 
-  // Preferences
-  const { locale, seekMode, setLocale, setSeekMode, setTheme, theme } =
-    useAppPreferences();
-
   // Sorting
   const displayedTracks = viewConfig.trackTable?.tracks ?? [];
-  const [sortState, setSortState] = useState<{
-    key: ColumnConfig["key"];
-    direction: "asc" | "desc";
-  } | null>(null);
 
   const sortedTracks = useMemo(() => {
     if (!sortState) {
@@ -152,26 +178,24 @@ function App() {
     return next;
   }, [displayedTracks, sortState]);
 
-  const handleSortChange = useCallback((key: ColumnConfig["key"]) => {
-    setSortState((current) => {
-      if (!current || current.key !== key) {
-        return { key, direction: "asc" };
-      }
-      if (current.direction === "asc") {
-        return { key, direction: "desc" };
-      }
-      return null;
-    });
-  }, []);
+  const handleSortChange = useCallback(
+    (key: ColumnConfig["key"]) => {
+      toggleSort(key);
+    },
+    [toggleSort]
+  );
 
-  // Selection
-  const {
-    selectedIds,
-    activeIndex,
-    handleRowSelect,
-    selectAll,
-    clearSelection,
-  } = useSelection(sortedTracks);
+  // Selection - wrap store actions for compatibility
+  const handleRowSelect = useCallback(
+    (
+      index: number,
+      id: string,
+      options?: { isMetaKey?: boolean; isShiftKey?: boolean }
+    ) => {
+      selectTrack(index, id, options, sortedTracks);
+    },
+    [selectTrack, sortedTracks]
+  );
 
   // Columns
   const {
@@ -195,59 +219,30 @@ function App() {
     openAt: openColumnsMenu,
   } = useColumnsMenu();
 
-  // Playback state
-  const [shuffleEnabled, setShuffleEnabled] = useState(false);
-  const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
+  // Queue tracks
+  const queueTracks = useMemo(() => {
+    return queue
+      .map((id) => allTracks.find((t) => t.id === id))
+      .filter((t): t is Track => t !== undefined);
+  }, [queue, allTracks]);
 
-  // Queue operations
+  // Track end handler for auto-advance
+  const handleTrackEnd = useCallback(() => {
+    const currentQueue = usePlaybackStore.getState().queue;
+
+    if (currentQueue.length > 0) {
+      const nextTrackId = currentQueue[0];
+      const nextTrack = allTracks.find((t) => t.id === nextTrackId);
+      if (nextTrack) {
+        setQueue(currentQueue.slice(1));
+        // playTrack will be called by useAudioPlayback
+      }
+    }
+  }, [allTracks, setQueue]);
+
+  // Audio playback
   const {
-    queue,
-    setQueue,
-    queueTracks,
-    addToQueue,
-    playNext,
-    removeFromQueue,
-    clearQueue,
-    reorderQueue,
-  } = useQueueOperations({ allTracks });
-
-  // Playback controls (needs to be before useAudioPlayback for handleTrackEnd)
-  const [playTrackFn, setPlayTrackFn] = useState<
-    ((track: Track) => void) | null
-  >(null);
-  const [currentPosition, setCurrentPosition] = useState(0);
-  const [currentTrackState, setCurrentTrackState] = useState<Track | null>(
-    null
-  );
-
-  const { handleTrackEnd, handleSkipNext, handlePlayTrack } = usePlaybackControls({
-    allTracks,
-    currentTrack: currentTrackState
-      ? {
-          id: currentTrackState.id,
-          title: currentTrackState.title,
-          artist: currentTrackState.artist,
-          album: currentTrackState.album,
-          sourcePath: currentTrackState.sourcePath,
-          durationSeconds: currentTrackState.durationSeconds,
-          coverArtPath: currentTrackState.coverArtPath,
-          coverArtThumbPath: currentTrackState.coverArtThumbPath,
-        }
-      : null,
     currentPosition,
-    queue,
-    setQueue,
-    shuffleEnabled,
-    repeatMode,
-    playTrack: playTrackFn ?? (() => {}),
-    seek: () => {},
-  });
-
-  const {
-    isPlaying,
-    currentPosition: audioPosition,
-    duration,
-    volume,
     currentTrack,
     playTrack,
     togglePlay,
@@ -255,27 +250,9 @@ function App() {
     setVolume,
   } = useAudioPlayback({ onTrackEnd: handleTrackEnd, seekMode });
 
-  // Update state refs after useAudioPlayback initializes
-  useEffect(() => {
-    setPlayTrackFn(() => playTrack);
-  }, [playTrack]);
-
-  useEffect(() => {
-    setCurrentPosition(audioPosition);
-  }, [audioPosition]);
-
-  useEffect(() => {
-    if (currentTrack) {
-      const track = allTracks.find((t) => t.id === currentTrack.id);
-      setCurrentTrackState(track ?? null);
-    } else {
-      setCurrentTrackState(null);
-    }
-  }, [currentTrack, allTracks]);
-
-  // Re-create skip handlers with proper seek function
-  const skipPrevious = useCallback(() => {
-    if (audioPosition > 3) {
+  // Skip handlers
+  const handleSkipPrevious = useCallback(() => {
+    if (currentPosition > 3) {
       seek(0);
       return;
     }
@@ -285,43 +262,67 @@ function App() {
     if (currentIndex > 0) {
       playTrack(allTracks[currentIndex - 1]);
     }
-  }, [audioPosition, currentTrack, allTracks, seek, playTrack]);
+  }, [currentPosition, currentTrack, allTracks, seek, playTrack]);
 
-  const toggleShuffle = useCallback(() => {
-    setShuffleEnabled((current) => !current);
-  }, []);
+  const handleSkipNext = useCallback(() => {
+    const currentQueue = usePlaybackStore.getState().queue;
 
-  const toggleRepeat = useCallback(() => {
-    setRepeatMode((current) =>
-      current === "off" ? "all" : current === "all" ? "one" : "off"
-    );
-  }, []);
+    // If there's a track in the queue, use it
+    if (currentQueue.length > 0) {
+      const nextTrackId = currentQueue[0];
+      const nextTrack = allTracks.find((t) => t.id === nextTrackId);
+      if (nextTrack) {
+        setQueue(currentQueue.slice(1));
+        playTrack(nextTrack);
+        return;
+      }
+    }
+
+    // No queue - fall back to normal progression
+    const currentIndex = currentTrack
+      ? allTracks.findIndex((t) => t.id === currentTrack.id)
+      : -1;
+
+    // Shuffle
+    if (shuffleEnabled) {
+      const randomIndex = Math.floor(Math.random() * allTracks.length);
+      playTrack(allTracks[randomIndex]);
+      return;
+    }
+
+    // Next track in list
+    if (currentIndex < allTracks.length - 1) {
+      playTrack(allTracks[currentIndex + 1]);
+      return;
+    }
+
+    // Repeat all - wrap to beginning
+    if (repeatMode === "all" && allTracks.length > 0) {
+      playTrack(allTracks[0]);
+    }
+  }, [allTracks, currentTrack, shuffleEnabled, repeatMode, playTrack, setQueue]);
+
+  const handlePlayTrack = useCallback(
+    (trackId: string) => {
+      const track = allTracks.find((t) => t.id === trackId);
+      if (track) {
+        playTrack(track);
+      }
+    },
+    [allTracks, playTrack]
+  );
 
   // Track ratings
-  const { handleRatingChange } = useTrackRatings({ setTracks });
-
-  // Import progress state
-  const [importProgress, setImportProgress] = useState<{
-    imported: number;
-    total: number;
-    phase: "scanning" | "importing";
-  } | null>(null);
+  const { handleRatingChange } = useTrackRatings();
 
   // File import and playlist drop
   const {
     handleImportPaths,
     handlePlaylistDrop,
     handleCreatePlaylist,
-    pendingPlaylistDrop,
     confirmPlaylistDropOperation,
     cancelPlaylistDropOperation,
   } = useFileImport({
-    dbPath,
-    dbFileName,
-    playlists,
-    setImportProgress,
-    setPlaylists,
-    setInboxTracks,
     onImportComplete: () => navigateToView("inbox"),
   });
 
@@ -361,37 +362,20 @@ function App() {
     handleDeletePlaylist,
     handlePlaylistEditSubmit,
   } = usePlaylistOperations({
-    dbPath,
-    dbFileName,
-    playlists,
     currentView: view,
-    setPlaylists,
     navigateToView,
   });
 
   // Inbox operations
-  const { handleAcceptTracks, handleRejectTracks } = useInboxOperations({
-    dbPath,
-    dbFileName,
-    inboxTracks,
-    selectedIds,
-    clearSelection,
-    setTracks,
-    setInboxTracks,
-  });
+  const { handleAcceptTracks, handleRejectTracks } = useInboxOperations();
 
   // Track analysis
   const {
     analysisTrackIds,
     isAnalysisModalOpen,
-    openAnalysisModal,
     closeAnalysisModal,
     handleAnalysisComplete,
-  } = useTrackAnalysis({ setTracks, setInboxTracks });
-
-  // Playlist create modal state
-  const [isPlaylistModalOpen, setPlaylistModalOpen] = useState(false);
-  const [playlistName, setPlaylistName] = useState("");
+  } = useTrackAnalysis();
 
   // Panel state
   const { sidebarWidth, startSidebarResize } = useSidebarPanel();
@@ -402,7 +386,7 @@ function App() {
     toggleQueuePanelCollapsed,
   } = useQueuePanel();
 
-  // Backfill state
+  // Backfill state (local since it's settings-specific)
   const [backfillPending, setBackfillPending] = useState(false);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [coverArtBackfillPending, setCoverArtBackfillPending] = useState(false);
@@ -414,9 +398,6 @@ function App() {
   // Sidebar props
   const sidebarProps = useSidebarData({
     view,
-    tracksCount: tracks.length,
-    inboxCount: inboxTracks.length,
-    playlists,
     draggingPlaylistId,
     canGoBack,
     canGoForward,
@@ -427,10 +408,7 @@ function App() {
     onPlaylistDragEnter,
     onPlaylistDragLeave,
     onPlaylistDragOver,
-    onCreatePlaylist: () => {
-      setPlaylistName("");
-      setPlaylistModalOpen(true);
-    },
+    onCreatePlaylist: openPlaylistModal,
     onPlaylistContextMenu: openPlaylistMenu,
   });
 
@@ -498,7 +476,7 @@ function App() {
         const baseDir = await appDataDir();
         const defaultPath = await join(baseDir, dbFileName || "muro.db");
         if (isMounted) {
-          setDbPath(defaultPath);
+          useSettingsStore.setState({ dbPath: defaultPath });
         }
       } catch (error) {
         console.warn("Failed to resolve default db path", error);
@@ -552,7 +530,7 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, [resolveDbPath]);
+  }, [resolveDbPath, setTracks, setInboxTracks, setPlaylists]);
 
   // Backfill handlers
   const handleBackfillSearchText = useCallback(async () => {
@@ -598,7 +576,7 @@ function App() {
     } finally {
       setCoverArtBackfillPending(false);
     }
-  }, [dbPath, resolveDbPath]);
+  }, [dbPath, resolveDbPath, setTracks, setInboxTracks]);
 
   // Import handlers
   const handleEmptyImport = useCallback(async () => {
@@ -649,15 +627,14 @@ function App() {
 
   // Playlist submit handler
   const handlePlaylistSubmit = useCallback(async () => {
-    const trimmed = playlistName.trim();
+    const trimmed = playlistModalName.trim();
     if (!trimmed) {
       return;
     }
 
     await handleCreatePlaylist(trimmed);
-    setPlaylistName("");
-    setPlaylistModalOpen(false);
-  }, [handleCreatePlaylist, playlistName]);
+    closePlaylistModal();
+  }, [handleCreatePlaylist, playlistModalName, closePlaylistModal]);
 
   // Clear songs handler
   const handleClearSongs = useCallback(async () => {
@@ -687,7 +664,7 @@ function App() {
     } finally {
       setClearSongsPending(false);
     }
-  }, [clearSongsPending, resolveDbPath]);
+  }, [clearSongsPending, resolveDbPath, setTracks, setInboxTracks]);
 
   const importPercent = importProgress
     ? Math.min(
@@ -715,9 +692,9 @@ function App() {
       />
       <PlaylistCreateModal
         isOpen={isPlaylistModalOpen}
-        value={playlistName}
-        onChange={setPlaylistName}
-        onClose={() => setPlaylistModalOpen(false)}
+        value={playlistModalName}
+        onChange={setPlaylistModalName}
+        onClose={closePlaylistModal}
         onSubmit={handlePlaylistSubmit}
       />
       <PlaylistEditModal
@@ -841,20 +818,12 @@ function App() {
                       onThemeChange={setTheme}
                       onLocaleChange={setLocale}
                       onSeekModeChange={setSeekMode}
-                      onDbPathChange={(value) => {
-                        setDbPath(value);
-                        setUseAutoDbPath(false);
-                      }}
-                      onDbFileNameChange={(value) => {
-                        setDbFileName(value);
-                        setUseAutoDbPath(true);
-                      }}
+                      onDbPathChange={setDbPath}
+                      onDbFileNameChange={setDbFileName}
                       onBackfillSearchText={handleBackfillSearchText}
                       onBackfillCoverArt={handleBackfillCoverArt}
                       onClearSongs={handleClearSongs}
-                      onUseDefaultLocation={() => {
-                        setUseAutoDbPath(true);
-                      }}
+                      onUseDefaultLocation={() => setUseAutoDbPath(true)}
                     />
                   ) : (
                     viewConfig.trackTable && (
@@ -862,8 +831,6 @@ function App() {
                         <TrackTable
                           tracks={sortedTracks}
                           columns={columns}
-                          selectedIds={selectedIds}
-                          activeIndex={activeIndex}
                           emptyTitle={viewConfig.trackTable.emptyState.title}
                           emptyDescription={
                             viewConfig.trackTable.emptyState.description
@@ -890,16 +857,11 @@ function App() {
                           onRowMouseDown={onRowMouseDown}
                           onRowContextMenu={handleRowContextMenu}
                           onRowDoubleClick={handlePlayTrack}
-                          playingTrackId={currentTrack?.id}
-                          isPlaying={isPlaying}
-                          onSelectAll={selectAll}
-                          onClearSelection={clearSelection}
                           onColumnResize={handleColumnResize}
                           onColumnAutoFit={autoFitColumn}
                           onColumnReorder={reorderColumns}
                           onHeaderContextMenu={openColumnsMenu}
                           onSortChange={handleSortChange}
-                          sortState={sortState}
                           onRatingChange={handleRatingChange}
                         />
                         {viewConfig.trackTable.banner === "inbox" && (
@@ -929,19 +891,10 @@ function App() {
           }
         />
         <PlayerBar
-          isPlaying={isPlaying}
-          shuffleEnabled={shuffleEnabled}
-          repeatMode={repeatMode}
-          currentPosition={audioPosition}
-          duration={duration}
-          volume={volume}
-          currentTrack={currentTrack}
           onTogglePlay={togglePlay}
-          onToggleShuffle={toggleShuffle}
-          onToggleRepeat={toggleRepeat}
           onSeekChange={seek}
           onVolumeChange={setVolume}
-          onSkipPrevious={skipPrevious}
+          onSkipPrevious={handleSkipPrevious}
           onSkipNext={handleSkipNext}
         />
       </div>

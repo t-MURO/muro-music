@@ -1,28 +1,19 @@
 import { useCallback } from "react";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { commandManager } from "../command-manager/commandManager";
+import { useLibraryStore, useSettingsStore, useUIStore } from "../stores";
 import { acceptTracks, rejectTracks, unacceptTracks } from "../utils/database";
-import type { Track } from "../types/library";
 
-type UseInboxOperationsArgs = {
-  dbPath: string;
-  dbFileName: string;
-  inboxTracks: Track[];
-  selectedIds: Set<string>;
-  clearSelection: () => void;
-  setTracks: React.Dispatch<React.SetStateAction<Track[]>>;
-  setInboxTracks: React.Dispatch<React.SetStateAction<Track[]>>;
-};
+export const useInboxOperations = () => {
+  // Get state and actions from stores
+  const dbPath = useSettingsStore((s) => s.dbPath);
+  const dbFileName = useSettingsStore((s) => s.dbFileName);
+  const inboxTracks = useLibraryStore((s) => s.inboxTracks);
+  const setTracks = useLibraryStore((s) => s.setTracks);
+  const setInboxTracks = useLibraryStore((s) => s.setInboxTracks);
+  const selectedIds = useUIStore((s) => s.selectedIds);
+  const clearSelection = useUIStore((s) => s.clearSelection);
 
-export const useInboxOperations = ({
-  dbPath,
-  dbFileName,
-  inboxTracks,
-  selectedIds,
-  clearSelection,
-  setTracks,
-  setInboxTracks,
-}: UseInboxOperationsArgs) => {
   const handleAcceptTracks = useCallback(async () => {
     const selectedTrackIds = Array.from(selectedIds);
     if (selectedTrackIds.length === 0) {

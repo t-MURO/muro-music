@@ -1,12 +1,8 @@
 import { useMemo } from "react";
-import type { Playlist } from "../types/library";
 import type { LibraryView } from "./useLibraryView";
 
 type UseSidebarDataArgs = {
   view: LibraryView;
-  tracksCount: number;
-  inboxCount: number;
-  playlists: Playlist[];
   draggingPlaylistId: string | null;
   canGoBack: boolean;
   canGoForward: boolean;
@@ -23,9 +19,6 @@ type UseSidebarDataArgs = {
 
 export const useSidebarData = ({
   view,
-  tracksCount,
-  inboxCount,
-  playlists,
   draggingPlaylistId,
   canGoBack,
   canGoForward,
@@ -42,9 +35,6 @@ export const useSidebarData = ({
   return useMemo(
     () => ({
       currentView: view,
-      trackCount: tracksCount,
-      inboxCount,
-      playlists,
       draggingPlaylistId,
       canGoBack,
       canGoForward,
@@ -62,7 +52,6 @@ export const useSidebarData = ({
       canGoBack,
       canGoForward,
       draggingPlaylistId,
-      inboxCount,
       onGoBack,
       onGoForward,
       onPlaylistContextMenu,
@@ -72,8 +61,6 @@ export const useSidebarData = ({
       onPlaylistDrop,
       onCreatePlaylist,
       onViewChange,
-      playlists,
-      tracksCount,
       view,
     ]
   );

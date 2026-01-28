@@ -5,12 +5,11 @@ import type { ColumnConfig, Track } from "../../types/library";
 import { RatingCell } from "./RatingCell";
 import { TableHeader } from "./TableHeader";
 import { TableEmptyState } from "./TableEmptyState";
+import { usePlaybackStore, useUIStore } from "../../stores";
 
 type TrackTableProps = {
   tracks: Track[];
   columns: ColumnConfig[];
-  selectedIds: Set<string>;
-  activeIndex: number | null;
   emptyTitle: string;
   emptyDescription: string;
   emptyActionLabel?: string;
@@ -30,16 +29,11 @@ type TrackTableProps = {
     isSelected: boolean
   ) => void;
   onRowDoubleClick?: (trackId: string) => void;
-  playingTrackId?: string;
-  isPlaying?: boolean;
-  onSelectAll: () => void;
-  onClearSelection: () => void;
   onColumnResize: (key: ColumnConfig["key"], width: number) => void;
   onColumnAutoFit: (key: ColumnConfig["key"]) => void;
   onColumnReorder?: (dragKey: ColumnConfig["key"], targetIndex: number) => void;
   onHeaderContextMenu?: (event: React.MouseEvent<HTMLDivElement>) => void;
   onSortChange?: (key: ColumnConfig["key"]) => void;
-  sortState?: { key: ColumnConfig["key"]; direction: "asc" | "desc" } | null;
   onRatingChange: (id: string, rating: number) => void;
 };
 
@@ -47,8 +41,6 @@ export const TrackTable = memo(
   ({
     tracks,
     columns,
-    selectedIds,
-    activeIndex,
     emptyTitle,
     emptyDescription,
     emptyActionLabel,
@@ -59,18 +51,22 @@ export const TrackTable = memo(
     onRowMouseDown,
     onRowContextMenu,
     onRowDoubleClick,
-    playingTrackId,
-    isPlaying: isCurrentlyPlaying,
-    onSelectAll,
-    onClearSelection,
     onColumnResize,
     onColumnAutoFit,
     onColumnReorder,
     onHeaderContextMenu,
     onSortChange,
-    sortState,
     onRatingChange,
   }: TrackTableProps) => {
+    // Read state from stores
+    const selectedIds = useUIStore((s) => s.selectedIds);
+    const activeIndex = useUIStore((s) => s.activeIndex);
+    const sortState = useUIStore((s) => s.sortState);
+    const selectAll = useUIStore((s) => s.selectAll);
+    const clearSelection = useUIStore((s) => s.clearSelection);
+    const isCurrentlyPlaying = usePlaybackStore((s) => s.isPlaying);
+    const currentTrack = usePlaybackStore((s) => s.currentTrack);
+    const playingTrackId = currentTrack?.id;
     const leadingColumnWidth = 48;
     const tableContainerRef = useRef<HTMLDivElement | null>(null);
     const [rowHeight, setRowHeight] = useState(48);
@@ -132,13 +128,13 @@ export const TrackTable = memo(
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
         event.preventDefault();
-        onSelectAll();
+        selectAll(tracks.map((t) => t.id));
         return;
       }
 
       if (event.key === "Escape") {
         event.preventDefault();
-        onClearSelection();
+        clearSelection();
         return;
       }
 

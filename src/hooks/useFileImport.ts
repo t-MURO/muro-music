@@ -1,10 +1,11 @@
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
+import { useLibraryStore, useSettingsStore, useUIStore } from "../stores";
 import { addTracksToPlaylist, createPlaylist, removeLastTracksFromPlaylist } from "../utils/database";
 import { importFiles, importedTrackToTrack } from "../utils/importApi";
-import type { Playlist, Track } from "../types/library";
+import type { Playlist } from "../types/library";
 
 export type ImportProgress = {
   imported: number;
@@ -19,30 +20,25 @@ export type PlaylistDropOperation = {
 };
 
 type UseFileImportArgs = {
-  dbPath: string;
-  dbFileName: string;
-  playlists: Playlist[];
-  setImportProgress: React.Dispatch<React.SetStateAction<ImportProgress | null>>;
-  setPlaylists: React.Dispatch<React.SetStateAction<Playlist[]>>;
-  setInboxTracks: React.Dispatch<React.SetStateAction<Track[]>>;
   onImportComplete?: () => void;
 };
 
-export const useFileImport = ({
-  dbPath,
-  dbFileName,
-  playlists,
-  setImportProgress,
-  setPlaylists,
-  setInboxTracks,
-  onImportComplete,
-}: UseFileImportArgs) => {
+export const useFileImport = ({ onImportComplete }: UseFileImportArgs = {}) => {
   const playlistSequenceRef = useRef(0);
   const clearProgressTimerRef = useRef<number | null>(null);
-  const [pendingPlaylistDrop, setPlaylistDropOperation] = useState<PlaylistDropOperation | null>(null);
-  const pendingPlaylistDropRef = useRef<PlaylistDropOperation | null>(null);
 
-  // Keep ref in sync with state
+  // Get state and actions from stores
+  const dbPath = useSettingsStore((s) => s.dbPath);
+  const dbFileName = useSettingsStore((s) => s.dbFileName);
+  const playlists = useLibraryStore((s) => s.playlists);
+  const setPlaylists = useLibraryStore((s) => s.setPlaylists);
+  const setInboxTracks = useLibraryStore((s) => s.setInboxTracks);
+  const pendingPlaylistDrop = useUIStore((s) => s.pendingPlaylistDrop);
+  const setPendingPlaylistDrop = useUIStore((s) => s.setPendingPlaylistDrop);
+  const setImportProgress = useUIStore((s) => s.setImportProgress);
+
+  // Ref to access current pending drop
+  const pendingPlaylistDropRef = useRef<PlaylistDropOperation | null>(null);
   pendingPlaylistDropRef.current = pendingPlaylistDrop;
 
   const resolveDbPath = useCallback(async () => {
@@ -60,7 +56,7 @@ export const useFileImport = ({
       const trackCount = payload.length;
 
       // Capture the current state before executing
-      const playlist = playlists.find((p) => p.id === playlistId);
+      const playlist = playlists.find((p: Playlist) => p.id === playlistId);
       if (!playlist) {
         return;
       }
@@ -103,7 +99,7 @@ export const useFileImport = ({
         return;
       }
 
-      const playlist = playlists.find((p) => p.id === playlistId);
+      const playlist = playlists.find((p: Playlist) => p.id === playlistId);
       if (!playlist) {
         return;
       }
@@ -112,7 +108,7 @@ export const useFileImport = ({
       const duplicateTrackIds = payload.filter((id) => existingIds.has(id));
 
       if (duplicateTrackIds.length > 0) {
-        setPlaylistDropOperation({
+        setPendingPlaylistDrop({
           playlistId,
           trackIds: payload,
           duplicateTrackIds,
@@ -122,7 +118,7 @@ export const useFileImport = ({
 
       executePlaylistDrop(playlistId, payload);
     },
-    [playlists, executePlaylistDrop]
+    [playlists, executePlaylistDrop, setPendingPlaylistDrop]
   );
 
   const confirmPlaylistDropOperation = useCallback(() => {
@@ -131,12 +127,12 @@ export const useFileImport = ({
       return;
     }
     executePlaylistDrop(pending.playlistId, pending.trackIds);
-    setPlaylistDropOperation(null);
-  }, [executePlaylistDrop]);
+    setPendingPlaylistDrop(null);
+  }, [executePlaylistDrop, setPendingPlaylistDrop]);
 
   const cancelPlaylistDropOperation = useCallback(() => {
-    setPlaylistDropOperation(null);
-  }, []);
+    setPendingPlaylistDrop(null);
+  }, [setPendingPlaylistDrop]);
 
   const handleImportPaths = useCallback(
     async (paths: string[]) => {
@@ -192,7 +188,7 @@ export const useFileImport = ({
         setImportProgress(null);
       }
     },
-    [resolveDbPath, setImportProgress, setInboxTracks]
+    [resolveDbPath, setImportProgress, setInboxTracks, onImportComplete]
   );
 
   const handleCreatePlaylist = useCallback(
@@ -233,6 +229,7 @@ export const useFileImport = ({
     [resolveDbPath, setPlaylists]
   );
 
+  // Undo/Redo keyboard handler
   useEffect(() => {
     const handleUndoRedo = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey)) {
@@ -255,6 +252,7 @@ export const useFileImport = ({
     return () => window.removeEventListener("keydown", handleUndoRedo);
   }, []);
 
+  // Import progress listener
   const importListenerSetupRef = useRef(false);
   const importUnlistenRef = useRef<(() => void) | null>(null);
 
@@ -303,7 +301,7 @@ export const useFileImport = ({
     return () => {
       importUnlistenRef.current?.();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- setImportProgress is stable, only run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setImportProgress is stable, only run once
   }, []);
 
   return {

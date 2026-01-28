@@ -1,46 +1,43 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { commandManager } from "../command-manager/commandManager";
+import { useLibraryStore, useSettingsStore, useUIStore } from "../stores";
 import {
   addTracksToPlaylist,
   createPlaylist,
   deletePlaylist,
 } from "../utils/database";
-import type { Playlist } from "../types/library";
 import type { LibraryView } from "./useLibraryView";
 
 type UsePlaylistOperationsArgs = {
-  dbPath: string;
-  dbFileName: string;
-  playlists: Playlist[];
   currentView: LibraryView;
-  setPlaylists: React.Dispatch<React.SetStateAction<Playlist[]>>;
   navigateToView: (view: LibraryView) => void;
 };
 
 export const usePlaylistOperations = ({
-  dbPath,
-  dbFileName,
-  playlists,
   currentView,
-  setPlaylists,
   navigateToView,
 }: UsePlaylistOperationsArgs) => {
-  const [isPlaylistEditOpen, setPlaylistEditOpen] = useState(false);
-  const [playlistEditName, setPlaylistEditName] = useState("");
-  const [playlistEditId, setPlaylistEditId] = useState<string | null>(null);
+  // Get state and actions from stores
+  const dbPath = useSettingsStore((s) => s.dbPath);
+  const dbFileName = useSettingsStore((s) => s.dbFileName);
+  const playlists = useLibraryStore((s) => s.playlists);
+  const setPlaylists = useLibraryStore((s) => s.setPlaylists);
+  const playlistEditState = useUIStore((s) => s.playlistEditState);
+  const openPlaylistEdit = useUIStore((s) => s.openPlaylistEdit);
+  const closePlaylistEdit = useUIStore((s) => s.closePlaylistEdit);
+  const setPlaylistEditName = useUIStore((s) => s.setPlaylistEditName);
 
-  const handleOpenPlaylistEdit = useCallback((playlist: Playlist) => {
-    setPlaylistEditId(playlist.id);
-    setPlaylistEditName(playlist.name);
-    setPlaylistEditOpen(true);
-  }, []);
+  const handleOpenPlaylistEdit = useCallback(
+    (playlist: { id: string; name: string }) => {
+      openPlaylistEdit(playlist.id, playlist.name);
+    },
+    [openPlaylistEdit]
+  );
 
   const handleClosePlaylistEdit = useCallback(() => {
-    setPlaylistEditOpen(false);
-    setPlaylistEditId(null);
-    setPlaylistEditName("");
-  }, []);
+    closePlaylistEdit();
+  }, [closePlaylistEdit]);
 
   const handleRenamePlaylist = useCallback(
     (playlistId: string, nextName: string) => {
@@ -142,21 +139,21 @@ export const usePlaylistOperations = ({
   );
 
   const handlePlaylistEditSubmit = useCallback(() => {
-    if (!playlistEditId) {
+    if (!playlistEditState) {
       return;
     }
-    const trimmed = playlistEditName.trim();
+    const trimmed = playlistEditState.name.trim();
     if (!trimmed) {
       return;
     }
-    handleRenamePlaylist(playlistEditId, trimmed);
+    handleRenamePlaylist(playlistEditState.id, trimmed);
     handleClosePlaylistEdit();
-  }, [handleRenamePlaylist, playlistEditId, playlistEditName, handleClosePlaylistEdit]);
+  }, [handleRenamePlaylist, playlistEditState, handleClosePlaylistEdit]);
 
   return {
     // Edit modal state
-    isPlaylistEditOpen,
-    playlistEditName,
+    isPlaylistEditOpen: playlistEditState !== null,
+    playlistEditName: playlistEditState?.name ?? "",
     setPlaylistEditName,
     // Handlers
     handleOpenPlaylistEdit,

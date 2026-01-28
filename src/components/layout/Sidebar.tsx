@@ -1,13 +1,10 @@
 import { ChevronLeft, ChevronRight, Inbox, Library, ListMusic, Music, Plus, Settings } from "lucide-react";
 import { t } from "../../i18n";
-import type { Playlist } from "../../types/library";
+import { useLibraryStore } from "../../stores";
 import type { LibraryView } from "../../hooks/useLibraryView";
 
 type SidebarProps = {
   currentView: LibraryView;
-  trackCount: number;
-  inboxCount: number;
-  playlists: Playlist[];
   draggingPlaylistId: string | null;
   canGoBack: boolean;
   canGoForward: boolean;
@@ -24,9 +21,6 @@ type SidebarProps = {
 
 export const Sidebar = ({
   currentView,
-  trackCount,
-  inboxCount,
-  playlists,
   draggingPlaylistId,
   canGoBack,
   canGoForward,
@@ -40,6 +34,12 @@ export const Sidebar = ({
   onCreatePlaylist,
   onPlaylistContextMenu,
 }: SidebarProps) => {
+  // Read state from store
+  const tracks = useLibraryStore((s) => s.tracks);
+  const inboxTracks = useLibraryStore((s) => s.inboxTracks);
+  const playlists = useLibraryStore((s) => s.playlists);
+  const trackCount = tracks.length;
+  const inboxCount = inboxTracks.length;
   const isLibrary = currentView === "library";
   const isInbox = currentView === "inbox";
   const isSettings = currentView === "settings";

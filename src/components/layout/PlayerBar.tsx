@@ -13,19 +13,10 @@ import {
 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
-import type { CurrentTrack } from "../../hooks/useAudioPlayback";
+import { usePlaybackStore } from "../../stores";
 
 type PlayerBarProps = {
-  isPlaying: boolean;
-  shuffleEnabled: boolean;
-  repeatMode: "off" | "all" | "one";
-  currentPosition: number;
-  duration: number;
-  volume: number;
-  currentTrack: CurrentTrack | null;
   onTogglePlay: () => void;
-  onToggleShuffle: () => void;
-  onToggleRepeat: () => void;
   onSeekChange: (value: number) => void;
   onVolumeChange: (value: number) => void;
   onSkipPrevious: () => void;
@@ -33,21 +24,22 @@ type PlayerBarProps = {
 };
 
 export const PlayerBar = ({
-  isPlaying,
-  shuffleEnabled,
-  repeatMode,
-  currentPosition,
-  duration,
-  volume,
-  currentTrack,
   onTogglePlay,
-  onToggleShuffle,
-  onToggleRepeat,
   onSeekChange,
   onVolumeChange,
   onSkipPrevious,
   onSkipNext,
 }: PlayerBarProps) => {
+  // Read state from store
+  const isPlaying = usePlaybackStore((s) => s.isPlaying);
+  const shuffleEnabled = usePlaybackStore((s) => s.shuffleEnabled);
+  const repeatMode = usePlaybackStore((s) => s.repeatMode);
+  const currentPosition = usePlaybackStore((s) => s.currentPosition);
+  const duration = usePlaybackStore((s) => s.duration);
+  const volume = usePlaybackStore((s) => s.volume);
+  const currentTrack = usePlaybackStore((s) => s.currentTrack);
+  const toggleShuffle = usePlaybackStore((s) => s.toggleShuffle);
+  const toggleRepeat = usePlaybackStore((s) => s.toggleRepeat);
   // Local state for seeking - only send to backend on release
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekValue, setSeekValue] = useState(0);
@@ -162,7 +154,7 @@ export const PlayerBar = ({
                 ? "text-[var(--color-accent)]"
                 : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
             }`}
-            onClick={onToggleShuffle}
+            onClick={toggleShuffle}
             title="Shuffle"
             type="button"
           >
@@ -202,7 +194,7 @@ export const PlayerBar = ({
                 ? "text-[var(--color-accent)]"
                 : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
             }`}
-            onClick={onToggleRepeat}
+            onClick={toggleRepeat}
             title={
               repeatMode === "off"
                 ? "Repeat"

@@ -1,28 +1,18 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
+import { useLibraryStore, useUIStore } from "../stores";
 import type { Track } from "../types/library";
 
-type UseTrackAnalysisArgs = {
-  setTracks: React.Dispatch<React.SetStateAction<Track[]>>;
-  setInboxTracks: React.Dispatch<React.SetStateAction<Track[]>>;
-};
-
-export const useTrackAnalysis = ({
-  setTracks,
-  setInboxTracks,
-}: UseTrackAnalysisArgs) => {
-  const [analysisTrackIds, setAnalysisTrackIds] = useState<string[]>([]);
-
-  const openAnalysisModal = useCallback((trackIds: string[]) => {
-    setAnalysisTrackIds(trackIds);
-  }, []);
-
-  const closeAnalysisModal = useCallback(() => {
-    setAnalysisTrackIds([]);
-  }, []);
+export const useTrackAnalysis = () => {
+  // Get state and actions from stores
+  const setTracks = useLibraryStore((s) => s.setTracks);
+  const setInboxTracks = useLibraryStore((s) => s.setInboxTracks);
+  const analysisTrackIds = useUIStore((s) => s.analysisTrackIds);
+  const openAnalysisModal = useUIStore((s) => s.openAnalysisModal);
+  const closeAnalysisModal = useUIStore((s) => s.closeAnalysisModal);
 
   const handleAnalysisComplete = useCallback(
     (results: Map<string, { bpm: number; camelot: string }>) => {
-      const updateTrackList = (trackList: Track[]) =>
+      const updateTrackList = (trackList: Track[]): Track[] =>
         trackList.map((track) => {
           const result = results.get(track.id);
           if (result) {

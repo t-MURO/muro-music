@@ -1,11 +1,9 @@
 import { useCallback } from "react";
-import type { Track } from "../types/library";
+import { useLibraryStore } from "../stores";
 
-type UseTrackRatingsArgs = {
-  setTracks: React.Dispatch<React.SetStateAction<Track[]>>;
-};
+export const useTrackRatings = () => {
+  const setTracks = useLibraryStore((s) => s.setTracks);
 
-export const useTrackRatings = ({ setTracks }: UseTrackRatingsArgs) => {
   const clampRating = (value: number) =>
     Math.max(0, Math.min(5, Math.round(value * 2) / 2));
 
