@@ -37,6 +37,7 @@ import { useInboxOperations } from "./hooks/useInboxOperations";
 import { useTrackAnalysis } from "./hooks/useTrackAnalysis";
 import { useLibraryInit } from "./hooks/useLibraryInit";
 import { usePlayTracking } from "./hooks/usePlayTracking";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { localeOptions, t } from "./i18n";
 import {
   useLibraryStore,
@@ -329,6 +330,15 @@ function App() {
   useEffect(() => {
     skipNextRef.current = handleSkipNext;
   }, [handleSkipNext]);
+
+  // Global keyboard shortcuts
+  useKeyboardShortcuts({
+    onTogglePlay: togglePlay,
+    onSkipPrevious: handleSkipPrevious,
+    onSkipNext: handleSkipNext,
+    onSeek: seek,
+    currentPosition,
+  });
 
   const handlePlayTrack = useCallback(
     (trackId: string) => {
