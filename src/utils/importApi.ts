@@ -26,6 +26,8 @@ export type ImportedTrack = {
   source_path: string;
   cover_art_path?: string;
   cover_art_thumb_path?: string;
+  last_played_at?: string;
+  play_count: number;
 };
 
 export type LibrarySnapshot = {
@@ -80,4 +82,6 @@ export const importedTrackToTrack = (imported: ImportedTrack): Track => ({
   sourcePath: imported.source_path,
   coverArtPath: imported.cover_art_path,
   coverArtThumbPath: imported.cover_art_thumb_path,
+  lastPlayedAt: imported.last_played_at,
+  playCount: imported.play_count,
 });

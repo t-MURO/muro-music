@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Inbox, Library, ListMusic, Music, Plus, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Inbox, Library, ListMusic, Music, Plus, Settings } from "lucide-react";
 import { t } from "../../i18n";
 import { useLibraryStore } from "../../stores";
 import type { LibraryView } from "../../hooks/useLibraryView";
@@ -42,6 +42,7 @@ export const Sidebar = ({
   const inboxCount = inboxTracks.length;
   const isLibrary = currentView === "library";
   const isInbox = currentView === "inbox";
+  const isRecentlyPlayed = currentView === "recentlyPlayed";
   const isSettings = currentView === "settings";
 
   return (
@@ -125,6 +126,19 @@ export const Sidebar = ({
           >
             {inboxCount}
           </span>
+        </button>
+
+        <button
+          className={`flex w-full items-center gap-[var(--spacing-sm)] rounded-[var(--radius-md)] px-[var(--spacing-md)] py-[var(--spacing-sm)] text-left text-[var(--font-size-sm)] font-medium transition-all duration-[var(--transition-fast)] ${
+            isRecentlyPlayed
+              ? "bg-[var(--color-accent)] text-white"
+              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+          }`}
+          onClick={() => onViewChange("recentlyPlayed")}
+          type="button"
+        >
+          <Clock className="h-[var(--icon-size)] w-[var(--icon-size)]" />
+          <span className="flex-1">{t("nav.recentlyPlayed")}</span>
         </button>
       </nav>
 

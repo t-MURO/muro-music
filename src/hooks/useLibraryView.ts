@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { t } from "../i18n";
 import type { Playlist, Track } from "../types/library";
 
-export type LibraryView = "library" | "inbox" | "settings" | `playlist:${string}`;
+export type LibraryView = "library" | "inbox" | "settings" | "recentlyPlayed" | `playlist:${string}`;
 
-export type ViewType = "library" | "inbox" | "settings" | "playlist";
+export type ViewType = "library" | "inbox" | "settings" | "playlist" | "recentlyPlayed";
 
 export type EmptyStateConfig = {
   title: string;
@@ -44,6 +44,7 @@ type UseViewConfigArgs = {
   playlists: Playlist[];
   libraryTracks: Track[];
   inboxTracks: Track[];
+  recentlyPlayedTracks: Track[];
 };
 
 export const useViewConfig = ({
@@ -51,6 +52,7 @@ export const useViewConfig = ({
   playlists,
   libraryTracks,
   inboxTracks,
+  recentlyPlayedTracks,
 }: UseViewConfigArgs): ViewConfig => {
   return useMemo(() => {
     const playlistId = parsePlaylistId(view);
@@ -110,6 +112,24 @@ export const useViewConfig = ({
       };
     }
 
+    // Recently Played view
+    if (view === "recentlyPlayed") {
+      return {
+        type: "recentlyPlayed",
+        title: t("header.recentlyPlayed"),
+        subtitle: t("header.recentlyPlayed.subtitle"),
+        playlist: null,
+        trackTable: {
+          tracks: recentlyPlayedTracks,
+          emptyState: {
+            title: t("recentlyPlayed.empty.title"),
+            description: t("recentlyPlayed.empty.description"),
+          },
+          showImportActions: false,
+        },
+      };
+    }
+
     // Playlist view
     if (playlist) {
       const trackMap = new Map(
@@ -152,5 +172,5 @@ export const useViewConfig = ({
         showImportActions: false,
       },
     };
-  }, [view, playlists, libraryTracks, inboxTracks]);
+  }, [view, playlists, libraryTracks, inboxTracks, recentlyPlayedTracks]);
 };

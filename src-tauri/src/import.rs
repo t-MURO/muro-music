@@ -47,6 +47,8 @@ pub struct ImportedTrack {
     pub source_path: String,
     pub cover_art_path: Option<String>,
     pub cover_art_thumb_path: Option<String>,
+    pub last_played_at: Option<String>,
+    pub play_count: i32,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -190,7 +192,7 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             "SELECT id, title, artist, album_artist, album, track_number, track_total,
                     key, bpm, year, date, added_at, updated_at, rating, duration_seconds,
                     bitrate_kbps, import_status, source_path, cover_art_path,
-                    cover_art_thumb_path
+                    cover_art_thumb_path, last_played_at, play_count
              FROM tracks ORDER BY added_at DESC",
         )
         .map_err(|error| error.to_string())?;
@@ -217,6 +219,8 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             let source_path: Option<String> = row.get(17)?;
             let cover_art_path: Option<String> = row.get(18)?;
             let cover_art_thumb_path: Option<String> = row.get(19)?;
+            let last_played_at: Option<String> = row.get(20)?;
+            let play_count: Option<i32> = row.get(21)?;
 
             let duration = duration_seconds
                 .map(|value| format_duration(value as f32))
@@ -251,6 +255,8 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
                     source_path: source_path.unwrap_or_default(),
                     cover_art_path,
                     cover_art_thumb_path,
+                    last_played_at,
+                    play_count: play_count.unwrap_or(0),
                 },
                 import_status.unwrap_or_else(|| STATUS_ACCEPTED.to_string()),
             ))
@@ -361,6 +367,90 @@ pub fn load_playlists(db_path: &str) -> Result<PlaylistSnapshot, String> {
         .collect();
 
     Ok(PlaylistSnapshot { playlists })
+}
+
+pub fn load_recently_played(conn: &Connection, limit: i32) -> Result<Vec<ImportedTrack>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, title, artist, album_artist, album, track_number, track_total,
+                    key, bpm, year, date, added_at, updated_at, rating, duration_seconds,
+                    bitrate_kbps, import_status, source_path, cover_art_path,
+                    cover_art_thumb_path, last_played_at, play_count
+             FROM tracks
+             WHERE last_played_at IS NOT NULL
+             ORDER BY last_played_at DESC
+             LIMIT ?1",
+        )
+        .map_err(|error| error.to_string())?;
+
+    let rows = stmt
+        .query_map([limit], |row| {
+            let id: String = row.get(0)?;
+            let title: Option<String> = row.get(1)?;
+            let artist: Option<String> = row.get(2)?;
+            let album_artist: Option<String> = row.get(3)?;
+            let album: Option<String> = row.get(4)?;
+            let track_number: Option<i32> = row.get(5)?;
+            let track_total: Option<i32> = row.get(6)?;
+            let key: Option<String> = row.get(7)?;
+            let bpm: Option<f64> = row.get(8)?;
+            let year: Option<i32> = row.get(9)?;
+            let date: Option<String> = row.get(10)?;
+            let added_at: Option<i64> = row.get(11)?;
+            let updated_at: Option<i64> = row.get(12)?;
+            let rating: Option<f64> = row.get(13)?;
+            let duration_seconds: Option<f64> = row.get(14)?;
+            let bitrate_kbps: Option<i32> = row.get(15)?;
+            let source_path: Option<String> = row.get(17)?;
+            let cover_art_path: Option<String> = row.get(18)?;
+            let cover_art_thumb_path: Option<String> = row.get(19)?;
+            let last_played_at: Option<String> = row.get(20)?;
+            let play_count: Option<i32> = row.get(21)?;
+
+            let duration = duration_seconds
+                .map(|value| format_duration(value as f32))
+                .unwrap_or_else(|| DEFAULT_DURATION.to_string());
+            let bitrate = bitrate_kbps
+                .filter(|value| *value > 0)
+                .map(|value| format!("{} kbps", value))
+                .unwrap_or_else(|| DEFAULT_BITRATE.to_string());
+
+            let date_added = added_at.map(format_timestamp);
+            let date_modified = updated_at.map(format_timestamp);
+
+            Ok(ImportedTrack {
+                id,
+                title: title.unwrap_or_else(|| UNKNOWN_TITLE.to_string()),
+                artist: artist.unwrap_or_else(|| UNKNOWN_ARTIST.to_string()),
+                artists: album_artist,
+                album: album.unwrap_or_else(|| UNKNOWN_ALBUM.to_string()),
+                track_number,
+                track_total,
+                key,
+                bpm,
+                year,
+                date,
+                date_added,
+                date_modified,
+                duration,
+                duration_seconds: duration_seconds.unwrap_or(0.0),
+                bitrate,
+                rating: rating.unwrap_or(0.0) as f32,
+                source_path: source_path.unwrap_or_default(),
+                cover_art_path,
+                cover_art_thumb_path,
+                last_played_at,
+                play_count: play_count.unwrap_or(0),
+            })
+        })
+        .map_err(|error| error.to_string())?;
+
+    let mut tracks = Vec::new();
+    for row in rows {
+        tracks.push(row.map_err(|error| error.to_string())?);
+    }
+
+    Ok(tracks)
 }
 
 pub fn clear_tracks(db_path: &str, cache_dir: &Path) -> Result<(), String> {
@@ -579,6 +669,8 @@ fn import_single(
         source_path: path.to_string_lossy().to_string(),
         cover_art_path,
         cover_art_thumb_path,
+        last_played_at: None,
+        play_count: 0,
     }))
 }
 
@@ -854,7 +946,7 @@ fn current_timestamp() -> i64 {
         .unwrap_or_default()
 }
 
-fn ensure_schema(conn: &Connection) -> Result<(), String> {
+pub fn ensure_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS tracks (
             id TEXT PRIMARY KEY,
@@ -912,6 +1004,11 @@ fn ensure_schema(conn: &Connection) -> Result<(), String> {
         [],
     );
     let _ = conn.execute("ALTER TABLE tracks ADD COLUMN bpm REAL", []);
+    let _ = conn.execute("ALTER TABLE tracks ADD COLUMN last_played_at TEXT", []);
+    let _ = conn.execute(
+        "ALTER TABLE tracks ADD COLUMN play_count INTEGER DEFAULT 0",
+        [],
+    );
 
     Ok(())
 }

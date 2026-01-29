@@ -184,6 +184,45 @@ fn update_track_analysis(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn record_track_play(db_path: String, track_id: String) -> Result<(), String> {
+    if !Path::new(&db_path).exists() {
+        return Err("Database not found".to_string());
+    }
+
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_secs() as i64;
+
+    // Format timestamp as ISO 8601
+    let formatted = chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp, 0)
+        .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+        .unwrap_or_default();
+
+    conn.execute(
+        "UPDATE tracks SET last_played_at = ?1, play_count = COALESCE(play_count, 0) + 1 WHERE id = ?2",
+        rusqlite::params![formatted, track_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn load_recently_played(db_path: String, limit: i32) -> Result<Vec<import::ImportedTrack>, String> {
+    if !Path::new(&db_path).exists() {
+        return Ok(Vec::new());
+    }
+
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+    import::ensure_schema(&conn)?;
+
+    import::load_recently_played(&conn, limit)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn create_playlist(db_path: String, id: String, name: String) -> Result<(), String> {
     if let Some(parent) = Path::new(&db_path).parent() {
         std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
@@ -395,6 +434,7 @@ pub fn run() {
             remove_last_tracks_from_playlist,
             load_tracks,
             load_playlists,
+            load_recently_played,
             clear_tracks,
             accept_tracks,
             unaccept_tracks,
@@ -410,7 +450,8 @@ pub fn run() {
             playback_get_state,
             playback_is_finished,
             get_track_source_path,
-            update_track_analysis
+            update_track_analysis,
+            record_track_play
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

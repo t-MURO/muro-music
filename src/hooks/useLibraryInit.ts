@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { appDataDir, join } from "@tauri-apps/api/path";
-import { useLibraryStore, useSettingsStore, notify } from "../stores";
+import { useLibraryStore, useSettingsStore, useRecentlyPlayedStore, notify } from "../stores";
 import {
   backfillCoverArt,
   backfillSearchText,
   clearTracks,
   loadPlaylists,
+  loadRecentlyPlayed,
   loadTracks,
 } from "../utils/database";
 import { importedTrackToTrack } from "../utils/importApi";
@@ -17,6 +18,7 @@ export const useLibraryInit = () => {
   const setTracks = useLibraryStore((s) => s.setTracks);
   const setInboxTracks = useLibraryStore((s) => s.setInboxTracks);
   const setPlaylists = useLibraryStore((s) => s.setPlaylists);
+  const setRecentlyPlayedTracks = useRecentlyPlayedStore((s) => s.setRecentlyPlayedTracks);
 
   const dbPath = useSettingsStore((s) => s.dbPath);
   const dbFileName = useSettingsStore((s) => s.dbFileName);
@@ -64,9 +66,10 @@ export const useLibraryInit = () => {
     const loadLibrary = async () => {
       try {
         const resolvedPath = await resolveDbPath();
-        const [snapshot, playlistSnapshot] = await Promise.all([
+        const [snapshot, playlistSnapshot, recentlyPlayedSnapshot] = await Promise.all([
           loadTracks(resolvedPath),
           loadPlaylists(resolvedPath),
+          loadRecentlyPlayed(resolvedPath, 50),
         ]);
         if (!isMounted) {
           return;
@@ -80,6 +83,7 @@ export const useLibraryInit = () => {
             trackIds: playlist.track_ids,
           }))
         );
+        setRecentlyPlayedTracks(recentlyPlayedSnapshot.map(importedTrackToTrack));
       } catch (error) {
         notify.error("Failed to load library");
       }
@@ -89,7 +93,7 @@ export const useLibraryInit = () => {
     return () => {
       isMounted = false;
     };
-  }, [resolveDbPath, setTracks, setInboxTracks, setPlaylists]);
+  }, [resolveDbPath, setTracks, setInboxTracks, setPlaylists, setRecentlyPlayedTracks]);
 
   // Backfill handlers
   const handleBackfillSearchText = useCallback(async () => {

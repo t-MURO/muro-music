@@ -21,6 +21,8 @@ export type Track = {
   sourcePath: string;
   coverArtPath?: string;
   coverArtThumbPath?: string;
+  lastPlayedAt?: string;
+  playCount: number;
 };
 
 export type Playlist = {

@@ -26,3 +26,7 @@ export {
   type Notification,
   type NotificationStore,
 } from "./notificationStore";
+export {
+  useRecentlyPlayedStore,
+  type RecentlyPlayedStore,
+} from "./recentlyPlayedStore";

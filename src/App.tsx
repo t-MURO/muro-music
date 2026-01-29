@@ -36,12 +36,14 @@ import { usePlaylistOperations } from "./hooks/usePlaylistOperations";
 import { useInboxOperations } from "./hooks/useInboxOperations";
 import { useTrackAnalysis } from "./hooks/useTrackAnalysis";
 import { useLibraryInit } from "./hooks/useLibraryInit";
+import { usePlayTracking } from "./hooks/usePlayTracking";
 import { localeOptions, t } from "./i18n";
 import {
   useLibraryStore,
   usePlaybackStore,
   useSettingsStore,
   useUIStore,
+  useRecentlyPlayedStore,
   selectAllTracks,
   notify,
 } from "./stores";
@@ -62,6 +64,8 @@ function App() {
   const inboxTracks = useLibraryStore((s) => s.inboxTracks);
   const playlists = useLibraryStore((s) => s.playlists);
   const allTracks = useLibraryStore(selectAllTracks);
+
+  const recentlyPlayedTracks = useRecentlyPlayedStore((s) => s.recentlyPlayedTracks);
 
   const theme = useSettingsStore((s) => s.theme);
   const locale = useSettingsStore((s) => s.locale);
@@ -103,6 +107,7 @@ function App() {
   const view = useMemo((): LibraryView => {
     if (location.pathname === "/inbox") return "inbox";
     if (location.pathname === "/settings") return "settings";
+    if (location.pathname === "/recently-played") return "recentlyPlayed";
     if (playlistMatch?.params.playlistId) {
       return `playlist:${playlistMatch.params.playlistId}` as LibraryView;
     }
@@ -123,6 +128,7 @@ function App() {
       pathname === "/" ||
       pathname === "/inbox" ||
       pathname === "/settings" ||
+      pathname === "/recently-played" ||
       pathname.startsWith("/playlists/");
     if (!isKnownPath) {
       navigate("/", { replace: true });
@@ -135,6 +141,7 @@ function App() {
     playlists,
     libraryTracks: tracks,
     inboxTracks,
+    recentlyPlayedTracks,
   });
 
   // Filtering and sorting
@@ -258,6 +265,9 @@ function App() {
     seek,
     setVolume,
   } = useAudioPlayback({ onTrackEnd: handleTrackEnd, onMediaControl: handleMediaControl, seekMode });
+
+  // Play tracking (30-second threshold)
+  usePlayTracking({ currentPosition, allTracks });
 
   // Skip handlers
   const handleSkipPrevious = useCallback(() => {

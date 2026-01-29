@@ -83,3 +83,18 @@ export const backfillSearchText = (dbPath: string) => {
 export const backfillCoverArt = (dbPath: string) => {
   return invoke<number>("backfill_cover_art", { dbPath });
 };
+
+// ============================================================================
+// Recently Played Operations
+// ============================================================================
+
+export const loadRecentlyPlayed = (dbPath: string, limit: number = 50) => {
+  return invoke<import("./importApi").ImportedTrack[]>("load_recently_played", {
+    dbPath,
+    limit,
+  });
+};
+
+export const recordTrackPlay = (dbPath: string, trackId: string) => {
+  return invoke<void>("record_track_play", { dbPath, trackId });
+};
