@@ -266,15 +266,6 @@ export const QueuePanel = ({
                   </div>
                 );
               })}
-              <div className="px-[var(--spacing-lg)] pt-2">
-                <button
-                  onClick={onClearQueue}
-                  className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-md)] border border-dashed border-[var(--color-border)] py-2 text-[var(--font-size-xs)] text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Clear queue
-                </button>
-              </div>
             </div>
           )}
         </div>
