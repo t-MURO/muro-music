@@ -13,6 +13,7 @@ export { useHistoryNavigation } from "./useHistoryNavigation";
 export { useAppPreferences } from "./useAppPreferences";
 export { useTrackRatings } from "./useTrackRatings";
 export { useTrackAnalysis } from "./useTrackAnalysis";
+export { useTrackEdit } from "./useTrackEdit";
 export { useSidebarData } from "./useSidebarData";
 export { useDbPath } from "./useDbPath";
 export {

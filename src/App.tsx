@@ -15,6 +15,7 @@ import {
   PlaylistContextMenu,
   AnalysisModal,
   DuplicateTracksModal,
+  EditTrackModal,
   PlaylistCreateModal,
   PlaylistEditModal,
   ToastContainer,
@@ -37,6 +38,7 @@ import {
   usePlaylistOperations,
   useInboxOperations,
   useTrackAnalysis,
+  useTrackEdit,
   useLibraryInit,
   usePlayTracking,
   useKeyboardShortcuts,
@@ -418,6 +420,15 @@ function App() {
     handleAnalysisComplete,
   } = useTrackAnalysis();
 
+  // Track editing
+  const {
+    editTrackIds,
+    isEditModalOpen,
+    openEditModal,
+    closeEditModal,
+    handleSaveMetadata,
+  } = useTrackEdit();
+
   // Panel state
   const { sidebarWidth, startSidebarResize } = useSidebarPanel();
   const {
@@ -476,6 +487,11 @@ function App() {
     openAnalysisModal(menuSelection);
     closeMenu();
   }, [menuSelection, closeMenu, openAnalysisModal]);
+
+  const handleEdit = useCallback(() => {
+    openEditModal(menuSelection);
+    closeMenu();
+  }, [menuSelection, closeMenu, openEditModal]);
 
   // Playlist menu handlers
   const handlePlaylistMenuEdit = useCallback(() => {
@@ -625,6 +641,14 @@ function App() {
         onClose={closeAnalysisModal}
         onAnalysisComplete={handleAnalysisComplete}
       />
+      <EditTrackModal
+        isOpen={isEditModalOpen}
+        tracks={editTrackIds
+          .map((id) => allTracks.find((t) => t.id === id))
+          .filter((t): t is Track => t !== undefined)}
+        onClose={closeEditModal}
+        onSave={handleSaveMetadata}
+      />
       <div
         className="grid h-screen grid-cols-[var(--sidebar-width)_1fr_var(--queue-width)] grid-rows-[1fr_auto_var(--media-controls-height)] overflow-hidden"
         style={
@@ -664,6 +688,7 @@ function App() {
                   closeMenu();
                 }}
                 onShowBpmKey={handleShowBpmKey}
+                onEdit={handleEdit}
               />
               <PlaylistContextMenu
                 isOpen={isPlaylistMenuOpen}

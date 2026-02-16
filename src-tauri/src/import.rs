@@ -47,6 +47,11 @@ pub struct ImportedTrack {
     pub source_path: String,
     pub cover_art_path: Option<String>,
     pub cover_art_thumb_path: Option<String>,
+    pub genre: Option<String>,
+    pub comment: Option<String>,
+    pub label: Option<String>,
+    pub disc_number: Option<i32>,
+    pub disc_total: Option<i32>,
     pub last_played_at: Option<String>,
     pub play_count: i32,
 }
@@ -192,7 +197,8 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             "SELECT id, title, artist, album_artist, album, track_number, track_total,
                     key, bpm, year, date, added_at, updated_at, rating, duration_seconds,
                     bitrate_kbps, import_status, source_path, cover_art_path,
-                    cover_art_thumb_path, last_played_at, play_count
+                    cover_art_thumb_path, last_played_at, play_count,
+                    genre_json, comment_json, label, disc_number, disc_total
              FROM tracks ORDER BY added_at DESC",
         )
         .map_err(|error| error.to_string())?;
@@ -221,6 +227,11 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
             let cover_art_thumb_path: Option<String> = row.get(19)?;
             let last_played_at: Option<String> = row.get(20)?;
             let play_count: Option<i32> = row.get(21)?;
+            let genre_json: Option<String> = row.get(22)?;
+            let comment_json: Option<String> = row.get(23)?;
+            let label: Option<String> = row.get(24)?;
+            let disc_number: Option<i32> = row.get(25)?;
+            let disc_total: Option<i32> = row.get(26)?;
 
             let duration = duration_seconds
                 .map(|value| format_duration(value as f32))
@@ -255,6 +266,11 @@ pub fn load_tracks(db_path: &str) -> Result<LibrarySnapshot, String> {
                     source_path: source_path.unwrap_or_default(),
                     cover_art_path,
                     cover_art_thumb_path,
+                    genre: json_array_to_csv(&genre_json),
+                    comment: json_array_to_csv(&comment_json),
+                    label,
+                    disc_number,
+                    disc_total,
                     last_played_at,
                     play_count: play_count.unwrap_or(0),
                 },
@@ -375,7 +391,8 @@ pub fn load_recently_played(conn: &Connection, limit: i32) -> Result<Vec<Importe
             "SELECT id, title, artist, album_artist, album, track_number, track_total,
                     key, bpm, year, date, added_at, updated_at, rating, duration_seconds,
                     bitrate_kbps, import_status, source_path, cover_art_path,
-                    cover_art_thumb_path, last_played_at, play_count
+                    cover_art_thumb_path, last_played_at, play_count,
+                    genre_json, comment_json, label, disc_number, disc_total
              FROM tracks
              WHERE last_played_at IS NOT NULL
              ORDER BY last_played_at DESC
@@ -406,6 +423,11 @@ pub fn load_recently_played(conn: &Connection, limit: i32) -> Result<Vec<Importe
             let cover_art_thumb_path: Option<String> = row.get(19)?;
             let last_played_at: Option<String> = row.get(20)?;
             let play_count: Option<i32> = row.get(21)?;
+            let genre_json: Option<String> = row.get(22)?;
+            let comment_json: Option<String> = row.get(23)?;
+            let label: Option<String> = row.get(24)?;
+            let disc_number: Option<i32> = row.get(25)?;
+            let disc_total: Option<i32> = row.get(26)?;
 
             let duration = duration_seconds
                 .map(|value| format_duration(value as f32))
@@ -439,6 +461,11 @@ pub fn load_recently_played(conn: &Connection, limit: i32) -> Result<Vec<Importe
                 source_path: source_path.unwrap_or_default(),
                 cover_art_path,
                 cover_art_thumb_path,
+                genre: json_array_to_csv(&genre_json),
+                comment: json_array_to_csv(&comment_json),
+                label,
+                disc_number,
+                disc_total,
                 last_played_at,
                 play_count: play_count.unwrap_or(0),
             })
@@ -648,6 +675,17 @@ fn import_single(
 
     let date_added = Some(format_timestamp(now));
 
+    let genre_csv = if metadata.genres.is_empty() {
+        None
+    } else {
+        Some(metadata.genres.join(", "))
+    };
+    let comment_csv = if metadata.comments.is_empty() {
+        None
+    } else {
+        Some(metadata.comments.join(", "))
+    };
+
     Ok(Some(ImportedTrack {
         id,
         title,
@@ -669,6 +707,11 @@ fn import_single(
         source_path: path.to_string_lossy().to_string(),
         cover_art_path,
         cover_art_thumb_path,
+        genre: genre_csv,
+        comment: comment_csv,
+        label: metadata.label.clone(),
+        disc_number: metadata.disc_number,
+        disc_total: metadata.disc_total,
         last_played_at: None,
         play_count: 0,
     }))
@@ -944,6 +987,17 @@ fn current_timestamp() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_secs() as i64)
         .unwrap_or_default()
+}
+
+fn json_array_to_csv(json: &Option<String>) -> Option<String> {
+    json.as_ref().and_then(|s| {
+        let items: Vec<String> = serde_json::from_str(s).ok()?;
+        if items.is_empty() {
+            None
+        } else {
+            Some(items.join(", "))
+        }
+    })
 }
 
 pub fn ensure_schema(conn: &Connection) -> Result<(), String> {

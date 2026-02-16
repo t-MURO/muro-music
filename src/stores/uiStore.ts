@@ -20,6 +20,7 @@ type UIState = {
 
   // Modals
   analysisTrackIds: string[];
+  editTrackIds: string[];
   pendingPlaylistDrop: PlaylistDropOperation | null;
   isPlaylistModalOpen: boolean;
   playlistModalName: string;
@@ -57,6 +58,10 @@ type UIActions = {
   openAnalysisModal: (trackIds: string[]) => void;
   closeAnalysisModal: () => void;
 
+  // Edit modal
+  openEditModal: (trackIds: string[]) => void;
+  closeEditModal: () => void;
+
   // Playlist drop
   setPendingPlaylistDrop: (drop: PlaylistDropOperation | null) => void;
 
@@ -83,6 +88,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   sortState: null,
   searchQuery: "",
   analysisTrackIds: [],
+  editTrackIds: [],
   pendingPlaylistDrop: null,
   isPlaylistModalOpen: false,
   playlistModalName: "",
@@ -151,6 +157,10 @@ export const useUIStore = create<UIStore>((set, get) => ({
   openAnalysisModal: (trackIds) => set({ analysisTrackIds: trackIds }),
   closeAnalysisModal: () => set({ analysisTrackIds: [] }),
 
+  // Edit Modal
+  openEditModal: (trackIds) => set({ editTrackIds: trackIds }),
+  closeEditModal: () => set({ editTrackIds: [] }),
+
   // Playlist Drop
   setPendingPlaylistDrop: (pendingPlaylistDrop) => set({ pendingPlaylistDrop }),
 
@@ -179,3 +189,6 @@ export const selectIsAnalysisModalOpen = (state: UIStore) =>
 
 export const selectIsPlaylistEditOpen = (state: UIStore) =>
   state.playlistEditState !== null;
+
+export const selectIsEditModalOpen = (state: UIStore) =>
+  state.editTrackIds.length > 0;

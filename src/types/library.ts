@@ -21,8 +21,33 @@ export type Track = {
   sourcePath: string;
   coverArtPath?: string;
   coverArtThumbPath?: string;
+  genre?: string;
+  comment?: string;
+  label?: string;
+  discNumber?: number;
+  discTotal?: number;
   lastPlayedAt?: string;
   playCount: number;
+};
+
+export type TrackMetadataUpdates = {
+  title?: string;
+  artist?: string;
+  artists?: string;
+  album?: string;
+  trackNumber?: number;
+  trackTotal?: number;
+  discNumber?: number;
+  discTotal?: number;
+  year?: number;
+  genre?: string;
+  comment?: string;
+  label?: string;
+  bpm?: number;
+  key?: string;
+  rating?: number;
+  coverArtPath?: string;
+  coverArtThumbPath?: string;
 };
 
 export type Playlist = {

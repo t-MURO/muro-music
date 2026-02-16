@@ -1,1 +1,1 @@
-export type { Track, Playlist, ColumnKey, ColumnConfig } from "./library";
+export type { Track, TrackMetadataUpdates, Playlist, ColumnKey, ColumnConfig } from "./library";

@@ -26,6 +26,11 @@ export type ImportedTrack = {
   source_path: string;
   cover_art_path?: string;
   cover_art_thumb_path?: string;
+  genre?: string;
+  comment?: string;
+  label?: string;
+  disc_number?: number;
+  disc_total?: number;
   last_played_at?: string;
   play_count: number;
 };
@@ -82,6 +87,11 @@ export const importedTrackToTrack = (imported: ImportedTrack): Track => ({
   sourcePath: imported.source_path,
   coverArtPath: imported.cover_art_path,
   coverArtThumbPath: imported.cover_art_thumb_path,
+  genre: imported.genre,
+  comment: imported.comment,
+  label: imported.label,
+  discNumber: imported.disc_number,
+  discTotal: imported.disc_total,
   lastPlayedAt: imported.last_played_at,
   playCount: imported.play_count,
 });

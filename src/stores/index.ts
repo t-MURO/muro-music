@@ -17,6 +17,7 @@ export {
 export {
   useUIStore,
   selectIsAnalysisModalOpen,
+  selectIsEditModalOpen,
   selectIsPlaylistEditOpen,
   type UIStore,
 } from "./uiStore";

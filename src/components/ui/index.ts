@@ -2,6 +2,7 @@ export { AnalysisModal } from "./AnalysisModal";
 export { ContextMenu } from "./ContextMenu";
 export { DragOverlay } from "./DragOverlay";
 export { DuplicateTracksModal } from "./DuplicateTracksModal";
+export { EditTrackModal } from "./EditTrackModal";
 export { PlaylistContextMenu } from "./PlaylistContextMenu";
 export { PlaylistCreateModal } from "./PlaylistCreateModal";
 export { PlaylistEditModal } from "./PlaylistEditModal";

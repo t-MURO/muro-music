@@ -20,6 +20,7 @@ export {
   ContextMenu,
   DragOverlay,
   DuplicateTracksModal,
+  EditTrackModal,
   PlaylistContextMenu,
   PlaylistCreateModal,
   PlaylistEditModal,
