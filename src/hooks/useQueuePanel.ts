@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useStickyState } from "./useStickyState";
-import { parseDetailWidth } from "../utils/storage";
+import { parseDetailWidth } from "../utils";
 import { useResizable } from "./useResizable";
 
 export const useQueuePanel = () => {

@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Clock, Inbox, Library, ListMusic, Music, Plus, Settings } from "lucide-react";
 import { t } from "../../i18n";
 import { useLibraryStore } from "../../stores";
-import type { LibraryView } from "../../hooks/useLibraryView";
+import type { LibraryView } from "../../hooks";
 
 type SidebarProps = {
   currentView: LibraryView;

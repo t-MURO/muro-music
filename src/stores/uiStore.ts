@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ColumnConfig } from "../types/library";
+import type { ColumnConfig } from "../types";
 import type { PlaylistDropOperation } from "../hooks/useFileImport";
 
 type SortState = {

@@ -2,11 +2,7 @@ import { useCallback } from "react";
 import { commandManager } from "../command-manager/commandManager";
 import { useLibraryStore, useUIStore, notify } from "../stores";
 import { useDbPath } from "./useDbPath";
-import {
-  addTracksToPlaylist,
-  createPlaylist,
-  deletePlaylist,
-} from "../utils/database";
+import { addTracksToPlaylist, createPlaylist, deletePlaylist } from "../utils";
 import type { LibraryView } from "./useLibraryView";
 
 type UsePlaylistOperationsArgs = {

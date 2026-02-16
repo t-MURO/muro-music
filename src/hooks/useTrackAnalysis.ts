@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useLibraryStore, useUIStore } from "../stores";
-import type { Track } from "../types/library";
+import type { Track } from "../types";
 
 export const useTrackAnalysis = () => {
   // Get state and actions from stores

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Playlist, Track } from "../types/library";
+import type { Playlist, Track } from "../types";
 
 type LibraryState = {
   tracks: Track[];

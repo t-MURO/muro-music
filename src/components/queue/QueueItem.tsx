@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import { Music2, X } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { Track } from "../../types/library";
+import type { Track } from "../../types";
 
 type QueueItemProps = {
   track: Track;

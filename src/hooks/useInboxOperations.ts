@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { commandManager } from "../command-manager/commandManager";
 import { useLibraryStore, useUIStore, notify } from "../stores";
 import { useDbPath } from "./useDbPath";
-import { acceptTracks, rejectTracks, unacceptTracks } from "../utils/database";
+import { acceptTracks, rejectTracks, unacceptTracks } from "../utils";
 
 export const useInboxOperations = () => {
   // Get state and actions from stores

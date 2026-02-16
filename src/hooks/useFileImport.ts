@@ -3,9 +3,8 @@ import { useCallback, useEffect, useRef } from "react";
 import { commandManager, type Command } from "../command-manager/commandManager";
 import { useLibraryStore, useUIStore, notify } from "../stores";
 import { useDbPath } from "./useDbPath";
-import { addTracksToPlaylist, createPlaylist, removeLastTracksFromPlaylist } from "../utils/database";
-import { importFiles, importedTrackToTrack } from "../utils/importApi";
-import type { Playlist } from "../types/library";
+import { addTracksToPlaylist, createPlaylist, removeLastTracksFromPlaylist, importFiles, importedTrackToTrack } from "../utils";
+import type { Playlist } from "../types";
 
 export type ImportProgress = {
   imported: number;

@@ -1,4 +1,4 @@
-import type { ColumnConfig, Track } from "../types/library";
+import type { ColumnConfig, Track } from "../types";
 
 /**
  * Gets a sortable value from a track based on the column key.

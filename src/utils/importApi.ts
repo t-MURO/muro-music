@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Track } from "../types/library";
+import type { Track } from "../types";
 
 // ============================================================================
 // Types

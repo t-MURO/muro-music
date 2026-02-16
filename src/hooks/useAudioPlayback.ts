@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
-import type { Track } from "../types/library";
+import type { Track } from "../types";
 import { usePlaybackStore, trackToCurrentTrack, notify } from "../stores";
 import {
   playbackGetState,
@@ -12,7 +12,7 @@ import {
   playbackSetVolume,
   playbackToggle,
   type PlaybackState,
-} from "../utils/playbackApi";
+} from "../utils";
 
 // Re-export CurrentTrack from store for backwards compatibility
 export type { CurrentTrack } from "../stores";

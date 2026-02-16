@@ -1,4 +1,4 @@
-import type { Track } from "../types/library";
+import type { Track } from "../types";
 
 /**
  * Normalize a string for search comparison.

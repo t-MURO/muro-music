@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { t } from "../../i18n";
-import { useResizable } from "../../hooks/useResizable";
-import type { ColumnConfig } from "../../types/library";
+import { useResizable } from "../../hooks";
+import type { ColumnConfig } from "../../types";
 
 type SortState = {
   key: ColumnConfig["key"];

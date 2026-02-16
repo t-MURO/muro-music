@@ -4,8 +4,8 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
 import { useDragSession } from "../../contexts/DragSessionContext";
 import { NowPlayingTrack } from "../queue/NowPlayingTrack";
-import type { Track } from "../../types/library";
-import type { CurrentTrack } from "../../hooks/useAudioPlayback";
+import type { Track } from "../../types";
+import type { CurrentTrack } from "../../hooks";
 
 type QueuePanelProps = {
   collapsed: boolean;
@@ -186,6 +186,15 @@ export const QueuePanel = ({
             <h3 className="flex-1 text-[var(--font-size-xs)] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
               {t("panel.queue")}
             </h3>
+            {queueTracks.length > 0 && (
+              <button
+                onClick={onClearQueue}
+                className="rounded p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)]"
+                title="Clear queue"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {queueTracks.length === 0 ? (

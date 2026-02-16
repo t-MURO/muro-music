@@ -1,9 +1,7 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { usePlaybackStore } from "../stores/playbackStore";
-import { useRecentlyPlayedStore } from "../stores/recentlyPlayedStore";
-import { useSettingsStore } from "../stores/settingsStore";
-import type { Track } from "../types/library";
+import { usePlaybackStore, useRecentlyPlayedStore, useSettingsStore } from "../stores";
+import type { Track } from "../types";
 
 const PLAY_THRESHOLD_SECONDS = 30;
 

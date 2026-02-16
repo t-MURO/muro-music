@@ -9,7 +9,7 @@ import {
   type AnalysisResult,
   type BpmRange,
 } from "../../lib/analyzer";
-import type { Track } from "../../types/library";
+import type { Track } from "../../types";
 
 type TrackAnalysis = {
   track: Track;

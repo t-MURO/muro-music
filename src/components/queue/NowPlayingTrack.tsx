@@ -1,7 +1,7 @@
 import { Disc3, Music2 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "../../i18n";
-import type { CurrentTrack } from "../../hooks/useAudioPlayback";
+import type { CurrentTrack } from "../../hooks";
 
 type NowPlayingTrackProps = {
   currentTrack: CurrentTrack | null;

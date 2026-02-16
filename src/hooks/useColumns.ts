@@ -1,9 +1,9 @@
 import { useCallback } from "react";
 import { baseColumns } from "../data/library";
 import { t } from "../i18n";
-import type { ColumnConfig, Track } from "../types/library";
+import type { ColumnConfig, Track } from "../types";
 import { useStickyState } from "./useStickyState";
-import { parseColumns } from "../utils/storage";
+import { parseColumns } from "../utils";
 
 type UseColumnsArgs = {
   tracks: Track[];

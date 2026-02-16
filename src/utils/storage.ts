@@ -1,5 +1,5 @@
 import { baseColumns } from "../data/library";
-import type { ColumnConfig } from "../types/library";
+import type { ColumnConfig } from "../types";
 
 export const parseColumns = (raw: string): ColumnConfig[] => {
   try {

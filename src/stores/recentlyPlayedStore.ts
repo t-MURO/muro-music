@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Track } from "../types/library";
+import type { Track } from "../types";
 
 export type RecentlyPlayedStore = {
   recentlyPlayedTracks: Track[];

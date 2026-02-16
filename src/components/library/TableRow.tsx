@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Disc3 } from "lucide-react";
-import type { ColumnConfig, Track } from "../../types/library";
+import type { ColumnConfig, Track } from "../../types";
 import { RatingCell } from "./RatingCell";
 
 type TableRowProps = {

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { t } from "../i18n";
-import type { Playlist, Track } from "../types/library";
+import type { Playlist, Track } from "../types";
 
 export type LibraryView = "library" | "inbox" | "settings" | "recentlyPlayed" | `playlist:${string}`;
 

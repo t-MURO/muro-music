@@ -1,43 +1,48 @@
 import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useLocation, useNavigate, useMatch } from "react-router-dom";
-import { AppLayout } from "./components/layout/AppLayout";
-import { QueuePanel } from "./components/layout/QueuePanel";
-import { LibraryHeader } from "./components/layout/LibraryHeader";
-import { PlayerBar } from "./components/layout/PlayerBar";
-import { SettingsPanel } from "./components/layout/SettingsPanel";
-import { Sidebar } from "./components/layout/Sidebar";
-import { ColumnsMenu } from "./components/library/ColumnsMenu";
-import { InboxBanner } from "./components/library/InboxBanner";
-import { TrackTable } from "./components/library/TrackTable";
-import { ContextMenu } from "./components/ui/ContextMenu";
-import { DragOverlay } from "./components/ui/DragOverlay";
-import { PlaylistContextMenu } from "./components/ui/PlaylistContextMenu";
-import { AnalysisModal } from "./components/ui/AnalysisModal";
-import { DuplicateTracksModal } from "./components/ui/DuplicateTracksModal";
-import { PlaylistCreateModal } from "./components/ui/PlaylistCreateModal";
-import { PlaylistEditModal } from "./components/ui/PlaylistEditModal";
-import { ToastContainer } from "./components/ui/ToastContainer";
-import { useFileImport } from "./hooks/useFileImport";
-import { useViewConfig, type LibraryView } from "./hooks/useLibraryView";
+import {
+  AppLayout,
+  QueuePanel,
+  LibraryHeader,
+  PlayerBar,
+  SettingsPanel,
+  Sidebar,
+  ColumnsMenu,
+  InboxBanner,
+  TrackTable,
+  ContextMenu,
+  DragOverlay,
+  PlaylistContextMenu,
+  AnalysisModal,
+  DuplicateTracksModal,
+  PlaylistCreateModal,
+  PlaylistEditModal,
+  ToastContainer,
+} from "./components";
+import {
+  useFileImport,
+  useViewConfig,
+  useColumns,
+  useColumnsMenu,
+  useContextMenu,
+  useQueuePanel,
+  useNativeDrag,
+  usePlaylistMenu,
+  usePlaylistDrag,
+  useAudioPlayback,
+  useSidebarPanel,
+  useSidebarData,
+  useHistoryNavigation,
+  useTrackRatings,
+  usePlaylistOperations,
+  useInboxOperations,
+  useTrackAnalysis,
+  useLibraryInit,
+  usePlayTracking,
+  useKeyboardShortcuts,
+  type LibraryView,
+} from "./hooks";
 import { themes } from "./data/library";
-import { useColumns } from "./hooks/useColumns";
-import { useColumnsMenu } from "./hooks/useColumnsMenu";
-import { useContextMenu } from "./hooks/useContextMenu";
-import { useQueuePanel } from "./hooks/useQueuePanel";
-import { useNativeDrag } from "./hooks/useNativeDrag";
-import { usePlaylistMenu } from "./hooks/usePlaylistMenu";
-import { usePlaylistDrag } from "./hooks/usePlaylistDrag";
-import { useAudioPlayback } from "./hooks/useAudioPlayback";
-import { useSidebarPanel } from "./hooks/useSidebarPanel";
-import { useSidebarData } from "./hooks/useSidebarData";
-import { useHistoryNavigation } from "./hooks/useHistoryNavigation";
-import { useTrackRatings } from "./hooks/useTrackRatings";
-import { usePlaylistOperations } from "./hooks/usePlaylistOperations";
-import { useInboxOperations } from "./hooks/useInboxOperations";
-import { useTrackAnalysis } from "./hooks/useTrackAnalysis";
-import { useLibraryInit } from "./hooks/useLibraryInit";
-import { usePlayTracking } from "./hooks/usePlayTracking";
-import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { localeOptions, t } from "./i18n";
 import {
   useLibraryStore,
@@ -48,11 +53,9 @@ import {
   selectAllTracks,
   notify,
 } from "./stores";
-import { getPathForView } from "./utils/viewRouting";
-import { compareSortValues, getSortableValue } from "./utils/trackSorting";
-import { filterTracksBySearch } from "./utils/search";
+import { getPathForView, compareSortValues, getSortableValue, filterTracksBySearch } from "./utils";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { ColumnConfig, Track } from "./types/library";
+import type { ColumnConfig, Track } from "./types";
 
 function App() {
   const location = useLocation();

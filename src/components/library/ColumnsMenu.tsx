@@ -1,5 +1,5 @@
 import { t } from "../../i18n";
-import type { ColumnConfig } from "../../types/library";
+import type { ColumnConfig } from "../../types";
 import { Popover } from "../ui/Popover";
 
 type ColumnsMenuProps = {

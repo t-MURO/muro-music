@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import type { ColumnConfig, Track } from "../../types/library";
+import type { ColumnConfig, Track } from "../../types";
 import { TableHeader } from "./TableHeader";
 import { TableEmptyState } from "./TableEmptyState";
 import { TableRow } from "./TableRow";

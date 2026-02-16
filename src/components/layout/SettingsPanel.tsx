@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import type { Locale } from "../../i18n";
-import { t } from "../../i18n";
+import { t, type Locale } from "../../i18n";
 
 type SettingsPanelProps = {
   theme: string;

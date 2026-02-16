@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useResizable } from "./useResizable";
 import { useStickyState } from "./useStickyState";
-import { parseNumber } from "../utils/storage";
+import { parseNumber } from "../utils";
 
 export const useSidebarPanel = () => {
   const [sidebarWidth, setSidebarWidth] = useStickyState(

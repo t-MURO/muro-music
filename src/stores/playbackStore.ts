@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
-import type { Track } from "../types/library";
+import type { Track } from "../types";
 
 export type RepeatMode = "off" | "all" | "one";
 

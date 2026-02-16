@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { t } from "../../i18n";
-import type { Track } from "../../types/library";
+import type { Track } from "../../types";
 
 type DuplicateTracksModalProps = {
   isOpen: boolean;
